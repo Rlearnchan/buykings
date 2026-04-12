@@ -1,0 +1,27 @@
+{
+  "project": "wepoll-samsung",
+  "slug": "member-similar-alsangmu",
+  "chart_id": "fgHQC",
+  "title": "삼전 이벤트: 알상무 유사 단어",
+  "subtitle": "",
+  "chart_type": "tables",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_member_word2vec_similar_table_알상무.csv",
+  "source_name": "Wepoll",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "aria-description": "알상무의 기간별 유사 단어 상위 5개를 보여주는 표",
+      "intro": "",
+      "number-format": "0",
+      "number-append": ""
+    },
+    "annotate": {
+      "notes": "분석 기간: 2025.03.28 ~ 2026.04.12, Word2Vec(Mikolov et al., 2013)"
+    },
+    "publish": {
+      "embed-width": 420,
+      "embed-height": 408
+    }
+  }
+}

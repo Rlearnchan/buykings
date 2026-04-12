@@ -1,0 +1,24 @@
+{
+  "project": "wepoll-samsung",
+  "slug": "fightin-words-overall-table",
+  "chart_id": "6cmWE",
+  "title": "<span style=\"display:block;text-align:center;\">멤버별 Fightin Words</span>",
+  "subtitle": "",
+  "chart_type": "tables",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_fightin_words_overall_table.csv",
+  "source_name": "Wepoll",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "aria-description": "멤버별 fightin words 상위 단어를 보여주는 표",
+      "intro": "",
+      "number-format": "0.0000",
+      "number-append": ""
+    },
+    "publish": {
+      "embed-width": 640,
+      "embed-height": 540
+    }
+  }
+}

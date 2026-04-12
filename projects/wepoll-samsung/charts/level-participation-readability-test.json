@@ -1,0 +1,38 @@
+{
+  "project": "wepoll-samsung",
+  "slug": "level-participation-readability-test",
+  "title": "<span style=\"display:block;text-align:center;\">참여자 레벨 분포</span>",
+  "subtitle": "",
+  "chart_type": "column-chart",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_level_participation.csv",
+  "source_name": "Wepoll",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "aria-description": "레벨 버킷별 이벤트 참여 비중을 보여주는 column chart",
+      "intro": "",
+      "number-format": "0",
+      "number-append": "%"
+    },
+    "visualize": {
+      "show-values": "always",
+      "valueLabels": {
+        "enabled": true,
+        "show": "always",
+        "placement": "outside"
+      }
+    },
+    "publish": {
+      "embed-width": 520,
+      "embed-height": 440,
+      "blocks": {
+        "embed": false,
+        "download-pdf": false,
+        "download-svg": false,
+        "get-the-data": false,
+        "download-image": false
+      }
+    }
+  }
+}

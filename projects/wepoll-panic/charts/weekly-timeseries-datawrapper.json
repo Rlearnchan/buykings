@@ -1,0 +1,36 @@
+{
+  "project": "wepoll-panic",
+  "slug": "weekly-timeseries-recent6w",
+  "chart_id": "lt8ML",
+  "title": "<span style=\"display:block;text-align:center;\">위폴은 지금: 6주 시계열</span>",
+  "subtitle": "",
+  "chart_type": "multiple-lines",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-panic/prepared/dw_weekly_timeseries_recent6w.csv",
+  "source_name": "Wepoll",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "aria-description": "최근 6주 일별 심리 지수, 참여 지수, 게시물 수를 함께 보여주는 주간 운영용 차트 초안",
+      "intro": "",
+      "number-format": "0",
+      "number-append": ""
+    },
+    "annotate": {
+      "notes": "분석 기간: 2026.02.23 ~ 2026.04.05, 지수는 50(점선)을 기준으로 해석"
+    },
+    "visualize": {
+      "custom-range": [
+        "0",
+        "100"
+      ],
+      "custom-ticks": "20, 40, 60, 80, 100",
+      "plotHeightFixed": 280,
+      "plotHeightMode": "fixed"
+    },
+    "publish": {
+      "embed-width": 600,
+      "embed-height": 321
+    }
+  }
+}

@@ -1,0 +1,431 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="640" viewBox="0 0 1800 640">
+<rect width="100%" height="100%" fill="#f7f3ee"/>
+<text x="900" y="52" text-anchor="middle" font-size="34" font-weight="700" fill="#111">주요 멤버 단어공간 PCA 비교</text>
+<text x="900" y="84" text-anchor="middle" font-size="18" fill="#555">2025 / 2026 / 이벤트주간 기준 주요 단어 약 50개와 anchor 주변 유사어 비교</text>
+<text x="330.0" y="110" text-anchor="middle" font-size="24" font-weight="700" fill="#222">2025</text>
+<rect x="70" y="120" width="520" height="430" fill="white" stroke="#d6d0c8"/>
+<circle cx="134.4" cy="322.8" r="8" fill="#c71e1d"/>
+<text x="144.4" y="312.8" font-size="16" font-weight="700" fill="#c71e1d">슈카</text>
+<circle cx="151.9" cy="318.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="157.9" y="314.3" font-size="11" fill="#3a3a3a">근무</text>
+<circle cx="145.9" cy="329.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="151.9" y="325.3" font-size="11" fill="#3a3a3a">유튜버</text>
+<circle cx="151.4" cy="300.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="157.4" y="296.4" font-size="11" fill="#3a3a3a">생물유튜버</text>
+<circle cx="130.2" cy="324.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="136.2" y="320.6" font-size="11" fill="#3a3a3a">개인리딩</text>
+<circle cx="147.3" cy="316.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="153.3" y="312.9" font-size="11" fill="#3a3a3a">취향</text>
+<circle cx="105.6" cy="350.5" r="8" fill="#c71e1d"/>
+<text x="115.6" y="340.5" font-size="16" font-weight="700" fill="#c71e1d">알상무</text>
+<circle cx="99.7" cy="348.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="105.7" y="344.3" font-size="11" fill="#3a3a3a">신탁</text>
+<circle cx="142.1" cy="325.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="148.1" y="321.1" font-size="11" fill="#3a3a3a">코스피인버스</text>
+<circle cx="132.7" cy="347.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="138.7" y="343.4" font-size="11" fill="#3a3a3a">일루미나티</text>
+<circle cx="133.4" cy="341.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="139.4" y="337.7" font-size="11" fill="#3a3a3a">한전기술</text>
+<circle cx="136.5" cy="322.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="142.5" y="318.8" font-size="11" fill="#3a3a3a">숏돌이</text>
+<circle cx="109.4" cy="375.9" r="8" fill="#c71e1d"/>
+<text x="119.4" y="365.9" font-size="16" font-weight="700" fill="#c71e1d">니니</text>
+<circle cx="110.4" cy="370.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="116.4" y="366.2" font-size="11" fill="#3a3a3a">매매법</text>
+<circle cx="106.1" cy="387.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="112.1" y="383.2" font-size="11" fill="#3a3a3a">누나</text>
+<circle cx="120.5" cy="367.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="126.5" y="363.5" font-size="11" fill="#3a3a3a">반도체누나</text>
+<circle cx="132.1" cy="337.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="138.1" y="333.9" font-size="11" fill="#3a3a3a">탑승</text>
+<circle cx="116.9" cy="353.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="122.9" y="349.5" font-size="11" fill="#3a3a3a">차트공부</text>
+<circle cx="158.2" cy="296.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="164.2" y="292.8" font-size="11" fill="#3a3a3a">예측</text>
+<circle cx="185.3" cy="281.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="191.3" y="277.5" font-size="11" fill="#3a3a3a">정확</text>
+<circle cx="122.9" cy="242.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="128.9" y="238.0" font-size="11" fill="#3a3a3a">도움</text>
+<circle cx="242.2" cy="192.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="248.2" y="188.9" font-size="11" fill="#3a3a3a">신뢰</text>
+<circle cx="145.9" cy="359.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="151.9" y="355.6" font-size="11" fill="#3a3a3a">믿음</text>
+<circle cx="120.0" cy="295.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="126.0" y="291.7" font-size="11" fill="#3a3a3a">조언</text>
+<circle cx="159.2" cy="274.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="165.2" y="270.4" font-size="11" fill="#3a3a3a">분석</text>
+<circle cx="146.1" cy="302.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="152.1" y="298.5" font-size="11" fill="#3a3a3a">유익</text>
+<circle cx="128.4" cy="322.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="134.4" y="318.7" font-size="11" fill="#3a3a3a">매수</text>
+<circle cx="150.4" cy="330.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="156.4" y="326.8" font-size="11" fill="#3a3a3a">매도</text>
+<circle cx="157.5" cy="303.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="163.5" y="299.0" font-size="11" fill="#3a3a3a">수익</text>
+<circle cx="119.5" cy="403.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="125.5" y="399.3" font-size="11" fill="#3a3a3a">손절</text>
+<circle cx="107.2" cy="362.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="113.2" y="358.6" font-size="11" fill="#3a3a3a">삼전</text>
+<circle cx="111.0" cy="318.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="117.0" y="314.2" font-size="11" fill="#3a3a3a">삼성전자</text>
+<circle cx="142.4" cy="352.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="148.4" y="348.7" font-size="11" fill="#3a3a3a">반도체</text>
+<circle cx="153.7" cy="400.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="159.7" y="396.1" font-size="11" fill="#3a3a3a">코스피</text>
+<circle cx="239.7" cy="252.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="245.7" y="248.0" font-size="11" fill="#3a3a3a">환율</text>
+<circle cx="243.9" cy="230.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="249.9" y="226.3" font-size="11" fill="#3a3a3a">금리</text>
+<circle cx="271.6" cy="242.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="277.6" y="238.8" font-size="11" fill="#3a3a3a">인플레이션</text>
+<circle cx="256.7" cy="269.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="262.7" y="265.5" font-size="11" fill="#3a3a3a">위기</text>
+<circle cx="184.0" cy="275.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="190.0" y="271.1" font-size="11" fill="#3a3a3a">경고</text>
+<circle cx="159.5" cy="289.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="165.5" y="285.8" font-size="11" fill="#3a3a3a">투자자</text>
+<circle cx="123.4" cy="284.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="129.4" y="280.2" font-size="11" fill="#3a3a3a">커뮤니티</text>
+<circle cx="108.8" cy="281.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="114.8" y="277.4" font-size="11" fill="#3a3a3a">위폴</text>
+<circle cx="90.0" cy="342.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="96.0" y="338.8" font-size="11" fill="#3a3a3a">알멘</text>
+<circle cx="118.4" cy="371.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="124.4" y="367.1" font-size="11" fill="#3a3a3a">인스타</text>
+<circle cx="119.1" cy="369.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="125.1" y="365.2" font-size="11" fill="#3a3a3a">니니누나</text>
+<circle cx="127.8" cy="297.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="133.8" y="293.8" font-size="11" fill="#3a3a3a">생각</text>
+<circle cx="166.7" cy="310.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="172.7" y="306.7" font-size="11" fill="#3a3a3a">사람</text>
+<circle cx="205.5" cy="352.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="211.5" y="348.6" font-size="11" fill="#3a3a3a">상승</text>
+<circle cx="182.3" cy="304.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="188.3" y="300.1" font-size="11" fill="#3a3a3a">가격</text>
+<circle cx="213.9" cy="223.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="219.9" y="219.3" font-size="11" fill="#3a3a3a">정부</text>
+<circle cx="127.1" cy="379.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="133.1" y="375.1" font-size="11" fill="#3a3a3a">종목</text>
+<circle cx="179.8" cy="279.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="185.8" y="275.7" font-size="11" fill="#3a3a3a">이유</text>
+<circle cx="570.0" cy="530.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="576.0" y="526.0" font-size="11" fill="#3a3a3a">오동석</text>
+<circle cx="212.7" cy="307.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="218.7" y="303.4" font-size="11" fill="#3a3a3a">상황</text>
+<circle cx="153.5" cy="259.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="159.5" y="255.9" font-size="11" fill="#3a3a3a">가능</text>
+<circle cx="196.2" cy="356.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="202.2" y="352.6" font-size="11" fill="#3a3a3a">하락</text>
+<circle cx="206.9" cy="366.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="212.9" y="362.1" font-size="11" fill="#3a3a3a">시작</text>
+<circle cx="223.5" cy="343.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="229.5" y="339.9" font-size="11" fill="#3a3a3a">정리</text>
+<circle cx="149.5" cy="283.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="155.5" y="279.5" font-size="11" fill="#3a3a3a">주가</text>
+<circle cx="268.2" cy="235.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="274.2" y="231.8" font-size="11" fill="#3a3a3a">달러</text>
+<circle cx="104.7" cy="292.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="110.7" y="288.7" font-size="11" fill="#3a3a3a">차트</text>
+<circle cx="177.8" cy="189.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="183.8" y="185.1" font-size="11" fill="#3a3a3a">기업</text>
+<circle cx="129.1" cy="324.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="135.1" y="320.6" font-size="11" fill="#3a3a3a">국장</text>
+<circle cx="223.2" cy="223.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="229.2" y="219.7" font-size="11" fill="#3a3a3a">정치</text>
+<circle cx="246.7" cy="404.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="252.7" y="400.1" font-size="11" fill="#3a3a3a">구간</text>
+<circle cx="245.7" cy="180.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="251.7" y="176.1" font-size="11" fill="#3a3a3a">일본</text>
+<circle cx="191.6" cy="160.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="197.6" y="156.9" font-size="11" fill="#3a3a3a">이상</text>
+<circle cx="200.8" cy="140.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="206.8" y="136.0" font-size="11" fill="#3a3a3a">결과</text>
+<circle cx="210.1" cy="219.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="216.1" y="215.0" font-size="11" fill="#3a3a3a">가치</text>
+<circle cx="234.1" cy="471.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="240.1" y="467.1" font-size="11" fill="#3a3a3a">변동</text>
+<text x="900.0" y="110" text-anchor="middle" font-size="24" font-weight="700" fill="#222">2026</text>
+<rect x="640" y="120" width="520" height="430" fill="white" stroke="#d6d0c8"/>
+<circle cx="1007.2" cy="243.4" r="8" fill="#c71e1d"/>
+<text x="1017.2" y="233.4" font-size="16" font-weight="700" fill="#c71e1d">슈카</text>
+<circle cx="944.4" cy="295.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="950.4" y="291.8" font-size="11" fill="#3a3a3a">용서</text>
+<circle cx="998.0" cy="276.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1004.0" y="272.4" font-size="11" fill="#3a3a3a">꺼드럭</text>
+<circle cx="1005.0" cy="259.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1011.0" y="255.6" font-size="11" fill="#3a3a3a">채널</text>
+<circle cx="942.0" cy="257.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="948.0" y="253.1" font-size="11" fill="#3a3a3a">피자</text>
+<circle cx="998.4" cy="229.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1004.4" y="225.9" font-size="11" fill="#3a3a3a">공유</text>
+<circle cx="1074.7" cy="276.5" r="8" fill="#c71e1d"/>
+<text x="1084.7" y="266.5" font-size="16" font-weight="700" fill="#c71e1d">알상무</text>
+<circle cx="1111.5" cy="333.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1117.5" y="329.1" font-size="11" fill="#3a3a3a">인스타</text>
+<circle cx="1033.0" cy="322.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1039.0" y="318.4" font-size="11" fill="#3a3a3a">연금저축펀드</text>
+<circle cx="992.0" cy="320.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="998.0" y="316.5" font-size="11" fill="#3a3a3a">그날</text>
+<circle cx="1013.9" cy="289.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1019.9" y="285.4" font-size="11" fill="#3a3a3a">시초가</text>
+<circle cx="994.9" cy="299.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1000.9" y="295.5" font-size="11" fill="#3a3a3a">넷플릭스</text>
+<circle cx="1053.3" cy="332.0" r="8" fill="#c71e1d"/>
+<text x="1063.3" y="322.0" font-size="16" font-weight="700" fill="#c71e1d">니니</text>
+<circle cx="968.3" cy="317.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="974.3" y="313.7" font-size="11" fill="#3a3a3a">변종</text>
+<circle cx="992.4" cy="328.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="998.4" y="324.4" font-size="11" fill="#3a3a3a">풀매수</text>
+<circle cx="1053.2" cy="324.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1059.2" y="320.2" font-size="11" fill="#3a3a3a">인증</text>
+<circle cx="989.3" cy="305.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="995.3" y="301.7" font-size="11" fill="#3a3a3a">사라</text>
+<circle cx="1004.9" cy="282.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1010.9" y="278.8" font-size="11" fill="#3a3a3a">니니누나</text>
+<circle cx="922.4" cy="297.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="928.4" y="293.7" font-size="11" fill="#3a3a3a">리서치</text>
+<circle cx="981.7" cy="402.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="987.7" y="398.5" font-size="11" fill="#3a3a3a">예측</text>
+<circle cx="817.6" cy="265.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="823.6" y="261.5" font-size="11" fill="#3a3a3a">정확</text>
+<circle cx="961.6" cy="227.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="967.6" y="223.8" font-size="11" fill="#3a3a3a">도움</text>
+<circle cx="845.7" cy="291.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="851.7" y="287.7" font-size="11" fill="#3a3a3a">신뢰</text>
+<circle cx="870.7" cy="351.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="876.7" y="347.0" font-size="11" fill="#3a3a3a">믿음</text>
+<circle cx="1044.7" cy="374.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1050.7" y="370.5" font-size="11" fill="#3a3a3a">조언</text>
+<circle cx="805.8" cy="317.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="811.8" y="313.4" font-size="11" fill="#3a3a3a">분석</text>
+<circle cx="1077.0" cy="442.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1083.0" y="438.6" font-size="11" fill="#3a3a3a">매수</text>
+<circle cx="1031.1" cy="378.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1037.1" y="374.6" font-size="11" fill="#3a3a3a">매도</text>
+<circle cx="972.5" cy="348.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="978.5" y="344.3" font-size="11" fill="#3a3a3a">수익</text>
+<circle cx="973.3" cy="319.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="979.3" y="315.9" font-size="11" fill="#3a3a3a">손절</text>
+<circle cx="1140.0" cy="247.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1146.0" y="243.5" font-size="11" fill="#3a3a3a">삼전</text>
+<circle cx="1042.4" cy="442.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1048.4" y="438.2" font-size="11" fill="#3a3a3a">삼성전자</text>
+<circle cx="1041.5" cy="401.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1047.5" y="397.8" font-size="11" fill="#3a3a3a">반도체</text>
+<circle cx="1058.2" cy="380.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1064.2" y="376.4" font-size="11" fill="#3a3a3a">코스피</text>
+<circle cx="793.6" cy="214.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="799.6" y="210.0" font-size="11" fill="#3a3a3a">환율</text>
+<circle cx="764.7" cy="208.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="770.7" y="204.2" font-size="11" fill="#3a3a3a">금리</text>
+<circle cx="794.6" cy="258.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="800.6" y="254.8" font-size="11" fill="#3a3a3a">인플레이션</text>
+<circle cx="742.7" cy="364.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="748.7" y="360.9" font-size="11" fill="#3a3a3a">위기</text>
+<circle cx="946.5" cy="340.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="952.5" y="336.9" font-size="11" fill="#3a3a3a">경고</text>
+<circle cx="918.6" cy="489.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="924.6" y="485.1" font-size="11" fill="#3a3a3a">투자자</text>
+<circle cx="927.5" cy="259.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="933.5" y="255.1" font-size="11" fill="#3a3a3a">커뮤니티</text>
+<circle cx="1034.3" cy="219.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1040.3" y="215.8" font-size="11" fill="#3a3a3a">위폴</text>
+<circle cx="928.6" cy="315.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="934.6" y="311.2" font-size="11" fill="#3a3a3a">알멘</text>
+<circle cx="973.6" cy="290.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="979.6" y="286.5" font-size="11" fill="#3a3a3a">유튜버</text>
+<circle cx="1018.0" cy="310.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1024.0" y="306.1" font-size="11" fill="#3a3a3a">매매법</text>
+<circle cx="980.7" cy="296.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="986.7" y="292.4" font-size="11" fill="#3a3a3a">누나</text>
+<circle cx="968.8" cy="319.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="974.8" y="315.8" font-size="11" fill="#3a3a3a">반도체누나</text>
+<circle cx="984.7" cy="306.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="990.7" y="302.4" font-size="11" fill="#3a3a3a">생각</text>
+<circle cx="804.8" cy="434.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="810.8" y="430.4" font-size="11" fill="#3a3a3a">기업</text>
+<circle cx="735.0" cy="310.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="741.0" y="306.6" font-size="11" fill="#3a3a3a">질문</text>
+<circle cx="771.0" cy="410.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="777.0" y="406.6" font-size="11" fill="#3a3a3a">정치</text>
+<circle cx="941.7" cy="235.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="947.7" y="231.1" font-size="11" fill="#3a3a3a">사람</text>
+<circle cx="900.3" cy="399.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="906.3" y="395.5" font-size="11" fill="#3a3a3a">가능</text>
+<circle cx="752.2" cy="377.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="758.2" y="373.3" font-size="11" fill="#3a3a3a">정부</text>
+<circle cx="842.8" cy="225.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="848.8" y="221.7" font-size="11" fill="#3a3a3a">이유</text>
+<circle cx="660.0" cy="354.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="666.0" y="350.2" font-size="11" fill="#3a3a3a">결론</text>
+<circle cx="746.1" cy="418.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="752.1" y="414.1" font-size="11" fill="#3a3a3a">국가</text>
+<circle cx="905.4" cy="276.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="911.4" y="272.4" font-size="11" fill="#3a3a3a">시작</text>
+<circle cx="761.6" cy="312.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="767.6" y="308.0" font-size="11" fill="#3a3a3a">쿠팡</text>
+<circle cx="833.5" cy="530.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="839.5" y="526.0" font-size="11" fill="#3a3a3a">이익</text>
+<circle cx="746.6" cy="281.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="752.6" y="277.6" font-size="11" fill="#3a3a3a">지적</text>
+<circle cx="998.2" cy="183.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1004.2" y="179.9" font-size="11" fill="#3a3a3a">정리</text>
+<circle cx="821.7" cy="336.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="827.7" y="332.1" font-size="11" fill="#3a3a3a">요약</text>
+<circle cx="864.0" cy="361.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="870.0" y="357.3" font-size="11" fill="#3a3a3a">상황</text>
+<circle cx="734.0" cy="336.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="740.0" y="332.5" font-size="11" fill="#3a3a3a">결과</text>
+<circle cx="761.1" cy="140.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="767.1" y="136.0" font-size="11" fill="#3a3a3a">달러</text>
+<circle cx="927.6" cy="357.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="933.6" y="353.0" font-size="11" fill="#3a3a3a">미래</text>
+<circle cx="933.5" cy="370.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="939.5" y="366.3" font-size="11" fill="#3a3a3a">트럼프</text>
+<circle cx="1058.5" cy="456.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1064.5" y="452.0" font-size="11" fill="#3a3a3a">국장</text>
+<circle cx="1038.7" cy="288.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1044.7" y="284.9" font-size="11" fill="#3a3a3a">종목</text>
+<text x="1470.0" y="110" text-anchor="middle" font-size="24" font-weight="700" fill="#222">이벤트주간</text>
+<rect x="1210" y="120" width="520" height="430" fill="white" stroke="#d6d0c8"/>
+<circle cx="1611.3" cy="294.8" r="8" fill="#c71e1d"/>
+<text x="1621.3" y="284.8" font-size="16" font-weight="700" fill="#c71e1d">슈카</text>
+<circle cx="1624.4" cy="268.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1630.4" y="264.8" font-size="11" fill="#3a3a3a">리서치</text>
+<circle cx="1614.2" cy="299.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1620.2" y="295.8" font-size="11" fill="#3a3a3a">지배</text>
+<circle cx="1636.5" cy="266.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1642.5" y="262.5" font-size="11" fill="#3a3a3a">조언</text>
+<circle cx="1597.1" cy="304.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1603.1" y="300.2" font-size="11" fill="#3a3a3a">믿음</text>
+<circle cx="1613.2" cy="323.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1619.2" y="319.6" font-size="11" fill="#3a3a3a">도움</text>
+<circle cx="1541.8" cy="440.5" r="8" fill="#c71e1d"/>
+<text x="1551.8" y="430.5" font-size="16" font-weight="700" fill="#c71e1d">알상무</text>
+<circle cx="1577.9" cy="383.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1583.9" y="379.4" font-size="11" fill="#3a3a3a">알멘</text>
+<circle cx="1573.3" cy="399.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1579.3" y="395.8" font-size="11" fill="#3a3a3a">대우건설</text>
+<circle cx="1590.4" cy="370.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1596.4" y="366.4" font-size="11" fill="#3a3a3a">노래</text>
+<circle cx="1579.7" cy="413.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1585.7" y="409.1" font-size="11" fill="#3a3a3a">손절</text>
+<circle cx="1602.2" cy="464.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1608.2" y="460.7" font-size="11" fill="#3a3a3a">삼전</text>
+<circle cx="1580.4" cy="390.4" r="8" fill="#c71e1d"/>
+<text x="1590.4" y="380.4" font-size="16" font-weight="700" fill="#c71e1d">니니</text>
+<circle cx="1582.5" cy="372.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1588.5" y="368.0" font-size="11" fill="#3a3a3a">구조대</text>
+<circle cx="1591.6" cy="358.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1597.6" y="354.5" font-size="11" fill="#3a3a3a">삼성전자</text>
+<circle cx="1600.8" cy="429.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1606.8" y="425.9" font-size="11" fill="#3a3a3a">매수</text>
+<circle cx="1596.1" cy="364.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1602.1" y="360.3" font-size="11" fill="#3a3a3a">위폴</text>
+<circle cx="1573.3" cy="399.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1579.3" y="395.8" font-size="11" fill="#3a3a3a">대우건설</text>
+<circle cx="1522.7" cy="317.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1528.7" y="313.4" font-size="11" fill="#3a3a3a">예측</text>
+<circle cx="1619.3" cy="328.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1625.3" y="324.7" font-size="11" fill="#3a3a3a">정확</text>
+<circle cx="1619.0" cy="237.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1625.0" y="233.6" font-size="11" fill="#3a3a3a">신뢰</text>
+<circle cx="1648.0" cy="266.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1654.0" y="262.5" font-size="11" fill="#3a3a3a">분석</text>
+<circle cx="1476.4" cy="383.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1482.4" y="379.7" font-size="11" fill="#3a3a3a">수익</text>
+<circle cx="1607.5" cy="370.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1613.5" y="366.8" font-size="11" fill="#3a3a3a">반도체</text>
+<circle cx="1575.9" cy="475.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1581.9" y="471.2" font-size="11" fill="#3a3a3a">금리</text>
+<circle cx="1709.9" cy="530.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1715.9" y="526.0" font-size="11" fill="#3a3a3a">인플레이션</text>
+<circle cx="1619.1" cy="422.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1625.1" y="418.1" font-size="11" fill="#3a3a3a">위기</text>
+<circle cx="1616.4" cy="407.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1622.4" y="403.4" font-size="11" fill="#3a3a3a">경고</text>
+<circle cx="1584.0" cy="342.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1590.0" y="338.6" font-size="11" fill="#3a3a3a">투자자</text>
+<circle cx="1605.2" cy="264.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1611.2" y="260.8" font-size="11" fill="#3a3a3a">사람</text>
+<circle cx="1355.8" cy="260.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1361.8" y="256.3" font-size="11" fill="#3a3a3a">회사</text>
+<circle cx="1516.0" cy="333.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1522.0" y="329.7" font-size="11" fill="#3a3a3a">기업</text>
+<circle cx="1576.8" cy="140.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1582.8" y="136.0" font-size="11" fill="#3a3a3a">고객</text>
+<circle cx="1576.6" cy="217.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1582.6" y="213.5" font-size="11" fill="#3a3a3a">자신</text>
+<circle cx="1513.1" cy="359.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1519.1" y="355.9" font-size="11" fill="#3a3a3a">막대</text>
+<circle cx="1230.0" cy="372.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1236.0" y="368.0" font-size="11" fill="#3a3a3a">별명</text>
+<circle cx="1240.8" cy="337.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1246.8" y="333.0" font-size="11" fill="#3a3a3a">직급</text>
+<circle cx="1674.9" cy="161.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1680.9" y="157.3" font-size="11" fill="#3a3a3a">인간</text>
+<circle cx="1644.1" cy="436.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1650.1" y="432.7" font-size="11" fill="#3a3a3a">지정학</text>
+<circle cx="1572.0" cy="247.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1578.0" y="243.9" font-size="11" fill="#3a3a3a">기술</text>
+<circle cx="1548.5" cy="420.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1554.5" y="416.9" font-size="11" fill="#3a3a3a">시작</text>
+<circle cx="1602.4" cy="315.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1608.4" y="311.8" font-size="11" fill="#3a3a3a">요약</text>
+<circle cx="1634.5" cy="339.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1640.5" y="335.6" font-size="11" fill="#3a3a3a">성장</text>
+<circle cx="1574.1" cy="398.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1580.1" y="394.4" font-size="11" fill="#3a3a3a">위험</text>
+<circle cx="1564.9" cy="261.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1570.9" y="257.6" font-size="11" fill="#3a3a3a">시대</text>
+<circle cx="1628.2" cy="262.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1634.2" y="258.4" font-size="11" fill="#3a3a3a">단순</text>
+<circle cx="1620.3" cy="288.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1626.3" y="284.2" font-size="11" fill="#3a3a3a">성공</text>
+<circle cx="1647.7" cy="242.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1653.7" y="238.0" font-size="11" fill="#3a3a3a">중요</text>
+<circle cx="1532.5" cy="342.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1538.5" y="338.0" font-size="11" fill="#3a3a3a">비트코인</text>
+<circle cx="1662.7" cy="461.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1668.7" y="457.2" font-size="11" fill="#3a3a3a">상황</text>
+<circle cx="1646.9" cy="222.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1652.9" y="218.3" font-size="11" fill="#3a3a3a">강조</text>
+<circle cx="1623.3" cy="177.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1629.3" y="173.3" font-size="11" fill="#3a3a3a">데이터</text>
+<circle cx="1622.0" cy="401.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1628.0" y="397.6" font-size="11" fill="#3a3a3a">역사</text>
+<circle cx="1645.4" cy="364.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1651.4" y="360.0" font-size="11" fill="#3a3a3a">거대</text>
+<circle cx="1624.4" cy="320.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1630.4" y="316.9" font-size="11" fill="#3a3a3a">진행</text>
+<circle cx="1586.5" cy="265.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1592.5" y="261.6" font-size="11" fill="#3a3a3a">결정</text>
+<circle cx="1646.6" cy="441.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1652.6" y="437.1" font-size="11" fill="#3a3a3a">현실</text>
+<circle cx="1657.8" cy="308.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1663.8" y="304.5" font-size="11" fill="#3a3a3a">집중</text>
+<circle cx="1585.3" cy="283.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1591.3" y="279.9" font-size="11" fill="#3a3a3a">미래</text>
+<circle cx="1668.3" cy="439.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1674.3" y="435.2" font-size="11" fill="#3a3a3a">가격</text>
+<circle cx="1474.2" cy="165.5" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1480.2" y="161.5" font-size="11" fill="#3a3a3a">직원</text>
+<circle cx="1627.6" cy="307.4" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1633.6" y="303.4" font-size="11" fill="#3a3a3a">압도</text>
+<circle cx="1554.0" cy="427.3" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1560.0" y="423.3" font-size="11" fill="#3a3a3a">자산</text>
+<circle cx="1666.4" cy="258.8" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1672.4" y="254.8" font-size="11" fill="#3a3a3a">강력</text>
+<circle cx="1663.4" cy="326.6" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1669.4" y="322.6" font-size="11" fill="#3a3a3a">가능</text>
+<circle cx="1710.0" cy="450.9" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1716.0" y="446.9" font-size="11" fill="#3a3a3a">중국</text>
+<circle cx="1623.5" cy="416.7" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1629.5" y="412.7" font-size="11" fill="#3a3a3a">발생</text>
+<circle cx="1675.5" cy="319.1" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1681.5" y="315.1" font-size="11" fill="#3a3a3a">한계</text>
+<circle cx="1484.1" cy="475.0" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1490.1" y="471.0" font-size="11" fill="#3a3a3a">사모펀드</text>
+<circle cx="1264.2" cy="367.2" r="4" fill="#2b9bc2" fill-opacity="0.85"/>
+<text x="1270.2" y="363.2" font-size="11" fill="#3a3a3a">창립자</text>
+</svg>

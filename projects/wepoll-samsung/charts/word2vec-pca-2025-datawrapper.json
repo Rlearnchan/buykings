@@ -1,0 +1,31 @@
+{
+  "project": "wepoll-samsung",
+  "slug": "word2vec-pca-2025",
+  "chart_id": "REjQy",
+  "title": "<span style=\"display:block;text-align:center;\">멤버 단어공간 PCA (2025)</span>",
+  "subtitle": "",
+  "chart_type": "d3-scatter-plot",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_member_word2vec_selected_dots_2025.csv",
+  "source_name": "Wepoll",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "aria-description": "2025년 멤버 관련 Word2Vec 단어공간을 보여주는 scatter plot",
+      "intro": "",
+      "number-format": "0.00",
+      "number-append": ""
+    },
+    "annotate": {
+      "notes": "anchor는 멤버명, 나머지는 커뮤니티/시장/매크로/서술 단어를 섞은 1차 선택본"
+    },
+    "visualize": {
+      "plotHeightFixed": 420,
+      "plotHeightMode": "fixed"
+    },
+    "publish": {
+      "embed-width": 620,
+      "embed-height": 520
+    }
+  }
+}

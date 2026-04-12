@@ -1,0 +1,57 @@
+{
+  "project": "wepoll-samsung",
+  "slug": "consensus-vs-actual",
+  "chart_id": "l2iDU",
+  "title": "<b>천하제일 삼전대회: 위폴러들은 똑똑한가</b>",
+  "subtitle": "",
+  "chart_type": "column-chart",
+  "theme": "datawrapper-2012",
+  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_consensus_vs_actual.csv",
+  "source_name": "Wepoll, 연합인포맥스",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "aria-description": "실제값, 증권사 컨센서스, 위폴 요약치를 비교하는 column chart",
+      "intro": "시장 예측보다 무려 6조 원 가량 오차를 줄였다"
+    },
+    "visualize": {
+      "sort-by": "value_jo",
+      "color-by-column": true,
+      "show-color-key": true,
+      "plotHeightMode": "fixed",
+      "plotHeightFixed": 200,
+      "custom-range": [
+        "40",
+        "60"
+      ],
+      "custom-ticks": "20, 40, 60",
+      "custom-grid-lines": "40, 45, 50, 55, 60",
+      "connector-lines": true,
+      "valueLabels": {
+        "enabled": true,
+        "show": "always",
+        "placement": "outside",
+        "format": "0.00"
+      },
+      "color-category": {
+        "map": {
+          "실제값": "#d62728",
+          "위폴 평균": "#9467bd",
+          "위폴 중앙값": "#9467bd"
+        },
+        "excludeFromKey": [
+          "위폴 평균",
+          "위폴 중앙값",
+          "실제값"
+        ]
+      }
+    },
+    "annotate": {
+      "notes": "*(04.06) 1개월 내 발표된 증권사 13곳 예측치 평균"
+    },
+    "publish": {
+      "embed-width": 400,
+      "embed-height": 349
+    }
+  }
+}

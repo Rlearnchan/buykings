@@ -1,0 +1,26 @@
+{
+  "project": "wepoll-samsung",
+  "slug": "fightin-words-prepost-table",
+  "title": "<span style=\"display:block;text-align:center;\">이벤트 전후 Fightin Words</span>",
+  "subtitle": "",
+  "chart_type": "tables",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_fightin_words_prepost_table.csv",
+  "source_name": "Wepoll",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "aria-description": "이벤트 전후 멤버별 fightin words 상위 단어를 보여주는 표",
+      "intro": "",
+      "number-format": "0.0000",
+      "number-append": ""
+    },
+    "annotate": {
+      "notes": "현재는 post 표본이 작아 시범용 표로만 해석한다"
+    },
+    "publish": {
+      "embed-width": 640,
+      "embed-height": 540
+    }
+  }
+}
