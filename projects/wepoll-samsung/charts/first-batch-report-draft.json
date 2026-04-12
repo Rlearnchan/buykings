@@ -12,7 +12,7 @@
       "title": "Consensus Vs Actual",
       "subtitle": "실제값, 증권사 컨센서스, 위폴 요약치를 한 장에서 비교",
       "publish_url": "https://datawrapper.dwcdn.net/l2iDU/4/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/first-batch/consensus.png",
+      "image_path": "../../../exports/wepoll-samsung/first-batch/consensus.png",
       "takeaway": "위폴 요약치는 실제값보다 낮았지만, 증권사 컨센서스보다 실제값에 더 가까운 위치에 놓였다.",
       "source": "Wepoll, 연합인포맥스",
       "note": "*(04.06) 1개월 내 발표된 증권사 13곳 예측치 평균"
@@ -21,7 +21,7 @@
       "title": "Level Participation",
       "subtitle": "이벤트 참여 분포를 레벨 버킷별로 집계",
       "publish_url": "https://datawrapper.dwcdn.net/zcSSe/4/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/first-batch/level-participation.png",
+      "image_path": "../../../exports/wepoll-samsung/first-batch/level-participation.png",
       "takeaway": "참여자의 대부분이 레벨 1에 집중돼 있어, 이벤트 참여 저변은 넓지만 고레벨 비중은 매우 작다.",
       "source": "Wepoll",
       "note": "이벤트 유효 댓글 4,656건 작성자 대상"
@@ -30,7 +30,7 @@
       "title": "Level Accuracy",
       "subtitle": "레벨 버킷별 실제값 1조 이내 근접 비율",
       "publish_url": "https://datawrapper.dwcdn.net/QnKDM/4/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/first-batch/level-accuracy.png",
+      "image_path": "../../../exports/wepoll-samsung/first-batch/level-accuracy.png",
       "takeaway": "일부 중간 레벨 구간의 정확도 비율이 높아 보이지만, 표본 수가 작아 과해석은 피하는 편이 안전하다.",
       "source": "Wepoll",
       "note": "*예측치가 56.2~58.2조 내에 속하는 경우"
@@ -39,7 +39,7 @@
       "title": "Staff Dot Plot",
       "subtitle": "직원 예측과 실제값의 거리 비교",
       "publish_url": "https://datawrapper.dwcdn.net/StnVb/6/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/first-batch/staff-dotplot.png",
+      "image_path": "../../../exports/wepoll-samsung/first-batch/staff-dotplot.png",
       "takeaway": "직원들도 대체로 실제값보다 낮게 예측했고, 에이전트가 실제값에 가장 가까웠다.",
       "source": "Wepoll",
       "note": "Selected staff predictions only"

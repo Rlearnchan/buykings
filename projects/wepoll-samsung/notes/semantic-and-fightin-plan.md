@@ -7,13 +7,13 @@
 ### candidate dots
 
 - 검토용 CSV:
-  - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_member_word2vec_candidate_dots.csv`
+  - `projects/wepoll-samsung/prepared/dw_member_word2vec_candidate_dots.csv`
 - 1차 선택본:
-  - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_member_word2vec_selected_dots.csv`
+  - `projects/wepoll-samsung/prepared/dw_member_word2vec_selected_dots.csv`
   - 기간별 scatter 입력:
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_member_word2vec_selected_dots_2025.csv`
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_member_word2vec_selected_dots_2026.csv`
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_member_word2vec_selected_dots_eventweek.csv`
+    - `projects/wepoll-samsung/prepared/dw_member_word2vec_selected_dots_2025.csv`
+    - `projects/wepoll-samsung/prepared/dw_member_word2vec_selected_dots_2026.csv`
+    - `projects/wepoll-samsung/prepared/dw_member_word2vec_selected_dots_eventweek.csv`
 - 구성:
   - `period`
   - `rank`
@@ -30,9 +30,9 @@
   - `selected_dots`는 방송/PPT 기준으로 단어 수를 넓힌 shortlist다.
   - `2025`는 커뮤니티 이미지 + 투자 맥락, `2026`은 멤버별 생활형/시장형 단어 혼합, `이벤트주간`은 리서치/예측/도움/경고/위기 축을 우선 남겼다.
   - scatter 초안 스펙:
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/charts/word2vec-pca-2025-datawrapper.json`
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/charts/word2vec-pca-2026-datawrapper.json`
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/charts/word2vec-pca-eventweek-datawrapper.json`
+    - `projects/wepoll-samsung/charts/word2vec-pca-2025-datawrapper.json`
+    - `projects/wepoll-samsung/charts/word2vec-pca-2026-datawrapper.json`
+    - `projects/wepoll-samsung/charts/word2vec-pca-eventweek-datawrapper.json`
   - 현재 발행본:
     - 2025 scatter: `REjQy`
     - public url: `https://datawrapper.dwcdn.net/REjQy/1/`
@@ -45,14 +45,14 @@
 ### most similar 5
 
 - 표용 CSV:
-  - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_member_word2vec_similar_table.csv`
+  - `projects/wepoll-samsung/prepared/dw_member_word2vec_similar_table.csv`
 - 권장 표현:
   - Datawrapper table
   - 열: `period`, `member`, `rank`, `neighbor`, `cosine`
 - 메모:
   - 이 자산은 scatter plot과 별개로 독립 표로 써도 된다.
   - table 초안 스펙:
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/charts/word2vec-similar-table-datawrapper.json`
+    - `projects/wepoll-samsung/charts/word2vec-similar-table-datawrapper.json`
   - 현재 발행본:
     - chart id: `Q1Xdw`
     - public url: `https://datawrapper.dwcdn.net/Q1Xdw/1/`
@@ -62,21 +62,21 @@
     - 알상무: `fgHQC` `삼전 이벤트: 알상무 유사 단어`
     - 니니: `P1f7d` `삼전 이벤트: 니니 유사 단어`
     - PNG:
-      - `/Users/bae/Documents/code/buykings/exports/wepoll-samsung/member-tables/similar-shuka.png`
-      - `/Users/bae/Documents/code/buykings/exports/wepoll-samsung/member-tables/similar-alsangmu.png`
-      - `/Users/bae/Documents/code/buykings/exports/wepoll-samsung/member-tables/similar-nini.png`
+      - `exports/wepoll-samsung/member-tables/similar-shuka.png`
+      - `exports/wepoll-samsung/member-tables/similar-alsangmu.png`
+      - `exports/wepoll-samsung/member-tables/similar-nini.png`
 
 ## Fightin Words
 
 ### overall
 
 - 표용 CSV:
-  - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_fightin_words_overall_table.csv`
+  - `projects/wepoll-samsung/prepared/dw_fightin_words_overall_table.csv`
 - 권장 표현:
   - Datawrapper table
   - 멤버별 top 10~15만 노출
   - table 초안 스펙:
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/charts/fightin-words-overall-table-datawrapper.json`
+    - `projects/wepoll-samsung/charts/fightin-words-overall-table-datawrapper.json`
   - 현재 발행본:
     - chart id: `6cmWE`
     - public url: `https://datawrapper.dwcdn.net/6cmWE/1/`
@@ -85,9 +85,9 @@
 ### period split
 
 - 표용 CSV:
-  - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_fightin_words_period_table_슈카.csv`
-  - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_fightin_words_period_table_알상무.csv`
-  - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_fightin_words_period_table_니니.csv`
+  - `projects/wepoll-samsung/prepared/dw_fightin_words_period_table_슈카.csv`
+  - `projects/wepoll-samsung/prepared/dw_fightin_words_period_table_알상무.csv`
+  - `projects/wepoll-samsung/prepared/dw_fightin_words_period_table_니니.csv`
 - 메모:
   - 형식은 `rank + 2025 / 2026 / 이벤트주간` 3열 비교표다.
   - 이벤트주간은 아직 `4/12` 완전 반영 전이라 파이프라인 점검용 성격이 강하다.
@@ -96,19 +96,19 @@
     - 알상무: `HGf2C` `삼전 이벤트: 알상무 차별 단어`
     - 니니: `gUxLZ` `삼전 이벤트: 니니 차별 단어`
   - PNG:
-    - `/Users/bae/Documents/code/buykings/exports/wepoll-samsung/member-tables/fightin-shuka.png`
-    - `/Users/bae/Documents/code/buykings/exports/wepoll-samsung/member-tables/fightin-alsangmu.png`
-    - `/Users/bae/Documents/code/buykings/exports/wepoll-samsung/member-tables/fightin-nini.png`
+    - `exports/wepoll-samsung/member-tables/fightin-shuka.png`
+    - `exports/wepoll-samsung/member-tables/fightin-alsangmu.png`
+    - `exports/wepoll-samsung/member-tables/fightin-nini.png`
 
 ### pre/post
 
 - 표용 CSV:
-  - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_fightin_words_prepost_table.csv`
+  - `projects/wepoll-samsung/prepared/dw_fightin_words_prepost_table.csv`
 - 권장 표현:
   - Datawrapper table
   - 현재는 post 표본이 매우 작아서 차트보다 표가 맞다.
   - table 초안 스펙:
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/charts/fightin-words-prepost-table-datawrapper.json`
+    - `projects/wepoll-samsung/charts/fightin-words-prepost-table-datawrapper.json`
 
 ### next target
 

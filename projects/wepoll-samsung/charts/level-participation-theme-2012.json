@@ -5,7 +5,7 @@
   "subtitle": "삼성전자 2026-04-11 이벤트 참여자 기준. 레벨 버킷별 참여 비중.",
   "chart_type": "column-chart",
   "theme": "datawrapper-2012",
-  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_level_participation.csv",
+  "prepared_csv": "../prepared/dw_level_participation.csv",
   "source_name": "Wepoll internal data",
   "byline": "BuyKings Research",
   "metadata": {

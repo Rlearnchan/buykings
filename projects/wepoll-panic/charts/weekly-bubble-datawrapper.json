@@ -6,7 +6,7 @@
   "subtitle": "",
   "chart_type": "d3-scatter-plot",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-panic/prepared/dw_weekly_bubble_latest_week.csv",
+  "prepared_csv": "../prepared/dw_weekly_bubble_latest_week.csv",
   "source_name": "Wepoll",
   "byline": "",
   "metadata": {

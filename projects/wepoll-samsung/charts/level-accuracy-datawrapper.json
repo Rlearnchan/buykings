@@ -6,7 +6,7 @@
   "subtitle": "",
   "chart_type": "column-chart",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_level_accuracy.csv",
+  "prepared_csv": "../prepared/dw_level_accuracy.csv",
   "source_name": "Wepoll",
   "byline": "",
   "metadata": {

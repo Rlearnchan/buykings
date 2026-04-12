@@ -6,7 +6,7 @@
   "subtitle": "",
   "chart_type": "multiple-lines",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-panic/prepared/dw_weekly_timeseries_recent6w.csv",
+  "prepared_csv": "../prepared/dw_weekly_timeseries_recent6w.csv",
   "source_name": "Wepoll",
   "byline": "",
   "metadata": {

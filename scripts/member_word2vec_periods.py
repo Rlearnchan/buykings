@@ -22,7 +22,12 @@ from gensim.models import Word2Vec
 ROOT = Path(__file__).resolve().parents[1]
 UPSTREAM_ROOT = ROOT.parent / "wepoll-samsung"
 PANIC_SOURCE = ROOT.parent / "wepoll-panic" / "output" / "yearly_hybrid_batch_v4" / "yearly_merged_posts_greed_v8_full.csv"
-EVENT_WEEK_SOURCE = Path("/Users/bae/Downloads/wepoll_stock_2026-04-05_2026-04-12.csv")
+EVENT_WEEK_SOURCE = Path(
+    os.environ.get(
+        "EVENT_WEEK_SOURCE",
+        ROOT / "projects" / "wepoll-samsung" / "incoming" / "wepoll_stock_eventweek.csv",
+    )
+)
 EXPORT_DIR = ROOT / "exports" / "wepoll-samsung" / "semantic-periods"
 REPORT_PATH = ROOT / "projects" / "wepoll-samsung" / "notes" / "member-word2vec-periods.md"
 MEMBERS = ["슈카", "알상무", "니니"]

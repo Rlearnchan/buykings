@@ -6,7 +6,7 @@
   "subtitle": "",
   "chart_type": "d3-scatter-plot",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_member_word2vec_selected_dots_eventweek.csv",
+  "prepared_csv": "../prepared/dw_member_word2vec_selected_dots_eventweek.csv",
   "source_name": "Wepoll",
   "byline": "",
   "metadata": {

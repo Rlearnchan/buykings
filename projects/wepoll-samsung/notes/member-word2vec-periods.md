@@ -2,7 +2,7 @@
 
 2025, 2026, 이벤트주간 기준으로 주요 단어 약 50개의 PCA 위치와 멤버별 유사어 상위 5개를 기록한다.
 
-- PCA figure: `/Users/bae/Documents/code/buykings/exports/wepoll-samsung/semantic-periods/member-word2vec-period-pca.svg`
+- PCA figure: `exports/wepoll-samsung/semantic-periods/member-word2vec-period-pca.svg`
 
 ## 2025
 

@@ -6,7 +6,7 @@
   "subtitle": "",
   "chart_type": "column-chart",
   "theme": "datawrapper-2012",
-  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_consensus_vs_actual.csv",
+  "prepared_csv": "../prepared/dw_consensus_vs_actual.csv",
   "source_name": "Wepoll, 연합인포맥스",
   "byline": "",
   "metadata": {

@@ -20,6 +20,13 @@ def load_json(path: pathlib.Path) -> dict:
         return json.load(handle)
 
 
+def resolve_spec_path(spec_path: pathlib.Path, raw_path: str) -> pathlib.Path:
+    path = pathlib.Path(raw_path)
+    if path.is_absolute():
+        return path
+    return (spec_path.parent / path).resolve()
+
+
 def read_env(name: str) -> str:
     value = os.environ.get(name)
     if not value:
@@ -199,7 +206,7 @@ def main() -> None:
 
     spec_path = pathlib.Path(args.spec).resolve()
     spec = load_json(spec_path)
-    csv_path = pathlib.Path(spec["prepared_csv"]).resolve()
+    csv_path = resolve_spec_path(spec_path, spec["prepared_csv"])
     if not csv_path.exists():
         raise SystemExit(f"Prepared CSV not found: {csv_path}")
 

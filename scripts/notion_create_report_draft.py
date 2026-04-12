@@ -23,6 +23,13 @@ def load_json(path: pathlib.Path) -> dict:
         return json.load(handle)
 
 
+def resolve_spec_path(spec_path: pathlib.Path, raw_path: str) -> pathlib.Path:
+    path = pathlib.Path(raw_path)
+    if path.is_absolute():
+        return path
+    return (spec_path.parent / path).resolve()
+
+
 def read_env(name: str) -> str:
     value = os.environ.get(name)
     if not value:
@@ -214,13 +221,18 @@ def build_multipart_body(boundary: str, path: pathlib.Path, content_type: str) -
     return buffer.getvalue()
 
 
-def upload_section_images(client: NotionClient, spec: dict) -> dict[str, str]:
+def upload_section_images(
+    client: NotionClient,
+    spec: dict,
+    *,
+    spec_path: pathlib.Path,
+) -> dict[str, str]:
     uploaded: dict[str, str] = {}
     for section in spec["sections"]:
         image_path = section.get("image_path")
         if not image_path:
             continue
-        path = pathlib.Path(image_path).resolve()
+        path = resolve_spec_path(spec_path, image_path)
         if not path.exists():
             raise SystemExit(f"Section image not found: {path}")
         content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
@@ -291,7 +303,7 @@ def main() -> None:
 
     client = NotionClient(token)
     trashed_pages = trash_previous_drafts(client, parent_page_id, spec["title"])
-    uploaded_images = upload_section_images(client, spec)
+    uploaded_images = upload_section_images(client, spec, spec_path=spec_path)
     page = client.create_page(parent_page_id, spec["title"], build_children(spec, uploaded_images))
     result = {
         "ok": True,

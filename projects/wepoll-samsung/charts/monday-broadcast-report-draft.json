@@ -12,7 +12,7 @@
     {
       "title": "위폴은 지금: 6주 시계열",
       "publish_url": "https://datawrapper.dwcdn.net/lt8ML/4/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-panic/weekly/timeseries.png",
+      "image_path": "../../../exports/wepoll-panic/weekly/timeseries.png",
       "takeaway": "최근 6주 기준으로 위폴의 심리 지수와 참여 지수는 50선을 중심으로 오르내렸고, 최근 구간의 분위기 변화도 한 장에서 확인할 수 있다.",
       "source": "Wepoll",
       "note": "분석 기간: 2026.02.23 ~ 2026.04.05"
@@ -20,7 +20,7 @@
     {
       "title": "위폴은 지금: 지난 주 7일",
       "publish_url": "https://datawrapper.dwcdn.net/txiva/7/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-panic/weekly/bubble.png",
+      "image_path": "../../../exports/wepoll-panic/weekly/bubble.png",
       "takeaway": "지난 주 7일 버블은 일별 심리·참여 위치와 게시물 규모를 함께 보여줘, 주간 국면 변화를 빠르게 읽는 템플릿으로 쓸 수 있다.",
       "source": "Wepoll",
       "note": "분석 기간: 2026.03.30 ~ 2026.04.05"
@@ -34,7 +34,7 @@
     {
       "title": "누가 잘 맞췄는가: 위폴 vs. 증권사",
       "publish_url": "https://datawrapper.dwcdn.net/l2iDU/6/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/first-batch/consensus.png",
+      "image_path": "../../../exports/wepoll-samsung/first-batch/consensus.png",
       "takeaway": "삼성 이벤트에서 위폴 예측치는 실제값보다 다소 보수적이었지만, 증권사 컨센서스보다 실제값에 더 가까운 위치를 기록했다.",
       "source": "Wepoll, 연합인포맥스",
       "note": "*(04.06) 1개월 내 발표된 증권사 13곳 예측치 평균"
@@ -42,7 +42,7 @@
     {
       "title": "누가 잘 맞췄는가: 고렙 vs. 저렙",
       "publish_url": "https://datawrapper.dwcdn.net/QnKDM/5/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/first-batch/level-accuracy.png",
+      "image_path": "../../../exports/wepoll-samsung/first-batch/level-accuracy.png",
       "takeaway": "고레벨 유저 구간의 근접 비율이 상대적으로 높게 보이지만, 표본 규모가 작아 과해석보다는 탐색적 신호로 보는 편이 안전하다.",
       "source": "Wepoll",
       "note": "*예측치가 56.2~58.2조 내에 속하는 경우"
@@ -50,7 +50,7 @@
     {
       "title": "누가 잘 맞췄는가: 슈친 직원들",
       "publish_url": "https://datawrapper.dwcdn.net/StnVb/9/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/first-batch/staff-dotplot.png",
+      "image_path": "../../../exports/wepoll-samsung/first-batch/staff-dotplot.png",
       "takeaway": "슈친 직원들의 예측도 실제값보다 낮은 편이 많았고, 내부 인물 예측이 항상 우위라고 보기 어렵다는 점이 확인된다.",
       "source": "Wepoll",
       "note": "슈친 직원 10명 참여. 니니 65조, 슈카 54조, 알상무 불참"
@@ -58,7 +58,7 @@
     {
       "title": "위폴은 활성화됐는가: 요일별 평균 활동량 vs. 이번 주",
       "publish_url": "https://datawrapper.dwcdn.net/EQKOK/3/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/next-batch/post-timing-weekday-yearsplit.png",
+      "image_path": "../../../exports/wepoll-samsung/next-batch/post-timing-weekday-yearsplit.png",
       "takeaway": "요일별 활동량 비교에서 2026년의 평일 게시물 수는 2025년보다 전반적으로 높고, 이벤트 주간은 월요일 저녁 개최 이후 화~수 구간에서 특히 강한 반응을 보였다.",
       "source": "Wepoll",
       "note": "이벤트 주간 시리즈는 2026-04-06~2026-04-11을 반영했고, 2026-04-12 오늘 데이터는 제외한 임시 버전이다."
@@ -72,7 +72,7 @@
     {
       "title": "슈카 이미지도 좋아졌는가: W2V PCA (2025)",
       "publish_url": "https://datawrapper.dwcdn.net/REjQy/1/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/semantic-periods/word2vec-2025.png",
+      "image_path": "../../../exports/wepoll-samsung/semantic-periods/word2vec-2025.png",
       "takeaway": "2025년 단어공간은 커뮤니티 이미지와 투자 맥락이 섞여 있는 기본 상태를 보여주는 기준면으로 볼 수 있다.",
       "source": "Wepoll",
       "note": "분석 기간: 2025.03.28 ~ 2025.12.31"
@@ -80,7 +80,7 @@
     {
       "title": "슈카 이미지도 좋아졌는가: W2V PCA (2026)",
       "publish_url": "https://datawrapper.dwcdn.net/nI7xI/1/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/semantic-periods/word2vec-2026.png",
+      "image_path": "../../../exports/wepoll-samsung/semantic-periods/word2vec-2026.png",
       "takeaway": "2026년 단어공간은 생활형·시장형·커뮤니티형 단어가 섞이면서, 이벤트 이전의 기본 맥락이 어떻게 형성돼 있었는지 보여준다.",
       "source": "Wepoll",
       "note": "분석 기간: 2026.01.01 ~ 2026.04.05"
@@ -88,7 +88,7 @@
     {
       "title": "슈카 이미지도 좋아졌는가: W2V PCA (이벤트주간)",
       "publish_url": "https://datawrapper.dwcdn.net/u08tZ/1/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/semantic-periods/word2vec-eventweek.png",
+      "image_path": "../../../exports/wepoll-samsung/semantic-periods/word2vec-eventweek.png",
       "takeaway": "이벤트주간에는 리서치, 조언, 믿음, 도움 같은 단어가 슈카 주변에 붙으면서 이미지 변화 가능성을 시사한다.",
       "source": "Wepoll",
       "note": "분석 기간: 2026.04.06 ~ 2026.04.11"
@@ -96,7 +96,7 @@
     {
       "title": "슈카 이미지도 좋아졌는가: 유사 단어",
       "publish_url": "https://datawrapper.dwcdn.net/Y8oWd/3/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/member-tables/similar-shuka.png",
+      "image_path": "../../../exports/wepoll-samsung/member-tables/similar-shuka.png",
       "takeaway": "슈카의 유사 단어 표를 보면 2025·2026의 맥락과 비교해 이벤트주간에 리서치·조언·믿음·도움 같은 단어가 더 전면에 등장한다.",
       "source": "Wepoll",
       "note": "Word2Vec(Mikolov et al., 2013)"
@@ -104,7 +104,7 @@
     {
       "title": "슈카 이미지도 좋아졌는가: Fightin’ Words",
       "publish_url": "https://datawrapper.dwcdn.net/v8AfO/2/",
-      "image_path": "/Users/bae/Documents/code/buykings/exports/wepoll-samsung/member-tables/fightin-shuka.png",
+      "image_path": "../../../exports/wepoll-samsung/member-tables/fightin-shuka.png",
       "takeaway": "슈카 차별 단어 표는 시기별로 무엇이 상대적으로 더 슈카다운 문맥이었는지 보여준다. 이벤트주간 값은 아직 점검용이지만, 리서치 계열 단어가 들어오는지 확인할 수 있다.",
       "source": "Wepoll",
       "note": "Fightin’ Words(Monroe et al., 2008), 이벤트주간은 4/12 완전 반영 전 점검용"

@@ -6,6 +6,7 @@ from __future__ import annotations
 import csv
 import html
 import math
+import os
 import re
 from collections import Counter
 from datetime import datetime
@@ -22,7 +23,12 @@ SEMANTIC_EXPORT_DIR = ROOT / "exports" / "wepoll-samsung" / "semantic-periods"
 FIGHTIN_DIR = ROOT.parent / "wepoll-samsung" / "output" / "event_analysis" / "fightin_words"
 FIGHTIN_PREPOST_DIR = ROOT.parent / "wepoll-samsung" / "output" / "event_analysis" / "fightin_words_prepost" / "2026-04-06_pre14_post7"
 PANIC_MERGED_SOURCE = ROOT.parent / "wepoll-panic" / "output" / "yearly_hybrid_batch_v4" / "yearly_merged_posts_greed_v8_full.csv"
-EVENT_WEEK_SOURCE = Path("/Users/bae/Downloads/wepoll_stock_2026-04-05_2026-04-12.csv")
+EVENT_WEEK_SOURCE = Path(
+    os.environ.get(
+        "EVENT_WEEK_SOURCE",
+        ROOT / "projects" / "wepoll-samsung" / "incoming" / "wepoll_stock_eventweek.csv",
+    )
+)
 
 PANIC_PREPARED_DIR = ROOT / "projects" / "wepoll-panic" / "prepared"
 SAMSUNG_PREPARED_DIR = ROOT / "projects" / "wepoll-samsung" / "prepared"

@@ -7,11 +7,11 @@
 ## 준비된 데이터
 
 - timeseries main CSV
-  - `/Users/bae/Documents/code/buykings/projects/wepoll-panic/prepared/dw_weekly_timeseries_recent6w.csv`
+  - `projects/wepoll-panic/prepared/dw_weekly_timeseries_recent6w.csv`
 - timeseries state ranges
-  - `/Users/bae/Documents/code/buykings/projects/wepoll-panic/prepared/dw_weekly_timeseries_state_ranges_recent6w.csv`
+  - `projects/wepoll-panic/prepared/dw_weekly_timeseries_state_ranges_recent6w.csv`
 - bubble latest week CSV
-  - `/Users/bae/Documents/code/buykings/projects/wepoll-panic/prepared/dw_weekly_bubble_latest_week.csv`
+  - `projects/wepoll-panic/prepared/dw_weekly_bubble_latest_week.csv`
 
 ## 현재 차트
 
@@ -19,12 +19,12 @@
   - chart id: `lt8ML`
   - public url: `https://datawrapper.dwcdn.net/lt8ML/4/`
   - edit url: `https://app.datawrapper.de/chart/lt8ML/edit`
-  - current PNG: `/Users/bae/Documents/code/buykings/exports/wepoll-panic/weekly/timeseries.png`
+  - current PNG: `exports/wepoll-panic/weekly/timeseries.png`
 - weekly bubble
   - chart id: `txiva`
   - public url: `https://datawrapper.dwcdn.net/txiva/7/`
   - edit url: `https://app.datawrapper.de/chart/txiva/edit`
-  - current PNG: `/Users/bae/Documents/code/buykings/exports/wepoll-panic/weekly/bubble.png`
+  - current PNG: `exports/wepoll-panic/weekly/bubble.png`
 - folder path
   - `wepoll-panic / 260406`
 - export policy

@@ -48,18 +48,18 @@
   - 목표: `2025 / 2026 / 이벤트주간` 기준 주요 단어 약 50개의 Word2Vec PCA와 멤버별 similar 5개 표
   - 권장 산출물: SVG scatter + Markdown table note
   - 현재 자산:
-    - `/Users/bae/Documents/code/buykings/exports/wepoll-samsung/semantic-periods/member-word2vec-period-pca.svg`
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-samsung/notes/member-word2vec-periods.md`
+    - `exports/wepoll-samsung/semantic-periods/member-word2vec-period-pca.svg`
+    - `projects/wepoll-samsung/notes/member-word2vec-periods.md`
   - 포인트: 감성 비중 차트보다 narrative가 풍부하고, 세 시기 간 맥락 변화를 더 잘 보여준다
 
 - `wepoll weekly datawrapper`
   - 목표: 주간 운영용 timeseries + bubble chart를 같은 `chart_id`로 반복 갱신
   - 현재 자산:
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-panic/prepared/dw_weekly_timeseries_recent6w.csv`
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-panic/prepared/dw_weekly_timeseries_state_ranges_recent6w.csv`
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-panic/prepared/dw_weekly_bubble_latest_week.csv`
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-panic/charts/weekly-timeseries-datawrapper.json`
-    - `/Users/bae/Documents/code/buykings/projects/wepoll-panic/charts/weekly-bubble-datawrapper.json`
+    - `projects/wepoll-panic/prepared/dw_weekly_timeseries_recent6w.csv`
+    - `projects/wepoll-panic/prepared/dw_weekly_timeseries_state_ranges_recent6w.csv`
+    - `projects/wepoll-panic/prepared/dw_weekly_bubble_latest_week.csv`
+    - `projects/wepoll-panic/charts/weekly-timeseries-datawrapper.json`
+    - `projects/wepoll-panic/charts/weekly-bubble-datawrapper.json`
   - 포인트: 삼성 개별 리포트보다 반복 운영 가치가 더 크다
 
 - `2026-04-11_member_image_post_type.csv`

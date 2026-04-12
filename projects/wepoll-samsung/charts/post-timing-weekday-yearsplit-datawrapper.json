@@ -6,7 +6,7 @@
   "subtitle": "",
   "chart_type": "grouped-column-chart",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_post_timing_weekday_yearsplit_posts.csv",
+  "prepared_csv": "../prepared/dw_post_timing_weekday_yearsplit_posts.csv",
   "source_name": "Wepoll",
   "byline": "",
   "metadata": {

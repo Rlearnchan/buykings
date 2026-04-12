@@ -6,7 +6,7 @@
   "subtitle": "",
   "chart_type": "column-chart",
   "theme": "datawrapper-2012",
-  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_staff_dotplot.csv",
+  "prepared_csv": "../prepared/dw_staff_dotplot.csv",
   "source_name": "Wepoll",
   "byline": "",
   "metadata": {

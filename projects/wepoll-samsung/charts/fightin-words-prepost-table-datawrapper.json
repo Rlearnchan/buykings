@@ -5,7 +5,7 @@
   "subtitle": "",
   "chart_type": "tables",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "/Users/bae/Documents/code/buykings/projects/wepoll-samsung/prepared/dw_fightin_words_prepost_table.csv",
+  "prepared_csv": "../prepared/dw_fightin_words_prepost_table.csv",
   "source_name": "Wepoll",
   "byline": "",
   "metadata": {
