@@ -1,6 +1,9 @@
 # Wepoll Weekly Datawrapper Plan
 
-기준일: 2026-04-12
+기준일: 2026-04-13
+
+이 문서는 차트 ID, 스냅샷 경로, 수동 편집 상태를 기록하는 운영 메모다.  
+weekly 작업 원칙 자체는 `docs/wepoll-weekly-ops.md`를 기준으로 삼는다.
 
 `wepoll weekly`는 반복 발행이 분명한 만큼, 새 차트를 매주 만드는 대신 같은 `chart_id`를 계속 업데이트하는 운영이 맞다.
 
@@ -27,9 +30,25 @@
   - current PNG: `exports/wepoll-panic/weekly/bubble.png`
 - folder path
   - `wepoll-panic / 260406`
+- dated snapshot draft (new chart set)
+  - specs:
+    - `projects/wepoll-panic/charts/weekly-timeseries-2026-04-12-datawrapper.json`
+    - `projects/wepoll-panic/charts/weekly-bubble-2026-04-12-datawrapper.json`
+  - chart ids:
+    - timeseries: `CkvG8`
+    - bubble: `6Pk7H`
+  - public urls:
+    - timeseries: `https://datawrapper.dwcdn.net/CkvG8/`
+    - bubble: `https://datawrapper.dwcdn.net/6Pk7H/`
+  - prepared csv:
+    - `projects/wepoll-panic/prepared/dw_weekly_timeseries_recent6w_2026-04-12.csv`
+    - `projects/wepoll-panic/prepared/dw_weekly_timeseries_state_ranges_recent6w_2026-04-12.csv`
+    - `projects/wepoll-panic/prepared/dw_weekly_bubble_latest_week_2026-04-12.csv`
+  - rule:
+    - 기존 `lt8ML`, `txiva`는 건드리지 않고, 기준일별 새 chart를 만든다.
 - export policy
   - 대표 파일은 `/exports/wepoll-panic/weekly/*.png`에 유지한다.
-  - 발행 스냅샷은 `/exports/wepoll-panic/weekly/2026-04-12/`처럼 날짜 서브폴더에도 남긴다.
+  - 발행 스냅샷은 `/exports/wepoll-panic/weekly/2026-04-13/`처럼 날짜 서브폴더에도 남긴다.
   - 스냅샷 복사는 `python3 scripts/archive_weekly_exports.py --date YYYY-MM-DD`로 처리한다.
 
 ## 현재 수동 수정 반영
@@ -51,9 +70,9 @@
 - 차트 유형: `Datawrapper line chart`
 - 데이터:
   - x축: `date`
-  - 선 1: `psychology_index_0_100`
-  - 선 2: `participation_index_0_100`
-  - 막대: `post_count`
+  - 선 1: `심리(Bear-Bull) 지수`
+  - 선 2: `참여 지수`
+  - 막대: `게시물 수`
 - 표시 범위:
   - 최근 42일 고정
 - 배경:
@@ -71,8 +90,8 @@
 ### 첫 세팅 체크리스트
 
 1. `date`를 x축으로 둔다.
-2. `psychology_index_0_100`, `participation_index_0_100`는 line으로 둔다.
-3. `post_count`는 column/bar로 둔다.
+2. `심리(Bear-Bull) 지수`, `참여 지수`는 line으로 둔다.
+3. `게시물 수`는 column/bar로 둔다.
 4. 좌축은 0~100 고정, 게시물 수는 우축 자동 또는 최근 6주 최대값 기준으로 맞춘다.
 5. range highlight는 `dw_weekly_timeseries_state_ranges_recent6w.csv`를 참고해 연속 구간 단위로 넣는다.
 6. title/subtitle/source만 남기고 불필요한 note는 비운다.
@@ -81,9 +100,9 @@
 
 - 차트 유형: `Datawrapper scatter plot`
 - 데이터:
-  - x축: `psychology_index_0_100`
-  - y축: `participation_index_0_100`
-  - 크기: `post_count`
+  - x축: `심리(Bear-Bull) 지수`
+  - y축: `참여 지수`
+  - 크기: `게시물 수`
   - 색: `state_label_ko`
   - 라벨: `day_label`
 - 축 규칙:
@@ -94,8 +113,8 @@
 
 ### 첫 세팅 체크리스트
 
-1. x축은 `psychology_index_0_100`, y축은 `participation_index_0_100`로 둔다.
-2. bubble size는 `post_count`, label은 `day_label`로 둔다.
+1. x축은 `심리(Bear-Bull) 지수`, y축은 `참여 지수`로 둔다.
+2. bubble size는 `게시물 수`, label은 `day_label`로 둔다.
 3. 색상은 `state_label_ko` 기준으로 고정한다.
 4. x/y 범위는 주차별로 흔들지 말고 20~80 근처로 유지한다.
 5. 기준선은 50/50 또는 기존 레퍼런스 이미지 기준으로 추가 검토한다.

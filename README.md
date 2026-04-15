@@ -126,6 +126,7 @@ python3 scripts/archive_weekly_exports.py --date YYYY-MM-DD
 - Datawrapper API 메모: `docs/api-next-steps.md`
 - Notion 초안 파이프라인: `docs/notion-report-pipeline.md`
 - 첫 실행 런북: `docs/first-run-playbook.md`
+- 위폴 주간 운영 문서: `docs/wepoll-weekly-ops.md`
 - 다음 차트 로드맵: `docs/next-chart-roadmap.md`
 
 ## Resume Point
