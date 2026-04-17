@@ -5,3 +5,15 @@ __pycache__/
 .DS_Store
 .playwright-cli/
 projects/*/incoming/
+projects/wepoll-samsung/
+exports/wepoll-samsung/
+docs/api-next-steps.md
+docs/first-run-playbook.md
+docs/next-chart-roadmap.md
+docs/notion-report-pipeline.md
+docs/source-ingest-plan.md
+scripts/member_word2vec_periods.py
+scripts/notion_create_report_draft.py
+scripts/render_member_word2vec_periods.py
+scripts/render_member_word2vec_periods_svg.py
+tmp/
