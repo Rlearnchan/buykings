@@ -1,23 +1,23 @@
 {
   "project": "wepoll-panic",
-  "slug": "weekly-timeseries-recent6w",
-  "chart_id": "lt8ML",
+  "slug": "weekly-timeseries-2026-04-15",
+  "chart_id": "jRh1f",
   "title": "위폴은 지금: 6주 시계열",
   "subtitle": "",
   "chart_type": "multiple-lines",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "../prepared/dw_weekly_timeseries_recent6w.csv",
+  "prepared_csv": "../prepared/dw_weekly_timeseries_recent6w_2026-04-15.csv",
   "source_name": "Wepoll",
   "byline": "",
   "metadata": {
     "describe": {
-      "aria-description": "최근 6주 일별 심리 지수, 참여 지수, 게시물 수를 함께 보여주는 주간 운영용 차트 초안",
+      "aria-description": "최근 6주 일별 심리 지수, 참여 지수, 게시물 수를 함께 보여주는 주간 운영용 차트",
       "intro": "",
       "number-format": "0",
       "number-append": ""
     },
     "annotate": {
-      "notes": "분석 기간: 2026.03.03 ~ 2026.04.13, 지수는 50(점선)을 기준으로 해석"
+      "notes": "이번 주 작업용 dated chart draft. publish 전 분석 기간과 highlight 구간을 최종 값으로 확인한다."
     },
     "visualize": {
       "custom-range": [

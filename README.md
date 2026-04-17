@@ -1,29 +1,24 @@
 # Buykings
 
-`Buykings`는 `Buykings Research` 작업 흐름 중, **데이터 시각화와 보고서 초안 제작에 특화된 저장소**다.
-
-`Buykings Research`는 슈카친구들 안에서 다양한 데이터 분석 실험과 리서치 작업을 맡는 작은 분석 조직이라는 가정 위에서 움직인다. 그중 이 저장소는 분석 전체를 다루기보다, 다른 분석 저장소에서 정리된 결과를 받아 **Datawrapper 기반 피겨와 Notion 초안**으로 연결하는 역할에 집중한다.
+`Buykings`는 현재 기준으로 `wepoll-panic` 지수 산출과 주간 시각화 운영에 집중하는 저장소다.
 
 ## What This Repo Does
 
 이 저장소의 핵심 역할은 세 가지다.
 
-1. 다른 분석 폴더에서 정리된 최종 CSV를 받아온다.
-2. Datawrapper에 바로 넣기 좋은 형태로 `prepared` CSV를 만든다.
-3. 차트 publish, PNG export, Notion 초안 생성을 통해 발표용 산출물을 빠르게 만든다.
+1. 위폴 원본/시장 데이터를 받아 지수 append 작업을 수행한다.
+2. Datawrapper에 바로 넣기 좋은 `prepared` CSV를 만든다.
+3. 차트 publish와 PNG export를 통해 주간 시각화를 유지한다.
 
-즉 목표는 "분석 자동화" 자체가 아니라, **반복 가능한 시각화 파이프라인**을 만드는 것이다.
+즉 목표는 **반복 가능한 위폴 지수 운영 파이프라인**을 만드는 것이다.
 
 ## Current Tracks
 
-현재는 두 개의 작업 축이 있다.
+현재 작업 축은 하나다.
 
 - `wepoll-panic`
-  - 위폴 주간 운영용 시각화
-  - 최근 6주 시계열, 주간 버블처럼 반복 갱신되는 템플릿 중심
-- `wepoll-samsung`
-  - 삼성 이벤트 결과 분석 시각화
-  - 방송용 리포트 흐름에 맞춘 단발성 분석 차트 중심
+  - 위폴 지수 산출과 주간 운영용 시각화
+  - 최근 6주 시계열, 주간 버블, daily additive append
 
 ## Repository Layout
 
@@ -33,16 +28,12 @@
 |-- docs/
 |-- exports/
 |-- projects/
-|   |-- wepoll-panic/
-|   |   |-- incoming/
-|   |   |-- prepared/
-|   |   |-- charts/
-|   |   `-- notes/
-|   `-- wepoll-samsung/
+|   `-- wepoll-panic/
 |       |-- incoming/
 |       |-- prepared/
 |       |-- charts/
-|       `-- notes/
+|       |-- notes/
+|       `-- state/
 |-- scripts/
 `-- templates/
 ```
@@ -63,7 +54,7 @@
   - 최종 PNG 등 외부 공유 가능한 산출물을 둔다.
   - `wepoll-panic/weekly`는 대표 최신본과 날짜별 스냅샷을 함께 유지한다.
 - `scripts`
-  - Datawrapper publish, PNG export, Notion 초안 생성, weekly 자산 준비 같은 반복 작업 스크립트를 둔다.
+  - Datawrapper publish, PNG export, daily append, weekly 자산 준비 같은 반복 작업 스크립트를 둔다.
 
 ## Standard Workflow
 
@@ -71,7 +62,6 @@
 2. `prepared/`에서 차트 친화적인 입력으로 정리한다.
 3. `charts/`의 JSON spec을 기준으로 Datawrapper 차트를 생성하거나 갱신한다.
 4. PNG를 `exports/`에 저장한다.
-5. 필요하면 Notion 초안을 다시 생성한다.
 
 ## Public Repo Policy
 
@@ -94,15 +84,10 @@
 
 현재 기준으로 이미 확인된 파이프라인은 아래와 같다.
 
-- `Datawrapper -> PNG export -> Notion draft`
+- `Investing.com fetch -> LLM batch -> append -> Datawrapper publish`
 - `wepoll-panic`
   - 6주 시계열
   - 주간 버블
-- `wepoll-samsung`
-  - 이벤트 결과 차트
-  - 활동성 차트
-  - W2V PCA scatter
-  - similar/fightin table
 
 ## Weekly Snapshot Policy
 
@@ -123,23 +108,22 @@ python3 scripts/archive_weekly_exports.py --date YYYY-MM-DD
 ## Key Docs
 
 - Datawrapper 운영 메모: `docs/datawrapper-notes.md`
-- Datawrapper API 메모: `docs/api-next-steps.md`
-- Notion 초안 파이프라인: `docs/notion-report-pipeline.md`
-- 첫 실행 런북: `docs/first-run-playbook.md`
 - 위폴 주간 운영 문서: `docs/wepoll-weekly-ops.md`
-- 다음 차트 로드맵: `docs/next-chart-roadmap.md`
+- 위폴 daily 운영 명령: `docs/wepoll-daily-runbook.md`
 
 ## Resume Point
 
 현재 작업 기준점은 아래와 같다.
 
-- 기준일: `2026-04-12`
-- weekly 차트는 템플릿화가 진행 중이다.
-- 삼성 이벤트 차트와 W2V/fightin 표는 방송용 초안에 연결돼 있다.
-- `4/12` 데이터가 온전히 들어오면 weekly, post timing, W2V, fightin을 다시 갱신한다.
+- 기준일: `2026-04-16`
+- weekly 차트는 이 저장소에서 주차별 dated set로 운영한다.
+- 자동화 시에는 `WEPOLL_WEEKLY_REPORT_DATE`를 발표일로 넘기고, 차트 범위는 직전 완료 일요일 기준으로 계산한다.
+- 같은 주 안에서는 해당 주의 chart를 업데이트하고, 주가 바뀌면 새 chart 세트를 만든다.
+- daily additive는 맥에서 `gemma3:4b` 기준으로 수동 실행한다.
+- 위폴 raw CSV 수급과 최종 결과 검토만 수동으로 남아 있다.
 
 ## Naming
 
 이 저장소의 프로젝트 이름은 `Buykings`다.
 
-문맥상 더 넓은 분석 조직을 가리킬 때는 `Buykings Research`라고 부르되, 이 저장소의 역할은 어디까지나 **시각화 제작과 보고서 초안화**에 있다.
+이 저장소의 역할은 현재 기준으로 **위폴 지수 산출과 Datawrapper 운영**에 있다.

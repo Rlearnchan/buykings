@@ -1,17 +1,17 @@
 {
   "project": "wepoll-panic",
-  "slug": "weekly-bubble-latest-week",
-  "chart_id": "txiva",
+  "slug": "weekly-bubble-2026-04-12",
+  "chart_id": "6Pk7H",
   "title": "위폴은 지금: 지난 주 7일",
   "subtitle": "",
   "chart_type": "d3-scatter-plot",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "../prepared/dw_weekly_bubble_latest_week.csv",
+  "prepared_csv": "../prepared/dw_weekly_bubble_latest_week_2026-04-12.csv",
   "source_name": "Wepoll",
   "byline": "",
   "metadata": {
     "describe": {
-      "aria-description": "해당 주 1일차부터 7일차까지의 심리 지수, 참여 지수, 게시물 수를 버블 차트로 보여주는 주간 운영용 차트 초안",
+      "aria-description": "해당 주 1일차부터 7일차까지의 심리 지수, 참여 지수, 게시물 수를 버블 차트로 보여주는 주간 운영용 차트",
       "intro": "",
       "number-format": "0",
       "number-append": ""
