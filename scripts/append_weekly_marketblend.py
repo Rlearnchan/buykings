@@ -56,6 +56,13 @@ def load_rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(f))
 
 
+def dedupe_rows_by_date(rows: list[dict[str, str]]) -> list[dict[str, str]]:
+    by_date: dict[str, dict[str, str]] = {}
+    for row in rows:
+        by_date[row["date"]] = dict(row)
+    return [by_date[day] for day in sorted(by_date)]
+
+
 def write_rows(path: Path, rows: list[dict[str, str]], fieldnames: list[str] | None = None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as f:
@@ -189,8 +196,8 @@ def main() -> None:
     parser.add_argument("--output-ranges", type=Path)
     args = parser.parse_args()
 
-    old_rows = load_rows(args.old_stance)
-    timeseries_old_rows = load_rows(args.timeseries_old)
+    old_rows = dedupe_rows_by_date(load_rows(args.old_stance))
+    timeseries_old_rows = dedupe_rows_by_date(load_rows(args.timeseries_old))
     last_published_date = timeseries_old_rows[-1]["date"]
     old_rows = [r for r in old_rows if r["date"] <= last_published_date]
     new_feature_rows = [r for r in load_rows(args.new_features) if last_published_date < r["date"] <= args.end_date]
@@ -288,10 +295,12 @@ def main() -> None:
         prev_label = label
     write_rows(args.output_quadrant, quadrant_rows, list(quadrant_rows[0].keys()))
 
-    published_map = {r["date"]: r for r in timeseries_old_rows}
     appended_map = {r["date"]: r for r in quadrant_rows if "2026-04-06" <= r["date"] <= args.end_date}
+    replacement_start = min(appended_map) if appended_map else None
     combined = []
     for row in timeseries_old_rows:
+        if replacement_start and row["date"] >= replacement_start:
+            continue
         combined.append(dict(row))
     for date_key in sorted(appended_map):
         combined.append(

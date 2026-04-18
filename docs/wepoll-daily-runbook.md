@@ -38,9 +38,15 @@ python3 scripts/run_wepoll_daily_append.py \
 
 - 오늘 이전 날짜 중
 - 게시물 수가 충분한 가장 최근 날짜를 자동 선택하고
-- 시장 fetch -> LLM batch -> append -> prepared 갱신 -> Datawrapper publish
+- 시장 fetch -> LLM batch -> daily features -> 기존 기준본 append -> prepared 갱신 -> Datawrapper publish
 
 까지 한 번에 수행한다.
+
+주의:
+
+- `anchor calibration`은 원래 초기 기준축을 만들 때 쓰인 단계다.
+- 지금 daily additive 운영에서는 기존 `appended_stance.csv` 기준축을 유지한 채 새 날짜만 append 하는 것이 본체다.
+- 따라서 legacy batch 안의 `anchor-calibrated stance` 보조 단계가 1일 입력에서 실패하더라도, `calibration_daily_features.csv`가 만들어졌다면 append는 계속 진행한다.
 
 ### 2. 특정 날짜만 강제로 append
 
@@ -90,6 +96,7 @@ python3 scripts/prepare_weekly_dw_assets.py
 
 - 시장 데이터 fetch
 - LLM 분류 실행
+- daily features 산출
 - append-only 계산
 - prepared CSV 갱신
 - Datawrapper publish

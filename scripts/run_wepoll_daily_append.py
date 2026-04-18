@@ -117,9 +117,23 @@ def run_daily_batch(target_date_csv: Path, market_paths: dict[str, Path], pipeli
     features_path = pipeline_dir / "calibration_daily_features.csv"
     try:
         run(["zsh", str(PANIC_ROOT / "scripts" / "run_daily_server_batch.sh")], env=env)
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as exc:
+        # Daily additive only needs the merged daily features. The downstream
+        # anchor-calibration step in the legacy batch script expects a wider
+        # baseline window and can fail on a one-day slice, so we continue only
+        # when the feature table was already produced.
         if not features_path.exists():
             raise
+        print(
+            (
+                "warning: legacy anchor-calibration stage failed after daily "
+                "features were created; continuing with append-only flow "
+                f"using {features_path} (exit={exc.returncode})"
+            ),
+            file=sys.stderr,
+        )
+    if not features_path.exists():
+        raise SystemExit(f"Missing daily features after batch run: {features_path}")
     return features_path
 
 
