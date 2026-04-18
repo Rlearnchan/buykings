@@ -17,3 +17,4 @@ scripts/notion_create_report_draft.py
 scripts/render_member_word2vec_periods.py
 scripts/render_member_word2vec_periods_svg.py
 tmp/
+exports/**/*.png
