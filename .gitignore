@@ -18,3 +18,4 @@ scripts/render_member_word2vec_periods.py
 scripts/render_member_word2vec_periods_svg.py
 tmp/
 exports/**/*.png
+db/*.sqlite3
