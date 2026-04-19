@@ -1,137 +1,179 @@
 # Buykings
 
-`Buykings`는 현재 기준으로 `wepoll-panic` 지수 산출과 주간 시각화 운영에 집중하는 저장소다.
+`Buykings`는 현재 `위폴은 지금` 지수와 주간 시각화를 운영하는 저장소다.
 
-## What This Repo Does
+이 저장소의 역할은 단순히 차트 이미지를 보관하는 것이 아니라,
 
-이 저장소의 핵심 역할은 세 가지다.
+- 위폴 게시물 원본 CSV를 받아
+- 일별 심리/참여 지수를 계산하고
+- Datawrapper용 차트 CSV와 PNG를 만들고
+- 그 결과를 누적 관리하는 것
 
-1. 위폴 원본/시장 데이터를 받아 지수 append 작업을 수행한다.
-2. Datawrapper에 바로 넣기 좋은 `prepared` CSV를 만든다.
-3. 차트 publish와 PNG export를 통해 주간 시각화를 유지한다.
+에 있다.
 
-즉 목표는 **반복 가능한 위폴 지수 운영 파이프라인**을 만드는 것이다.
+즉 이 레포는 **위폴 지수 운영 파이프라인 + 발행 자산 저장소**에 가깝다.
 
-## Current Tracks
+## What We Publish
 
-현재 작업 축은 하나다.
+현재 바깥으로 나가는 핵심 산출물은 두 가지다.
 
-- `wepoll-panic`
-  - 위폴 지수 산출과 주간 운영용 시각화
-  - 최근 6주 시계열, 주간 버블, daily additive append
+- 최근 6주 시계열
+- 지난 주 7일 버블 차트
 
-## Repository Layout
+둘 다 `위폴은 지금`이라는 같은 트랙 안에서 운영된다.
+
+## How The Workflow Works
+
+현재 운영 흐름은 아래처럼 이해하면 된다.
+
+1. 사람이 위폴 raw CSV를 스레드에 넘긴다.
+2. 필요한 날짜만 골라 daily append 또는 weekly 산출을 수행한다.
+3. 시장 데이터를 붙여 심리/참여 지수를 계산한다.
+4. Datawrapper용 CSV를 만든다.
+5. Datawrapper chart를 갱신한다.
+6. 최종 PNG를 저장하고, 필요하면 DB에도 적재한다.
+
+핵심 원칙은 하나다.
+
+**기존 발행값은 다시 흔들지 않고, 새 날짜만 append 한다.**
+
+## What Lives In This Repo
 
 ```text
 .
 |-- README.md
+|-- db/
 |-- docs/
 |-- exports/
+|-- logo/
 |-- projects/
 |   `-- wepoll-panic/
-|       |-- incoming/
-|       |-- prepared/
 |       |-- charts/
+|       |-- incoming/
 |       |-- notes/
+|       |-- prepared/
 |       `-- state/
-|-- scripts/
-`-- templates/
+`-- scripts/
 ```
 
-### Folder Roles
+각 폴더의 역할은 이렇다.
 
-- `projects/<project>/incoming`
-  - 외부 분석 저장소에서 넘어온 원본 CSV를 둔다.
-  - 공개 저장소에는 올리지 않는 것을 기본 원칙으로 한다.
-- `projects/<project>/prepared`
-  - Datawrapper 업로드용 CSV를 둔다.
-  - 원칙은 차트 1개당 CSV 1개다.
-- `projects/<project>/charts`
-  - 차트 스펙 JSON, 작업 메모, 발행된 chart ID를 둔다.
-- `projects/<project>/notes`
-  - 발표 흐름, 핵심 메시지, 후속 작업 메모를 둔다.
-- `exports`
-  - 최종 PNG 등 외부 공유 가능한 산출물을 둔다.
-  - `wepoll-panic/weekly`는 대표 최신본과 날짜별 스냅샷을 함께 유지한다.
+- `projects/wepoll-panic/state`
+  - 현재까지 누적된 일별 지수 상태값
+  - daily/weekly append의 기준본
+- `projects/wepoll-panic/prepared`
+  - Datawrapper에 바로 넣는 CSV
+- `projects/wepoll-panic/charts`
+  - Datawrapper 차트 스펙과 `chart_id`
+- `projects/wepoll-panic/notes`
+  - weekly 운영 메모와 작업 맥락
+- `exports/wepoll-panic/weekly`
+  - 최신 PNG와 날짜별 스냅샷
 - `scripts`
-  - Datawrapper publish, PNG export, daily append, weekly 자산 준비 같은 반복 작업 스크립트를 둔다.
+  - append, publish, PNG export, DB 적재 같은 반복 작업 스크립트
+- `db`
+  - SQLite / schema 같은 로컬 저장 구조
 
-## Standard Workflow
+## Current Storage Model
 
-1. 상위 분석 저장소에서 결과 CSV를 가져온다.
-2. `prepared/`에서 차트 친화적인 입력으로 정리한다.
-3. `charts/`의 JSON spec을 기준으로 Datawrapper 차트를 생성하거나 갱신한다.
-4. PNG를 `exports/`에 저장한다.
+원본과 산출물은 지금 이렇게 나뉜다.
 
-## Public Repo Policy
+- raw input
+  - 사람이 전달한 위폴 CSV
+  - 주로 `Downloads/` 같은 로컬 경로에 있음
+- working state
+  - `projects/wepoll-panic/state/*.csv`
+- publication assets
+  - `projects/wepoll-panic/prepared/*.csv`
+  - `exports/wepoll-panic/weekly/*.png`
+- local database
+  - `db/wepoll.sqlite3`
 
-이 저장소는 코드와 최종 시각화 산출물을 공개 가능한 범위로 관리한다.
+즉 입력은 CSV로 받고, 운영 상태는 CSV로 유지하면서, 뒤에서는 SQLite에도 같이 적재하는 구조다.
 
-- 커밋해도 되는 것
-  - 스크립트
-  - Datawrapper/Notion용 스펙 JSON
-  - 공개 가능한 PNG, SVG 같은 최종 산출물
-  - 분석 메모와 작업 문서
-- 커밋하지 않는 것
-  - `.env`와 API 키
-  - 개인 로컬 경로가 박힌 임시 파일
-  - 원본 `incoming` 데이터
-  - 공개하기 어려운 개인 정보가 포함된 원천 자료
+## Main Scripts
 
-그래서 이 저장소의 스펙과 문서는 가능한 한 **상대 경로와 공개 가능한 참조만 사용**하도록 유지한다.
+처음 보는 사람 기준으로 가장 중요한 스크립트는 이 셋이다.
 
-## Outputs We Already Use
+- `scripts/run_wepoll_daily_append.py`
+  - 하루치 additive append 실행
+- `scripts/append_weekly_marketblend.py`
+  - 기존 기준을 유지한 채 새 날짜를 뒤에 붙이는 핵심 로직
+- `scripts/export_wepoll_weekly_png.py`
+  - weekly PNG를 고정된 규격으로 export
 
-현재 기준으로 이미 확인된 파이프라인은 아래와 같다.
+DB 적재는 아래 스크립트를 쓴다.
 
-- `Investing.com fetch -> LLM batch -> append -> Datawrapper publish`
-- `wepoll-panic`
-  - 6주 시계열
-  - 주간 버블
+- `scripts/wepoll_sync_sqlite.py`
 
-## Weekly Snapshot Policy
+## PNG Policy
 
-`wepoll-panic` weekly 산출물은 두 층으로 관리한다.
+weekly PNG는 항상 같은 기준으로 관리한다.
 
-- 대표 최신본
-  - `exports/wepoll-panic/weekly/timeseries.png`
-  - `exports/wepoll-panic/weekly/bubble.png`
-- 날짜별 스냅샷
-  - `exports/wepoll-panic/weekly/YYYY-MM-DD/`
+- 공통 export 폭: `600`
+- 공통 scale: `2`
+- 로고 top: `15px`
+- 로고 right: `30px`
+- 시계열 로고 높이 비율: `0.10`
+- 버블 로고 높이 비율: `0.08`
 
-스냅샷 누적은 아래 스크립트로 처리한다.
+즉 차트 종류가 달라도 로고 윗선은 같은 위치에 놓이도록 맞춘다.
+
+## Key Docs
+
+상세 운영 규칙은 아래 문서를 보면 된다.
+
+- [docs/wepoll-weekly-ops.md](docs/wepoll-weekly-ops.md)
+  - weekly 발행 규칙, append 원칙, Datawrapper 흐름
+- [docs/wepoll-daily-runbook.md](docs/wepoll-daily-runbook.md)
+  - daily append 실행 방식
+- [docs/wepoll-db-runbook.md](docs/wepoll-db-runbook.md)
+  - raw CSV / state를 SQLite에 적재하는 방식
+- [docs/datawrapper-notes.md](docs/datawrapper-notes.md)
+  - Datawrapper 운영 메모
+
+## Typical Commands
+
+daily append:
 
 ```bash
-python3 scripts/archive_weekly_exports.py --date YYYY-MM-DD
+python3 scripts/run_wepoll_daily_append.py \
+  --input /ABS/PATH/TO/wepoll_stock_posts_YYYY-MM-DD_YYYY-MM-DD.csv
 ```
 
-Datawrapper PNG에 우측 상단 브랜드 로고를 붙일 때는 export 단계에서 바로 아래 옵션을 쓴다.
+weekly PNG export:
 
 ```bash
 python3 scripts/export_wepoll_weekly_png.py timeseries CHART_ID OUTPUT.png
 python3 scripts/export_wepoll_weekly_png.py bubble CHART_ID OUTPUT.png
 ```
 
-## Key Docs
+SQLite sync:
 
-- Datawrapper 운영 메모: `docs/datawrapper-notes.md`
-- 위폴 주간 운영 문서: `docs/wepoll-weekly-ops.md`
-- 위폴 daily 운영 명령: `docs/wepoll-daily-runbook.md`
-- 위폴 DB 적재 운영 문서: `docs/wepoll-db-runbook.md`
+```bash
+python3 scripts/wepoll_sync_sqlite.py \
+  --init-schema \
+  --raw-csv /ABS/PATH/TO/wepoll_stock_posts_YYYY-MM-DD_YYYY-MM-DD.csv
+```
 
-## Resume Point
+## Public Repo Policy
 
-현재 작업 기준점은 아래와 같다.
+이 저장소는 공개 가능한 코드와 운영 문서를 중심으로 관리한다.
 
-- 기준일: `2026-04-16`
-- weekly 차트는 이 저장소에서 주차별 dated set로 운영한다.
-- 자동화 시에는 `WEPOLL_WEEKLY_REPORT_DATE`를 발표일로 넘기고, 차트 범위는 직전 완료 일요일 기준으로 계산한다.
-- 같은 주 안에서는 해당 주의 chart를 업데이트하고, 주가 바뀌면 새 chart 세트를 만든다.
-- daily additive는 맥에서 `gemma3:4b` 기준으로 수동 실행한다.
-- 위폴 raw CSV 수급과 최종 결과 검토만 수동으로 남아 있다.
+커밋하는 것:
 
-## Naming
+- 스크립트
+- 차트 스펙
+- 운영 문서
+- 공개 가능한 PNG
+- 누적 state / prepared CSV
 
-이 저장소의 프로젝트 이름은 `Buykings`다.
+커밋하지 않는 것:
 
-이 저장소의 역할은 현재 기준으로 **위폴 지수 산출과 Datawrapper 운영**에 있다.
+- `.env`
+- API 키
+- raw 입력 CSV
+- SQLite DB 파일
+- 임시 파일
+
+즉 GitHub에는 **운영 방식과 발행 자산**을 남기고, raw 입력과 로컬 DB는 로컬에 둔다.
