@@ -7,12 +7,15 @@ import argparse
 import json
 import os
 import pathlib
+import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
 
 
 API_BASE = "https://api.datawrapper.de/v3"
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+DEFAULT_LOGO = ROOT / "logo" / "buykings research cropped.jpg"
 
 
 def read_env(name: str) -> str:
@@ -34,20 +37,62 @@ def request_bytes(path: str) -> bytes:
         raise SystemExit(f"Datawrapper export error ({exc.code}) on GET {path}:\n{details}") from exc
 
 
+def request_json(path: str) -> dict:
+    return json.loads(request_bytes(path).decode("utf-8"))
+
+
+def resolve_export_width(chart_id: str, explicit_width: int | None) -> int:
+    if explicit_width:
+        return explicit_width
+    chart = request_json(f"/charts/{chart_id}")
+    publish = chart.get("metadata", {}).get("publish", {})
+    embed_width = publish.get("embed-width")
+    if isinstance(embed_width, int) and embed_width > 0:
+        return embed_width
+    return 600
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("chart_id", help="Datawrapper chart id")
     parser.add_argument("output", help="Output PNG path")
-    parser.add_argument("--width", type=int, default=1200)
+    parser.add_argument("--width", type=int, help="Override export width; defaults to the chart's publish embed-width")
     parser.add_argument("--scale", type=int, default=2)
+    parser.add_argument("--brand-logo", action="store_true", help="Overlay the BuyKings Research logo after export")
+    parser.add_argument("--logo-path", default=str(DEFAULT_LOGO), help="Logo asset path used with --brand-logo")
+    parser.add_argument("--logo-height-ratio", type=float, default=0.10)
+    parser.add_argument("--logo-margin-top-ratio", type=float, default=0.03)
+    parser.add_argument("--logo-margin-right-ratio", type=float, default=0.025)
+    parser.add_argument("--logo-opacity", type=float, default=1.0)
     args = parser.parse_args()
 
     output_path = pathlib.Path(args.output).resolve()
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    query = urllib.parse.urlencode({"width": args.width, "scale": args.scale})
+    export_width = resolve_export_width(args.chart_id, args.width)
+    query = urllib.parse.urlencode({"width": export_width, "scale": args.scale})
     payload = request_bytes(f"/charts/{args.chart_id}/export/png?{query}")
     output_path.write_bytes(payload)
+
+    if args.brand_logo:
+        subprocess.run(
+            [
+                "python3",
+                str(ROOT / "scripts" / "datawrapper_brand_logo.py"),
+                str(output_path),
+                "--logo",
+                str(pathlib.Path(args.logo_path).resolve()),
+                "--logo-height-ratio",
+                str(args.logo_height_ratio),
+                "--margin-top-ratio",
+                str(args.logo_margin_top_ratio),
+                "--margin-right-ratio",
+                str(args.logo_margin_right_ratio),
+                "--opacity",
+                str(args.logo_opacity),
+            ],
+            check=True,
+        )
 
     print(
         json.dumps(
@@ -55,9 +100,10 @@ def main() -> None:
                 "ok": True,
                 "chart_id": args.chart_id,
                 "output": str(output_path),
-                "width": args.width,
+                "width": export_width,
                 "scale": args.scale,
                 "bytes": output_path.stat().st_size,
+                "brand_logo": args.brand_logo,
             },
             ensure_ascii=False,
             indent=2,

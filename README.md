@@ -105,6 +105,13 @@
 python3 scripts/archive_weekly_exports.py --date YYYY-MM-DD
 ```
 
+Datawrapper PNG에 우측 상단 브랜드 로고를 붙일 때는 export 단계에서 바로 아래 옵션을 쓴다.
+
+```bash
+python3 scripts/export_wepoll_weekly_png.py timeseries CHART_ID OUTPUT.png
+python3 scripts/export_wepoll_weekly_png.py bubble CHART_ID OUTPUT.png
+```
+
 ## Key Docs
 
 - Datawrapper 운영 메모: `docs/datawrapper-notes.md`

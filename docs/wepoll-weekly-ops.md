@@ -220,6 +220,24 @@ dated weekly PNG는 아래 구조를 쓴다.
 대표 최신본을 따로 갱신할지 여부는 상황에 따라 결정하되,  
 dated snapshot은 반드시 남긴다.
 
+우측 상단 빈 공간에 `Buykings Research` 로고를 고정 배치하려면 Datawrapper 내부 설정 대신 export 후처리를 쓴다.
+
+```bash
+python3 scripts/export_wepoll_weekly_png.py timeseries CHART_ID OUTPUT.png
+python3 scripts/export_wepoll_weekly_png.py bubble CHART_ID OUTPUT.png
+```
+
+현재 weekly 고정값은 아래다.
+
+- 공통 export 폭: `600`
+- 공통 export scale: `2`
+- 로고 top 위치: `15px`
+- 로고 right 위치: `30px`
+- 시계열 로고 높이 비율: `0.10`
+- 버블 로고 높이 비율: `0.08`
+
+즉 weekly PNG는 차트 종류가 달라도 로고 윗선이 같은 픽셀 위치에 놓이도록 맞춘다.
+
 ## Validation Checklist
 
 weekly 작업 후에는 아래를 반드시 확인한다.
