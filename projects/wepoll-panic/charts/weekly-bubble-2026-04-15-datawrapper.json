@@ -17,7 +17,7 @@
       "number-append": ""
     },
     "annotate": {
-      "notes": "이번 주 작업용 dated chart draft. publish 전 week range와 day label 순서를 최종 값으로 확인한다."
+      "notes": "분석 기간: 2026.04.13 ~ 2026.04.19, 순서대로 월(1)~일(7)"
     },
     "visualize": {
       "label-format": "0",

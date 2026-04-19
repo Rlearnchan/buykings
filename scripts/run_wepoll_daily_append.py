@@ -83,6 +83,7 @@ def filter_csv_for_date(src: Path, dst: Path, target_date: str) -> int:
 
 
 def fetch_market(target_date: str, workdir: Path) -> dict[str, Path]:
+    required_market_date = market_reference_date(target_date)
     outputs = {}
     for preset in ["kospi", "kosdaq", "vkospi"]:
         output = workdir / f"{preset}.csv"
@@ -95,11 +96,18 @@ def fetch_market(target_date: str, workdir: Path) -> dict[str, Path]:
                 "--output",
                 str(output),
                 "--required-date",
-                target_date,
+                required_market_date,
             ]
         )
         outputs[preset] = output
     return outputs
+
+
+def market_reference_date(target_date: str) -> str:
+    current = datetime.strptime(target_date, "%Y-%m-%d").date()
+    while current.weekday() >= 5:
+        current -= timedelta(days=1)
+    return str(current)
 
 
 def run_daily_batch(target_date_csv: Path, market_paths: dict[str, Path], pipeline_dir: Path, model: str) -> Path:

@@ -17,7 +17,7 @@
       "number-append": ""
     },
     "annotate": {
-      "notes": "이번 주 작업용 dated chart draft. publish 전 분석 기간과 highlight 구간을 최종 값으로 확인한다."
+      "notes": "분석 기간: 2026.03.09 ~ 2026.04.19, 지수는 50(점선)을 기준으로 해석"
     },
     "visualize": {
       "custom-range": [
@@ -26,7 +26,63 @@
       ],
       "custom-ticks": "20, 40, 60, 80, 100",
       "plotHeightFixed": 280,
-      "plotHeightMode": "fixed"
+      "plotHeightMode": "fixed",
+      "range-annotations": [
+        {
+          "id": "tQlNmmXQIP",
+          "type": "y",
+          "color": "#2e2e2e",
+          "display": "line",
+          "opacity": 100,
+          "position": {
+            "x0": "2026-03-09 00:00",
+            "x1": "2026-04-19 00:00",
+            "y0": "50",
+            "y1": "50",
+            "plot": "psychology_index_0_100",
+            "yAxis": "y"
+          },
+          "strokeType": "dashed",
+          "strokeWidth": 1,
+          "showInAllPlots": false
+        },
+        {
+          "id": "mI1Pa0cNd8",
+          "type": "y",
+          "color": "#2e2e2e",
+          "display": "line",
+          "opacity": 100,
+          "position": {
+            "x0": "2026-03-09 00:00",
+            "x1": "2026-04-19 00:00",
+            "y0": "50",
+            "y1": "50",
+            "plot": "participation_index_0_100",
+            "yAxis": "y"
+          },
+          "strokeType": "dashed",
+          "strokeWidth": 1,
+          "showInAllPlots": false
+        },
+        {
+          "id": "pT6UF1Fqo9",
+          "type": "x",
+          "color": "#fa8c00",
+          "display": "range",
+          "opacity": 30,
+          "position": {
+            "x0": "2026-04-13 00:00",
+            "x1": "2026-04-20 00:00",
+            "y0": "62.5500",
+            "y1": "0.4500",
+            "plot": "psychology_index_0_100",
+            "yAxis": "y"
+          },
+          "strokeType": "solid",
+          "strokeWidth": 1,
+          "showInAllPlots": true
+        }
+      ]
     },
     "publish": {
       "embed-width": 600,
