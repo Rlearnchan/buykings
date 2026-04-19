@@ -117,6 +117,7 @@ python3 scripts/export_wepoll_weekly_png.py bubble CHART_ID OUTPUT.png
 - Datawrapper 운영 메모: `docs/datawrapper-notes.md`
 - 위폴 주간 운영 문서: `docs/wepoll-weekly-ops.md`
 - 위폴 daily 운영 명령: `docs/wepoll-daily-runbook.md`
+- 위폴 DB 적재 운영 문서: `docs/wepoll-db-runbook.md`
 
 ## Resume Point
 
