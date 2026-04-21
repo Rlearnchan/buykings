@@ -20,6 +20,10 @@ def load_json(path: pathlib.Path) -> dict:
         return json.load(handle)
 
 
+def write_json(path: pathlib.Path, payload: dict) -> None:
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
 def resolve_spec_path(spec_path: pathlib.Path, raw_path: str) -> pathlib.Path:
     path = pathlib.Path(raw_path)
     if path.is_absolute():
@@ -237,6 +241,8 @@ def main() -> None:
     else:
         created = client.create_chart(build_create_payload(spec))
         chart_id = created["id"]
+        spec["chart_id"] = chart_id
+        write_json(spec_path, spec)
 
     assert chart_id is not None
     csv_bytes = csv_path.read_bytes()

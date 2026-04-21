@@ -1,0 +1,92 @@
+{
+  "project": "wepoll-panic",
+  "slug": "weekly-timeseries-2026-04-20",
+  "title": "위폴은 지금: 6주 시계열",
+  "subtitle": "",
+  "chart_type": "multiple-lines",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "../prepared/dw_weekly_timeseries_recent6w_2026-04-20.csv",
+  "source_name": "Wepoll",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "aria-description": "최근 6주 일별 심리 지수, 참여 지수, 게시물 수를 함께 보여주는 주간 운영용 차트",
+      "intro": "",
+      "number-format": "0",
+      "number-append": ""
+    },
+    "annotate": {
+      "notes": "분석 기간: 2026.03.10 ~ 2026.04.20, 지수는 50(점선)을 기준으로 해석"
+    },
+    "visualize": {
+      "custom-range": [
+        "0",
+        "100"
+      ],
+      "custom-ticks": "20, 40, 60, 80, 100",
+      "plotHeightFixed": 280,
+      "plotHeightMode": "fixed",
+      "range-annotations": [
+        {
+          "id": "tQlNmmXQIP",
+          "type": "y",
+          "color": "#2e2e2e",
+          "display": "line",
+          "opacity": 100,
+          "position": {
+            "x0": "2026-03-10 00:00",
+            "x1": "2026-04-20 00:00",
+            "y0": "50",
+            "y1": "50",
+            "plot": "psychology_index_0_100",
+            "yAxis": "y"
+          },
+          "strokeType": "dashed",
+          "strokeWidth": 1,
+          "showInAllPlots": false
+        },
+        {
+          "id": "mI1Pa0cNd8",
+          "type": "y",
+          "color": "#2e2e2e",
+          "display": "line",
+          "opacity": 100,
+          "position": {
+            "x0": "2026-03-10 00:00",
+            "x1": "2026-04-20 00:00",
+            "y0": "50",
+            "y1": "50",
+            "plot": "participation_index_0_100",
+            "yAxis": "y"
+          },
+          "strokeType": "dashed",
+          "strokeWidth": 1,
+          "showInAllPlots": false
+        },
+        {
+          "id": "pT6UF1Fqo9",
+          "type": "x",
+          "color": "#fa8c00",
+          "display": "range",
+          "opacity": 30,
+          "position": {
+            "x0": "2026-04-20 00:00",
+            "x1": "2026-04-27 00:00",
+            "y0": "62.5500",
+            "y1": "0.4500",
+            "plot": "psychology_index_0_100",
+            "yAxis": "y"
+          },
+          "strokeType": "solid",
+          "strokeWidth": 1,
+          "showInAllPlots": true
+        }
+      ]
+    },
+    "publish": {
+      "embed-width": 600,
+      "embed-height": 321
+    }
+  },
+  "chart_id": "Gp1oE"
+}

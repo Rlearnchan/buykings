@@ -1,0 +1,44 @@
+{
+  "project": "wepoll-panic",
+  "slug": "post-impact-hist-2026-04-19",
+  "chart_id": "YHKuD",
+  "title": "위폴은 지금: 지난 주 글 영향력 분포",
+  "subtitle": "",
+  "chart_type": "column-chart",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "../prepared/dw_post_impact_hist_2026-04-19.csv",
+  "source_name": "Wepoll",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "aria-description": "지난 주 위폴 게시물의 영향력 분포를 0.5 단위 구간별 게시물 수로 보여주는 히스토그램",
+      "intro": "영향력은 engagement_weight와 감정 강도 최대값을 곱한 운영용 근사치",
+      "number-format": "0",
+      "number-append": ""
+    },
+    "annotate": {
+      "notes": "분석 기간: 2026.04.13 ~ 2026.04.19, impact proxy = engagement_weight × max(fear, greed)"
+    },
+    "visualize": {
+      "show-values": "always",
+      "valueLabels": {
+        "enabled": true,
+        "show": "always",
+        "placement": "outside",
+        "format": "0"
+      },
+      "plotHeightFixed": 280,
+      "plotHeightMode": "fixed",
+      "custom-range": [
+        "0",
+        "900"
+      ],
+      "custom-ticks": "100, 300, 500, 700, 900",
+      "color-by-column": false
+    },
+    "publish": {
+      "embed-width": 600,
+      "embed-height": 360
+    }
+  }
+}

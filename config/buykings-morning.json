@@ -1,0 +1,28 @@
+{
+  "name": "buykings-morning",
+  "description": "Top-level morning orchestration entrypoint for Buykings jobs.",
+  "jobs": [
+    {
+      "id": "wepoll-panic",
+      "enabled": true,
+      "kind": "command",
+      "description": "Download Wepoll raw CSV via the long-lived fetcher and run daily append/state sync.",
+      "command": [
+        "python3",
+        "scripts/run_wepoll_daily_from_fetcher.py"
+      ]
+    },
+    {
+      "id": "capture-and-collect",
+      "enabled": false,
+      "kind": "placeholder",
+      "description": "Capture and collect morning inputs from external economic sites."
+    },
+    {
+      "id": "other-morning-jobs",
+      "enabled": false,
+      "kind": "placeholder",
+      "description": "Additional recurring morning tasks to be attached later."
+    }
+  ]
+}

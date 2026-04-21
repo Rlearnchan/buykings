@@ -102,8 +102,18 @@ def sha256_file(path: Path) -> str:
     return hasher.hexdigest()
 
 
+def configure_csv_field_limit() -> None:
+    limit = sys.maxsize
+    while True:
+        try:
+            csv.field_size_limit(limit)
+            return
+        except OverflowError:
+            limit //= 10
+
+
 def summarize_dates(path: Path) -> tuple[int, str | None, str | None]:
-    csv.field_size_limit(sys.maxsize)
+    configure_csv_field_limit()
     count = 0
     dates: Counter[str] = Counter()
     with path.open(encoding="utf-8-sig", newline="") as f:
@@ -143,7 +153,7 @@ def normalize_raw_post(row: dict[str, str], source_file: str) -> dict[str, objec
 
 
 def load_raw_posts(path: Path) -> list[dict[str, object]]:
-    csv.field_size_limit(sys.maxsize)
+    configure_csv_field_limit()
     source_file = str(path.resolve())
     posts: dict[str, dict[str, object]] = {}
     with path.open(encoding="utf-8-sig", newline="") as f:

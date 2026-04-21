@@ -1,9 +1,16 @@
 .env
 .env.*
+.venv/
 __pycache__/
 *.pyc
 .DS_Store
 .playwright-cli/
+runtime/
+vendor/
+scripts/node_modules/
+github-buykings/
+migration-pack*/
+buykings-wepoll-migration-pack-*.zip
 projects/*/incoming/
 projects/wepoll-samsung/
 exports/wepoll-samsung/
