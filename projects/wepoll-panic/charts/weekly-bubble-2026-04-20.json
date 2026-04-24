@@ -16,7 +16,7 @@
       "number-append": ""
     },
     "annotate": {
-      "notes": "분석 기간: 2026.04.20 ~ 2026.04.20, 순서대로 월(1)~일(7)"
+      "notes": "분석 기간: 2026.04.20 ~ 2026.04.23, 순서대로 월(1)~일(7)"
     },
     "visualize": {
       "label-format": "0",
@@ -38,8 +38,19 @@
     },
     "publish": {
       "embed-width": 500,
-      "embed-height": 394
+      "embed-height": 394,
+      "blocks": {
+        "logo": {
+          "enabled": false
+        },
+        "embed": false,
+        "download-pdf": false,
+        "download-svg": false,
+        "download-image": false,
+        "get-the-data": false
+      }
     }
   },
-  "chart_id": "2m51f"
+  "clone_from_chart_id": "Dd29j",
+  "chart_id": "IkW9X"
 }

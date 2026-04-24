@@ -73,6 +73,12 @@
 - second pass model: `gpt-5-mini`
 - `WEPOLL_PANIC_ROOT`: `vendor\wepoll-panic`
 
+## Task Script
+
+- Task registration helper: `ops/windows/register_buykings_morning_task.ps1`
+- Default task name: `BuyKingsMorning`
+- Default start time: `11:35`
+
 ## Important Note
 
 이 세트는 `host fetcher + local Python compute` 기준이다.

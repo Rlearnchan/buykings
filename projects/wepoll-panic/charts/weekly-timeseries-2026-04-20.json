@@ -16,7 +16,7 @@
       "number-append": ""
     },
     "annotate": {
-      "notes": "분석 기간: 2026.03.10 ~ 2026.04.20, 지수는 50(점선)을 기준으로 해석"
+      "notes": "분석 기간: 2026.03.11 ~ 2026.04.23, 지수는 50(점선)을 기준으로 해석"
     },
     "visualize": {
       "custom-range": [
@@ -34,8 +34,8 @@
           "display": "line",
           "opacity": 100,
           "position": {
-            "x0": "2026-03-10 00:00",
-            "x1": "2026-04-20 00:00",
+            "x0": "2026-03-11 00:00",
+            "x1": "2026-04-23 00:00",
             "y0": "50",
             "y1": "50",
             "plot": "psychology_index_0_100",
@@ -52,8 +52,8 @@
           "display": "line",
           "opacity": 100,
           "position": {
-            "x0": "2026-03-10 00:00",
-            "x1": "2026-04-20 00:00",
+            "x0": "2026-03-11 00:00",
+            "x1": "2026-04-23 00:00",
             "y0": "50",
             "y1": "50",
             "plot": "participation_index_0_100",
@@ -85,8 +85,19 @@
     },
     "publish": {
       "embed-width": 600,
-      "embed-height": 321
+      "embed-height": 321,
+      "blocks": {
+        "logo": {
+          "enabled": false
+        },
+        "embed": false,
+        "download-pdf": false,
+        "download-svg": false,
+        "download-image": false,
+        "get-the-data": false
+      }
     }
   },
-  "chart_id": "Gp1oE"
+  "clone_from_chart_id": "jRh1f",
+  "chart_id": "mE1Ix"
 }

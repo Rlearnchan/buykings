@@ -78,6 +78,8 @@ def ensure_weekly_spec(
     spec = read_json(template_path)
     spec["slug"] = f"{prefix}-{week_start}"
     spec["prepared_csv"] = f"../prepared/{prepared_csv_name}"
+    if spec.get("chart_id"):
+        spec["clone_from_chart_id"] = spec["chart_id"]
     spec.pop("chart_id", None)
     write_json(spec_path, spec)
     return spec_path

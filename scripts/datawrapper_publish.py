@@ -151,6 +151,15 @@ def build_patch_payload(spec: dict) -> dict:
     return metadata
 
 
+def sanitize_publish(metadata: dict) -> None:
+    publish = metadata.get("publish")
+    if not isinstance(publish, dict):
+        return
+    publish.pop("embed-codes", None)
+    publish.pop("export-pdf", None)
+    publish.pop("chart-height", None)
+
+
 def merge_dict(target: dict, source: dict) -> None:
     for key, value in source.items():
         if isinstance(value, dict) and isinstance(target.get(key), dict):
@@ -241,6 +250,19 @@ def main() -> None:
     else:
         created = client.create_chart(build_create_payload(spec))
         chart_id = created["id"]
+        clone_from_chart_id = spec.get("clone_from_chart_id")
+        if clone_from_chart_id:
+            source_chart = client.get_chart(clone_from_chart_id)
+            source_metadata = source_chart.get("metadata", {})
+            if isinstance(source_metadata, dict):
+                source_metadata = json.loads(json.dumps(source_metadata))
+                sanitize_publish(source_metadata)
+                patch_payload = {
+                    "title": spec["title"],
+                    "metadata": source_metadata,
+                }
+                merge_dict(patch_payload["metadata"], build_patch_payload(spec).get("metadata", {}))
+                client.patch_metadata(chart_id, patch_payload)
         spec["chart_id"] = chart_id
         write_json(spec_path, spec)
 
