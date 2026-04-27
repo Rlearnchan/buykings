@@ -7,6 +7,7 @@ import argparse
 import csv
 import json
 import os
+import shutil
 import subprocess
 import sys
 from collections import Counter
@@ -182,18 +183,24 @@ def fetch_market(target_date: str, workdir: Path) -> dict[str, Path]:
     outputs = {}
     for preset in ["kospi", "kosdaq", "vkospi"]:
         output = workdir / f"{preset}.csv"
-        run(
-            [
-                sys.executable,
-                str(ROOT / "scripts" / "fetch_investing_historical.py"),
-                "--preset",
-                preset,
-                "--output",
-                str(output),
-                "--required-date",
-                required_market_date,
-            ]
-        )
+        command = [
+            sys.executable,
+            str(ROOT / "scripts" / "fetch_investing_historical.py"),
+            "--preset",
+            preset,
+            "--output",
+            str(output),
+            "--required-date",
+            required_market_date,
+        ]
+        try:
+            run(command)
+        except subprocess.CalledProcessError:
+            cached = find_cached_market_csv(preset, required_market_date, exclude_dir=workdir)
+            if not cached:
+                raise
+            output.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(cached, output)
         outputs[preset] = output
     return outputs
 
@@ -203,6 +210,27 @@ def market_reference_date(target_date: str) -> str:
     while current.weekday() >= 5:
         current -= timedelta(days=1)
     return str(current)
+
+
+def find_cached_market_csv(preset: str, required_date: str, *, exclude_dir: Path) -> Path | None:
+    tmp_dir = ROOT / "tmp"
+    if not tmp_dir.exists():
+        return None
+    candidates = sorted(
+        tmp_dir.glob(f"wepoll_daily_append_*\\{preset}.csv"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    for candidate in candidates:
+        if candidate.parent == exclude_dir:
+            continue
+        try:
+            rows = load_rows(candidate)
+        except Exception:
+            continue
+        if any(row.get("날짜") == required_date for row in rows):
+            return candidate
+    return None
 
 
 def run_daily_batch(
@@ -332,19 +360,27 @@ def write_rows(path: Path, rows: list[dict[str, str]], fieldnames: list[str]) ->
         writer.writerows(rows)
 
 
+def classify_label(psychology_index: float, participation_index: float) -> str:
+    if participation_index >= 50:
+        return "탐욕" if psychology_index >= 50 else "공포"
+    return "신중" if psychology_index < 50 else "낙관"
+
+
 def update_prepared_timeseries(appended_timeseries: Path, undated_path: Path, dated_path: Path | None) -> None:
     rows = load_rows(appended_timeseries)[-42:]
     out = []
     for idx, row in enumerate(rows, start=1):
         dt = datetime.strptime(row["date"], "%Y-%m-%d")
+        psychology_index = float(row["psychology_index_0_100"])
+        participation_index = float(row["participation_index_0_100"])
         out.append(
             {
                 "plot_seq": str(idx),
                 "date": row["date"],
                 "display_date": f"{dt.month}/{dt.day}",
-                "state_label_ko": row["state_label_ko"],
-                "psychology_index_0_100": f"{float(row['psychology_index_0_100']):.2f}",
-                "participation_index_0_100": f"{float(row['participation_index_0_100']):.2f}",
+                "state_label_ko": classify_label(psychology_index, participation_index),
+                "psychology_index_0_100": f"{psychology_index:.2f}",
+                "participation_index_0_100": f"{participation_index:.2f}",
                 "post_count": str(int(float(row["post_count"]))),
             }
         )
@@ -389,15 +425,17 @@ def update_prepared_bubble(appended_quadrant: Path, target_date: str, undated_pa
     out = []
     for idx, day in enumerate(selected_dates, start=1):
         row = rows_by_date[day]
+        psychology_index = float(row["stance_index_0_100"])
+        participation_index = float(row["participation_index_0_100"])
         out.append(
             {
                 "day_seq": str(idx),
                 "day_label": f"{idx}일차",
                 "date": day,
                 "week_range": f"{start}~{end}",
-                "state_label_ko": row["state_label_ko"],
-                "심리(Bear-Bull) 지수": f"{float(row['stance_index_0_100']):.2f}",
-                "참여 지수": f"{float(row['participation_index_0_100']):.2f}",
+                "state_label_ko": classify_label(psychology_index, participation_index),
+                "심리(Bear-Bull) 지수": f"{psychology_index:.2f}",
+                "참여 지수": f"{participation_index:.2f}",
                 "post_count": str(int(float(row["post_count"]))),
             }
         )

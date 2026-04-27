@@ -9,23 +9,195 @@
   "source_name": "Wepoll",
   "byline": "",
   "metadata": {
-    "describe": {
-      "aria-description": "최근 6주 일별 심리 지수, 참여 지수, 게시물 수를 함께 보여주는 주간 운영용 차트",
-      "intro": "",
-      "number-format": "0",
-      "number-append": ""
+    "data": {
+      "changes": [],
+      "transpose": false,
+      "vertical-header": true,
+      "horizontal-header": true,
+      "column-format": {},
+      "upload-method": "copy"
     },
-    "annotate": {
-      "notes": "분석 기간: 2026.03.11 ~ 2026.04.23, 지수는 50(점선)을 기준으로 해석"
+    "describe": {
+      "source-name": "Wepoll",
+      "source-url": "",
+      "intro": "",
+      "byline": "",
+      "aria-description": "최근 6주 일별 심리 지수, 참여 지수, 게시물 수를 함께 보여주는 주간 운영용 차트",
+      "number-format": "0",
+      "number-divisor": 0,
+      "number-append": "",
+      "number-prepend": ""
     },
     "visualize": {
+      "dark-mode-invert": true,
+      "highlighted-series": [],
+      "highlighted-values": [],
+      "sharing": {
+        "enabled": false,
+        "url": "https://www.datawrapper.de/_/lt8ML",
+        "auto": false
+      },
+      "sort": {
+        "by": "end",
+        "enabled": false,
+        "reverse": false
+      },
+      "lines": {
+        "post_count": {},
+        "psychology_index_0_100": {},
+        "participation_index_0_100": {}
+      },
+      "rules": false,
+      "thick": false,
+      "panels": {
+        "plot_seq": {
+          "showOnMobile": false,
+          "showOnDesktop": false
+        },
+        "post_count": {
+          "title": "게시물 수"
+        },
+        "psychology_index_0_100": {
+          "title": "심리(Bear-Bull) 지수"
+        },
+        "participation_index_0_100": {
+          "title": "참여 지수"
+        }
+      },
+      "x-grid": "off",
+      "y-grid": "on",
+      "compare": {
+        "enabled": false,
+        "differenceLabel": true
+      },
+      "scale-y": "linear",
+      "sort-by": "first",
+      "symbols": {
+        "on": "both",
+        "size": 3.5,
+        "shape": "circle",
+        "style": "fill",
+        "enabled": false,
+        "opacity": 1,
+        "onRepeatedLines": true
+      },
+      "areaFill": {
+        "to": "--zero-baseline--",
+        "color": 0,
+        "enabled": false,
+        "opacity": 0.3,
+        "useLineColor": false,
+        "colorNegative": "#E31A1C",
+        "useMixedColors": false
+      },
+      "category": "direct",
+      "overlays": [],
+      "color-key": true,
+      "normalize": false,
+      "sort-bars": false,
+      "background": true,
+      "base-color": 0,
+      "force-grid": false,
+      "grid-lines": "show",
+      "gridLayout": "fixedCount",
+      "highlights": [],
+      "bar-padding": 60,
+      "label-space": 30,
+      "mirror-bars": false,
+      "sort-values": false,
+      "swap-labels": false,
+      "valueLabels": {
+        "show": "hover",
+        "enabled": false,
+        "placement": "outside",
+        "preventOverlap": true
+      },
+      "yAxisLabels": {
+        "enabled": true,
+        "alignment": "left",
+        "placement": "outside"
+      },
+      "block-labels": false,
+      "connect-bars": false,
       "custom-range": [
         "0",
         "100"
       ],
       "custom-ticks": "20, 40, 60, 80, 100",
-      "plotHeightFixed": 280,
+      "disable-tabs": true,
+      "grid-lines-x": {
+        "type": "ticks",
+        "enabled": false
+      },
+      "label-colors": false,
+      "label-margin": 0,
+      "range-extent": "nice",
+      "thick-arrows": false,
+      "totalsLabels": false,
+      "interpolation": "monotone-x",
+      "negativeColor": {
+        "value": "#F76454",
+        "enabled": false
+      },
+      "replace-flags": {
+        "style": "4x3",
+        "enabled": false
+      },
+      "reverse-order": false,
+      "rotate-labels": "auto",
+      "show-tooltips": true,
+      "tick-position": "top",
+      "x-grid-format": "auto",
+      "x-grid-labels": "on",
+      "y-grid-format": "auto",
+      "y-grid-labels": "inside",
+      "absolute-scale": false,
+      "categoryLabels": {
+        "enabled": true,
+        "position": "direct"
+      },
+      "chart-type-set": true,
+      "color-category": {
+        "map": {
+          "post_count": "#000000",
+          "psychology_index_0_100": "#c71e1d",
+          "participation_index_0_100": "#1d81a2"
+        },
+        "palette": [],
+        "categoryOrder": [],
+        "categoryLabels": {},
+        "excludeFromKey": []
+      },
+      "custom-range-x": [
+        "",
+        ""
+      ],
+      "custom-range-y": [
+        "",
+        ""
+      ],
+      "custom-ticks-x": "",
+      "custom-ticks-y": "",
       "plotHeightMode": "fixed",
+      "series-padding": 60,
+      "show-color-key": false,
+      "variate-colors": false,
+      "xGridAlignment": "baseline",
+      "color-by-column": false,
+      "connector-lines": true,
+      "gridColumnCount": 4,
+      "group-by-column": false,
+      "label-alignment": "left",
+      "plotHeightFixed": 280,
+      "plotHeightRatio": 0.5,
+      "colorPanelTitles": false,
+      "panelSortIndexes": {},
+      "text-annotations": [],
+      "y-grid-subdivide": true,
+      "custom-area-fills": [],
+      "custom-grid-lines": "",
+      "date-label-format": "YYYY",
+      "gridRowHeightMode": "fixed",
       "range-annotations": [
         {
           "id": "tQlNmmXQIP",
@@ -34,8 +206,8 @@
           "display": "line",
           "opacity": 100,
           "position": {
-            "x0": "2026-03-11 00:00",
-            "x1": "2026-04-23 00:00",
+            "x0": "2026-03-16 00:00",
+            "x1": "2026-04-26 00:00",
             "y0": "50",
             "y1": "50",
             "plot": "psychology_index_0_100",
@@ -52,8 +224,8 @@
           "display": "line",
           "opacity": 100,
           "position": {
-            "x0": "2026-03-11 00:00",
-            "x1": "2026-04-23 00:00",
+            "x0": "2026-03-16 00:00",
+            "x1": "2026-04-26 00:00",
             "y0": "50",
             "y1": "50",
             "plot": "participation_index_0_100",
@@ -81,7 +253,33 @@
           "strokeWidth": 1,
           "showInAllPlots": true
         }
-      ]
+      ],
+      "show-group-labels": true,
+      "show-value-labels": true,
+      "gridColumnMinWidth": 200,
+      "gridRowHeightFixed": 150,
+      "gridRowHeightRatio": 1,
+      "independent-scales": false,
+      "independentYScales": true,
+      "space-between-cols": 10,
+      "stack-color-legend": false,
+      "value-label-colors": true,
+      "value-label-format": "0,0.[00]",
+      "y-grid-label-align": "left",
+      "compact-group-labels": false,
+      "reverse-color-legend": false,
+      "show-category-labels": true,
+      "syncMultipleTooltips": true,
+      "xGridLabelAllColumns": true,
+      "yGridLabelAllColumns": false,
+      "gridColumnCountMobile": 2,
+      "value-label-alignment": "left",
+      "value-label-visibility": "always",
+      "independentYScalesRounded": true
+    },
+    "axes": {
+      "x": "date",
+      "column": "plot_seq"
     },
     "publish": {
       "embed-width": 600,
@@ -93,10 +291,14 @@
         "embed": false,
         "download-pdf": false,
         "download-svg": false,
-        "download-image": false,
-        "get-the-data": false
+        "get-the-data": false,
+        "download-image": false
       }
-    }
+    },
+    "annotate": {
+      "notes": "분석 기간: 2026.03.16 ~ 2026.04.26, 지수는 50(점선)을 기준으로 해석"
+    },
+    "custom": {}
   },
   "clone_from_chart_id": "jRh1f",
   "chart_id": "mE1Ix"

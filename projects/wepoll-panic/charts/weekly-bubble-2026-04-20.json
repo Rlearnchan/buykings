@@ -9,32 +9,326 @@
   "source_name": "Wepoll",
   "byline": "",
   "metadata": {
-    "describe": {
-      "aria-description": "해당 주 1일차부터 7일차까지의 심리 지수, 참여 지수, 게시물 수를 버블 차트로 보여주는 주간 운영용 차트",
-      "intro": "",
-      "number-format": "0",
-      "number-append": ""
+    "data": {
+      "changes": [],
+      "transpose": false,
+      "vertical-header": true,
+      "horizontal-header": true,
+      "upload-method": "copy"
     },
-    "annotate": {
-      "notes": "분석 기간: 2026.04.20 ~ 2026.04.23, 순서대로 월(1)~일(7)"
+    "describe": {
+      "source-name": "Wepoll",
+      "source-url": "",
+      "intro": "",
+      "byline": "",
+      "aria-description": "해당 주 1일차부터 7일차까지의 심리 지수, 참여 지수, 게시물 수를 버블 차트로 보여주는 주간 운영용 차트",
+      "number-format": "0",
+      "number-divisor": 0,
+      "number-append": "",
+      "number-prepend": ""
     },
     "visualize": {
-      "label-format": "0",
-      "size-legend-label-format": "0",
-      "plotHeightFixed": 250,
-      "plotHeightMode": "fixed",
+      "dark-mode-invert": true,
+      "highlighted-series": [],
+      "highlighted-values": [],
+      "sharing": {
+        "enabled": false,
+        "url": "https://www.datawrapper.de/_/txiva",
+        "auto": false
+      },
+      "size": "dynamic",
+      "shape": "fixed",
+      "x-pos": "bottom",
+      "y-pos": "left",
+      "symbol": {},
       "x-axis": {
+        "log": false,
         "range": [
           0,
+          100
+        ],
+        "ticks": [
+          0,
+          25,
+          50,
+          75,
           100
         ]
       },
       "y-axis": {
+        "log": false,
         "range": [
           0,
           100
+        ],
+        "ticks": [
+          0,
+          25,
+          50,
+          75,
+          100
         ]
-      }
+      },
+      "opacity": 1,
+      "tooltip": {
+        "body": "",
+        "title": "{{ day_seq }}",
+        "sticky": false,
+        "enabled": false
+      },
+      "max-size": 50,
+      "outlines": true,
+      "overlays": [],
+      "x-format": "auto",
+      "y-format": "auto",
+      "add-labels": [
+        "1",
+        "5",
+        "4",
+        "3"
+      ],
+      "base-color": 0,
+      "fixed-size": 5,
+      "regression": false,
+      "auto-labels": true,
+      "custom-line": {
+        "pt-to": [
+          "",
+          ""
+        ],
+        "pt-from": [
+          "",
+          ""
+        ],
+        "unlimited": false
+      },
+      "custom-lines": "",
+      "fixed-symbol": "symbolCircle",
+      "label-format": "0",
+      "x-grid-lines": "on",
+      "y-grid-lines": "on",
+      "color-outline": "#fff",
+      "negativeColor": {
+        "value": "#F76454",
+        "enabled": false
+      },
+      "chart-type-set": true,
+      "color-category": {
+        "map": {
+          "낙관": "#009076",
+          "신중": "#fa8c00",
+          "1일차": "#009076",
+          "2일차": "#009076",
+          "3일차": "#009076",
+          "4일차": "#fa8c00",
+          "5일차": "#fa8c00",
+          "6일차": "#fa8c00",
+          "7일차": "#fa8c00"
+        },
+        "palette": [],
+        "categoryOrder": [],
+        "categoryLabels": {},
+        "excludeFromKey": []
+      },
+      "plotHeightMode": "fixed",
+      "show-color-key": true,
+      "color-by-column": true,
+      "hover-highlight": true,
+      "legend-offset-x": 1,
+      "legend-offset-y": 0,
+      "plotHeightFixed": 250,
+      "plotHeightRatio": 0.5,
+      "show-size-legend": true,
+      "size-legend-type": "nested",
+      "text-annotations": [
+        {
+          "bg": false,
+          "dx": 0,
+          "dy": 0,
+          "id": "labd3Vm4dz",
+          "bold": true,
+          "size": 14,
+          "text": "낙관",
+          "align": "tl",
+          "color": "#009076",
+          "width": 8.836206896551724,
+          "italic": false,
+          "position": {
+            "x": "72.5",
+            "y": "27.5",
+            "yAxis": "y"
+          },
+          "underline": false,
+          "showMobile": true,
+          "showDesktop": true,
+          "connectorLine": {
+            "type": "straight",
+            "circle": false,
+            "stroke": 1,
+            "enabled": false,
+            "arrowHead": "lines",
+            "circleStyle": "solid",
+            "circleRadius": 15,
+            "inheritColor": false,
+            "targetPadding": 4
+          },
+          "mobileFallback": true
+        },
+        {
+          "bg": false,
+          "dx": 0,
+          "dy": 0,
+          "id": "hyD2pljXeP",
+          "bold": true,
+          "size": 14,
+          "text": "신중",
+          "align": "tl",
+          "color": "#fa8c00",
+          "width": 8.836206896551724,
+          "italic": false,
+          "position": {
+            "x": "22.5",
+            "y": "27.5",
+            "yAxis": "y"
+          },
+          "underline": false,
+          "showMobile": true,
+          "showDesktop": true,
+          "connectorLine": {
+            "type": "straight",
+            "circle": false,
+            "stroke": 1,
+            "enabled": false,
+            "arrowHead": "lines",
+            "circleStyle": "solid",
+            "circleRadius": 15,
+            "inheritColor": false,
+            "targetPadding": 4
+          },
+          "mobileFallback": true
+        },
+        {
+          "bg": false,
+          "dx": 0,
+          "dy": 0,
+          "id": "rqKS1u6Giw",
+          "bold": true,
+          "size": 14,
+          "text": "탐욕",
+          "align": "tr",
+          "color": "#15607a",
+          "width": 8.836206896551724,
+          "italic": false,
+          "position": {
+            "x": "77.5",
+            "y": "77.5",
+            "yAxis": "y"
+          },
+          "underline": false,
+          "showMobile": true,
+          "showDesktop": true,
+          "connectorLine": {
+            "type": "straight",
+            "circle": false,
+            "stroke": 1,
+            "enabled": false,
+            "arrowHead": "lines",
+            "circleStyle": "solid",
+            "circleRadius": 15,
+            "inheritColor": false,
+            "targetPadding": 4
+          },
+          "mobileFallback": true
+        },
+        {
+          "bg": false,
+          "dx": 0,
+          "dy": 0,
+          "id": "bGIQkz2JIo",
+          "bold": true,
+          "size": 14,
+          "text": "공포",
+          "align": "tl",
+          "color": "#c71e1d",
+          "width": 8.836206896551724,
+          "italic": false,
+          "position": {
+            "x": "22.5",
+            "y": "77.5",
+            "yAxis": "y"
+          },
+          "underline": false,
+          "showMobile": true,
+          "showDesktop": true,
+          "connectorLine": {
+            "type": "straight",
+            "circle": false,
+            "stroke": 1,
+            "enabled": false,
+            "arrowHead": "lines",
+            "circleStyle": "solid",
+            "circleRadius": 15,
+            "inheritColor": false,
+            "targetPadding": 4
+          },
+          "mobileFallback": true
+        }
+      ],
+      "custom-area-fills": [],
+      "highlight-labeled": false,
+      "range-annotations": [
+        {
+          "id": "i3HjBTYgzZ",
+          "type": "x",
+          "color": "#2e2e2e",
+          "display": "line",
+          "opacity": 100,
+          "position": {
+            "x0": "50",
+            "x1": "37.9310",
+            "y0": "70.4000",
+            "y1": "38.4000",
+            "yAxis": "y"
+          },
+          "strokeType": "dashed",
+          "strokeWidth": 1
+        },
+        {
+          "id": "yufGz58T8W",
+          "type": "y",
+          "color": "#2e2e2e",
+          "display": "line",
+          "opacity": 100,
+          "position": {
+            "x0": "50",
+            "x1": "37.9310",
+            "y0": "50",
+            "y1": "38.4000",
+            "yAxis": "y"
+          },
+          "strokeType": "dashed",
+          "strokeWidth": 1
+        }
+      ],
+      "regression-method": "custom",
+      "size-legend-title": "게시물 수",
+      "shape-size-version": 1,
+      "stack-color-legend": false,
+      "size-legend-position": "inside-right-top",
+      "responsive-symbol-size": false,
+      "size-legend-title-width": 100,
+      "size-legend-label-format": "0",
+      "size-legend-title-enabled": true,
+      "size-legend-label-position": "right",
+      "size-legend-title-position": "above",
+      "size-legend-values-setting": "auto"
+    },
+    "axes": {
+      "x": "심리(Bear-Bull) 지수",
+      "y": "참여 지수",
+      "size": "post_count",
+      "color": "state_label_ko",
+      "labels": "day_seq"
     },
     "publish": {
       "embed-width": 500,
@@ -46,10 +340,14 @@
         "embed": false,
         "download-pdf": false,
         "download-svg": false,
-        "download-image": false,
-        "get-the-data": false
+        "get-the-data": false,
+        "download-image": false
       }
-    }
+    },
+    "annotate": {
+      "notes": "분석 기간: 2026.04.20 ~ 2026.04.26, 순서대로 월(1)~일(7)"
+    },
+    "custom": {}
   },
   "clone_from_chart_id": "Dd29j",
   "chart_id": "IkW9X"

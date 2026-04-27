@@ -135,7 +135,7 @@ def remap_threshold_to_50(value: float, midpoint: float) -> float:
 def classify_label(stance_idx: float, participation_idx: float) -> str:
     if participation_idx >= 50:
         return "탐욕" if stance_idx >= 50 else "공포"
-    if stance_idx < 45:
+    if stance_idx < 50:
         return "신중"
     return "낙관"
 
@@ -200,7 +200,12 @@ def main() -> None:
     timeseries_old_rows = dedupe_rows_by_date(load_rows(args.timeseries_old))
     last_published_date = timeseries_old_rows[-1]["date"]
     old_rows = [r for r in old_rows if r["date"] <= last_published_date]
-    new_feature_rows = [r for r in load_rows(args.new_features) if last_published_date < r["date"] <= args.end_date]
+    existing_dates = {r["date"] for r in old_rows}
+    new_feature_rows = [
+        r
+        for r in load_rows(args.new_features)
+        if r["date"] <= args.end_date and r["date"] not in existing_dates
+    ]
 
     params = build_params(old_rows, args.baseline_start, args.baseline_end)
     bulls = [parse_float(r["stance_calibrated_raw"]) for r in old_rows if r.get("anchor_label") == "bull"]
