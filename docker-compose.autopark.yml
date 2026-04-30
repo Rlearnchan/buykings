@@ -1,0 +1,59 @@
+services:
+  autopark-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.autopark
+    image: buykings-autopark:local
+    container_name: buykings-autopark-runner
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: Asia/Seoul
+      AUTOPARK_CDP_ENDPOINT: ${AUTOPARK_DOCKER_CDP_ENDPOINT:-http://host.docker.internal:9222}
+      AUTOPARK_STATE_ROOT: /state
+      AUTOPARK_SKIP_CHROME_LAUNCH: "1"
+      AUTOPARK_SKIP_PUBLISH: "1"
+      AUTOPARK_SKIP_DATAWRAPPER_EXPORT: "1"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./projects/autopark/data:/app/projects/autopark/data
+      - ./projects/autopark/runtime:/app/projects/autopark/runtime
+      - ./projects/autopark/prepared:/app/projects/autopark/prepared
+      - ./projects/autopark/exports:/app/projects/autopark/exports
+      - ./.server-state/autopark:/state
+    command:
+      - bash
+      - ops/docker/autopark_run.sh
+
+  autopark-test-loop:
+    build:
+      context: .
+      dockerfile: Dockerfile.autopark
+    image: buykings-autopark:local
+    container_name: buykings-autopark-test-loop
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: Asia/Seoul
+      AUTOPARK_CDP_ENDPOINT: ${AUTOPARK_DOCKER_CDP_ENDPOINT:-http://host.docker.internal:9222}
+      AUTOPARK_STATE_ROOT: /state
+      AUTOPARK_SKIP_CHROME_LAUNCH: "1"
+      AUTOPARK_SKIP_PUBLISH: "1"
+      AUTOPARK_SKIP_DATAWRAPPER_EXPORT: "1"
+      AUTOPARK_INTERVAL_MINUTES: ${AUTOPARK_INTERVAL_MINUTES:-30}
+      AUTOPARK_LOOP_DURATION_HOURS: ${AUTOPARK_LOOP_DURATION_HOURS:-12}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./projects/autopark/data:/app/projects/autopark/data
+      - ./projects/autopark/runtime:/app/projects/autopark/runtime
+      - ./projects/autopark/prepared:/app/projects/autopark/prepared
+      - ./projects/autopark/exports:/app/projects/autopark/exports
+      - ./.server-state/autopark:/state
+    command:
+      - bash
+      - ops/docker/autopark_loop.sh

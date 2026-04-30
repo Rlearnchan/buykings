@@ -1,0 +1,30 @@
+FROM mcr.microsoft.com/playwright:v1.59.1-noble
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONUTF8=1
+ENV PIP_NO_CACHE_DIR=1
+ENV TZ=Asia/Seoul
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-pip python3-venv tzdata ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json requirements-server.txt /app/
+RUN npm ci \
+    && python3 -m pip install --break-system-packages -r requirements-server.txt
+
+COPY . /app
+
+ENV AUTOPARK_PYTHON=python3
+ENV AUTOPARK_NODE_PATH=node
+ENV AUTOPARK_CDP_ENDPOINT=http://host.docker.internal:9222
+ENV AUTOPARK_STATE_ROOT=/state
+
+CMD ["bash", "ops/docker/autopark_run.sh"]

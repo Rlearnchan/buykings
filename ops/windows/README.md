@@ -83,3 +83,25 @@ Task Scheduler 등록 권한이 없는 세션에서는 현재 PowerShell 창에�
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\ops\windows\start_autopark_test_loop.ps1 -IntervalMinutes 30 -DurationHours 12
 ```
+
+## Autopark Docker Loop
+
+컨테이너로도 같은 테스트 루프를 돌릴 수 있다. 호스트 Chrome CDP는 먼저 열어둔다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\start_autopark_chrome.ps1
+docker compose -f docker-compose.autopark.yml up -d --build autopark-test-loop
+```
+
+기본값은 발행 없이 30분 간격, 12시간 테스트다. 한 번만 실행하려면:
+
+```powershell
+docker compose -f docker-compose.autopark.yml run --rm autopark-runner
+```
+
+로그와 중지:
+
+```powershell
+docker logs --tail 120 buykings-autopark-test-loop
+docker compose -f docker-compose.autopark.yml stop autopark-test-loop
+```
