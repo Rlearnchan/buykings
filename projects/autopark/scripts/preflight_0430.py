@@ -92,14 +92,18 @@ def rel(path: Path | str | None) -> str:
 
 def run_command(command: list[str], timeout: int = 90) -> tuple[int, str, str, float]:
     started = time.monotonic()
+    run_env = {**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"}
     try:
         completed = subprocess.run(
             command,
             cwd=REPO_ROOT,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             timeout=timeout,
             check=False,
+            env=run_env,
         )
         elapsed = time.monotonic() - started
         return completed.returncode, completed.stdout, completed.stderr, elapsed

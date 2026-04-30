@@ -26,6 +26,11 @@ KST = ZoneInfo("Asia/Seoul")
 IS_WINDOWS = platform.system() == "Windows"
 IS_MAC = platform.system() == "Darwin"
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 MARKET_CHARTS = ["us10y", "crude-oil-wti", "crude-oil-brent", "dollar-index", "usd-krw", "bitcoin"]
 FINVIZ_SOURCES = ["finviz-index-futures", "finviz-sp500-heatmap", "finviz-russell-heatmap"]
 FED_PROBABILITY_SOURCES = ["cme-fedwatch", "polymarket-fed-rates"]
@@ -216,8 +221,10 @@ def compact_command(command: list[str]) -> str:
     return " ".join(command)
 
 
-def parse_json(stdout: str, stderr: str = "") -> dict:
+def parse_json(stdout: str | None, stderr: str | None = "") -> dict:
     for blob in (stdout, stderr):
+        if blob is None:
+            continue
         blob = blob.strip()
         if not blob:
             continue
@@ -237,15 +244,20 @@ def parse_json(stdout: str, stderr: str = "") -> dict:
 def run(command: list[str], name: str, timeout: int, allow_fail: bool = False, env: dict[str, str] | None = None) -> tuple[StepResult, dict]:
     started = now_kst()
     monotonic = time.monotonic()
+    run_env = {**os.environ, **(env or {})}
+    run_env.setdefault("PYTHONUTF8", "1")
+    run_env.setdefault("PYTHONIOENCODING", "utf-8")
     try:
         completed = subprocess.run(
             command,
             cwd=REPO_ROOT,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             timeout=timeout,
             check=False,
-            env=env,
+            env=run_env,
         )
         elapsed = time.monotonic() - monotonic
         ended = now_kst()
@@ -750,6 +762,7 @@ def main() -> int:
                 args.date,
                 "--source",
                 source,
+                "--headed",
                 *chrome_browser_args(),
                 "--timeout-ms",
                 "45000",
