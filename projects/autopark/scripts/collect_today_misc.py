@@ -119,6 +119,32 @@ YAHOO_NEWS_PATH_PARTS = (
     "/news/",
     "/sectors/",
 )
+BIZTOC_LOW_SIGNAL_PATH_PARTS = (
+    "/entertainment/",
+    "/food/",
+    "/health/",
+    "/lifestyle/",
+    "/science/",
+    "/travel/",
+)
+BIZTOC_DOPAMINE_KEYWORDS = {
+    "bezos",
+    "billionaire",
+    "charles",
+    "court",
+    "feud",
+    "king",
+    "lawsuit",
+    "legal",
+    "meta",
+    "musk",
+    "royal",
+    "scandal",
+    "spacex",
+    "tesla",
+    "trump",
+    "zuckerberg",
+}
 
 
 @dataclass
@@ -540,7 +566,10 @@ def score_item(title: str, source: dict) -> tuple[int, list[str]]:
     hooks = hooks_for_title(title)
     score = len(hooks) * 2
     lowered = title.lower()
-    if any(term in lowered for term in ["stock", "market", "fed", "earnings", "tariff", "ai"]):
+    if any(
+        re.search(rf"(?<![a-z0-9]){re.escape(term)}(?![a-z0-9])", lowered)
+        for term in ["stock", "market", "fed", "earnings", "tariff", "ai"]
+    ):
         score += 3
     if source.get("trust_level") == "high":
         score += 2
@@ -582,6 +611,17 @@ def is_recent_enough(item_date: date | None, target_date: date, lookback_hours: 
     return item_date >= earliest
 
 
+def should_keep_biztoc_item(item: dict) -> bool:
+    url_path = urllib.parse.urlparse(item.get("url", "")).path.lower()
+    if not any(part in url_path for part in BIZTOC_LOW_SIGNAL_PATH_PARTS):
+        return True
+    text = f"{item.get('title', '')} {item.get('summary', '')}".lower()
+    return any(
+        re.search(rf"(?<![a-z0-9]){re.escape(keyword)}(?![a-z0-9])", text)
+        for keyword in BIZTOC_DOPAMINE_KEYWORDS
+    )
+
+
 def build_candidates(
     source: dict,
     items: list[dict],
@@ -599,6 +639,8 @@ def build_candidates(
         if require_recent_signal and item_date is None:
             continue
         summary = clean_text(item.get("summary") or item["title"])
+        if source["id"] == "biztoc-com-source" and not should_keep_biztoc_item({**item, "summary": summary}):
+            continue
         scoring_text = f"{item['title']} {summary}"
         score, hooks = score_item(scoring_text, source)
         if score < 2:

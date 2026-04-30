@@ -313,13 +313,16 @@ def summarize_payload(payload: dict, stderr: str = "") -> str:
     if payload.get("url"):
         return f"url={payload.get('url')}"
     if payload.get("source_results"):
+        source_results = payload["source_results"]
+        ok_sources = sum(1 for row in source_results if row.get("status") == "ok")
+        if payload.get("candidates") is not None:
+            return f"candidates={len(payload.get('candidates', []))}; ok_sources={ok_sources}/{len(source_results)}"
         posts = len(payload.get("posts", []))
-        ok_sources = sum(1 for row in payload["source_results"] if row.get("post_count", 0) > 0)
-        return f"posts={posts}; ok_sources={ok_sources}/{len(payload['source_results'])}"
+        return f"posts={posts}; ok_sources={ok_sources}/{len(source_results)}"
     if payload.get("candidate_count") is not None:
         return f"candidates={payload.get('candidate_count')}"
     if payload.get("cards") is not None:
-        return f"cards={payload.get('cards')}"
+        return f"cards={len(payload.get('cards', []))}"
     if payload.get("rows") is not None:
         return f"rows={payload.get('rows')}"
     if payload.get("count") is not None:
