@@ -1,5 +1,8 @@
 .env
 .env.*
+.venv/
+.venv-stale-*/
+node_modules/
 __pycache__/
 *.pyc
 *.zip
@@ -18,6 +21,10 @@ scripts/notion_create_report_draft.py
 scripts/render_member_word2vec_periods.py
 scripts/render_member_word2vec_periods_svg.py
 tmp/
+runtime/
 .server-state/
+scripts/node_modules/
+vendor/
+autopark/prepared/
 exports/**/*.png
 db/*.sqlite3
