@@ -10,6 +10,7 @@ struct Config {
     var output: String = ""
     var logo: String = ""
     var logoHeightRatio: Double = 0.10
+    var logoMaxHeightPx: Int? = nil
     var marginTopRatio: Double = 0.03
     var marginTopPx: Int? = nil
     var marginRightRatio: Double = 0.025
@@ -45,6 +46,11 @@ func parseArgs() -> Config {
                 fail("Invalid --logo-height-ratio: \(value)")
             }
             config.logoHeightRatio = parsed
+        case "--logo-max-height-px":
+            guard let parsed = Int(value) else {
+                fail("Invalid --logo-max-height-px: \(value)")
+            }
+            config.logoMaxHeightPx = parsed > 0 ? parsed : nil
         case "--margin-top-ratio":
             guard let parsed = Double(value), parsed >= 0 else {
                 fail("Invalid --margin-top-ratio: \(value)")
@@ -139,7 +145,8 @@ context.interpolationQuality = .high
 context.draw(baseImage, in: CGRect(x: 0, y: 0, width: baseWidth, height: baseHeight))
 
 let logoAspect = Double(logoImage.width) / Double(logoImage.height)
-let logoHeight = max(1, Int(round(Double(baseHeight) * config.logoHeightRatio)))
+let ratioLogoHeight = max(1, Int(round(Double(baseHeight) * config.logoHeightRatio)))
+let logoHeight = config.logoMaxHeightPx.map { min(ratioLogoHeight, $0) } ?? ratioLogoHeight
 let logoWidth = max(1, Int(round(Double(logoHeight) * logoAspect)))
 let marginTop = config.marginTopPx ?? Int(round(Double(baseHeight) * config.marginTopRatio))
 let marginRight = config.marginRightPx ?? Int(round(Double(baseWidth) * config.marginRightRatio))

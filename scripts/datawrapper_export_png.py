@@ -8,6 +8,7 @@ import json
 import os
 import pathlib
 import subprocess
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -18,7 +19,20 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 DEFAULT_LOGO = ROOT / "logo" / "buykings research cropped.jpg"
 
 
+def load_local_env() -> None:
+    env_path = ROOT / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
+
+
 def read_env(name: str) -> str:
+    load_local_env()
     value = os.environ.get(name)
     if not value:
         raise SystemExit(f"Missing required environment variable: {name}")
@@ -61,6 +75,7 @@ def main() -> None:
     parser.add_argument("--brand-logo", action="store_true", help="Overlay the BuyKings Research logo after export")
     parser.add_argument("--logo-path", default=str(DEFAULT_LOGO), help="Logo asset path used with --brand-logo")
     parser.add_argument("--logo-height-ratio", type=float, default=0.10)
+    parser.add_argument("--logo-max-height-px", type=int, default=96)
     parser.add_argument("--logo-margin-top-ratio", type=float, default=0.03)
     parser.add_argument("--logo-margin-right-ratio", type=float, default=0.025)
     parser.add_argument("--logo-opacity", type=float, default=1.0)
@@ -77,13 +92,15 @@ def main() -> None:
     if args.brand_logo:
         subprocess.run(
             [
-                "python3",
+                sys.executable,
                 str(ROOT / "scripts" / "datawrapper_brand_logo.py"),
                 str(output_path),
                 "--logo",
                 str(pathlib.Path(args.logo_path).resolve()),
                 "--logo-height-ratio",
                 str(args.logo_height_ratio),
+                "--logo-max-height-px",
+                str(args.logo_max_height_px),
                 "--margin-top-ratio",
                 str(args.logo_margin_top_ratio),
                 "--margin-right-ratio",
@@ -104,6 +121,7 @@ def main() -> None:
                 "scale": args.scale,
                 "bytes": output_path.stat().st_size,
                 "brand_logo": args.brand_logo,
+                "logo_max_height_px": args.logo_max_height_px if args.brand_logo else None,
             },
             ensure_ascii=False,
             indent=2,

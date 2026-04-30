@@ -1,0 +1,32 @@
+{
+  "project": "autopark",
+  "slug": "crude-oil-wti",
+  "title": "WTI: $108.49(+$8.56)",
+  "subtitle": "26.04.30 06:40 기준",
+  "chart_type": "d3-lines",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "../prepared/crude-oil-wti-2026-04-30.csv",
+  "source_name": "Yahoo Finance",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "intro": "26.04.30 06:40 기준",
+      "aria-description": "Autopark chart placeholder for WTI"
+    },
+    "publish": {
+      "embed-width": 600
+    },
+    "visualize": {
+      "labeling": "off",
+      "custom-range-y": [
+        "46.04",
+        "122.18"
+      ]
+    },
+    "annotate": {
+      "notes": ""
+    }
+  },
+  "chart_id": "TYqZk",
+  "source_url": "https://finance.yahoo.com/quote/CL%3DF"
+}

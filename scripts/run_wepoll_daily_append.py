@@ -7,7 +7,6 @@ import argparse
 import csv
 import json
 import os
-import shutil
 import subprocess
 import sys
 from collections import Counter
@@ -18,11 +17,13 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PANIC_ROOT = ROOT.parent / "wepoll-panic"
+DEFAULT_PANIC_ROOT = Path(
+    os.environ.get("WEPOLL_PANIC_ROOT", str((ROOT.parent / "wepoll-panic").resolve()))
+).resolve()
 DEFAULT_STATE_DIR = ROOT / "projects" / "wepoll-panic" / "state"
 DEFAULT_TIMESERIES_SPEC = ROOT / "projects" / "wepoll-panic" / "charts" / "weekly-timeseries-2026-04-15-datawrapper.json"
 DEFAULT_BUBBLE_SPEC = ROOT / "projects" / "wepoll-panic" / "charts" / "weekly-bubble-2026-04-15-datawrapper.json"
-DEFAULT_BASELINE_MARKET = PANIC_ROOT / "output" / "yearly_hybrid_batch_v4" / "market_daily_normalized.csv"
+DEFAULT_BASELINE_MARKET = DEFAULT_PANIC_ROOT / "output" / "yearly_hybrid_batch_v4" / "market_daily_normalized.csv"
 
 
 def read_json(path: Path) -> dict:
@@ -110,21 +111,47 @@ def market_reference_date(target_date: str) -> str:
     return str(current)
 
 
-def run_daily_batch(target_date_csv: Path, market_paths: dict[str, Path], pipeline_dir: Path, model: str) -> Path:
-    env = os.environ.copy()
-    env.update(
-        {
-            "WORKDIR": str(pipeline_dir),
-            "WEPOLL_EXPORT": str(target_date_csv),
-            "KOSPI_CSV": str(market_paths["kospi"]),
-            "KOSDAQ_CSV": str(market_paths["kosdaq"]),
-            "VKOSPI_CSV": str(market_paths["vkospi"]),
-            "MODEL": model,
-        }
-    )
+def run_daily_batch(
+    target_date_csv: Path,
+    market_paths: dict[str, Path],
+    pipeline_dir: Path,
+    model: str,
+    *,
+    panic_root: Path,
+    python_executable: str,
+    second_pass_backend: str,
+    ollama_host: str,
+    openai_api_key: str | None,
+) -> Path:
     features_path = pipeline_dir / "calibration_daily_features.csv"
     try:
-        run(["zsh", str(PANIC_ROOT / "scripts" / "run_daily_server_batch.sh")], env=env)
+        command = [
+            python_executable,
+            str(ROOT / "scripts" / "run_wepoll_panic_daily_batch.py"),
+            "--panic-root",
+            str(panic_root),
+            "--python-executable",
+            python_executable,
+            "--workdir",
+            str(pipeline_dir),
+            "--wepoll-export",
+            str(target_date_csv),
+            "--kospi-csv",
+            str(market_paths["kospi"]),
+            "--kosdaq-csv",
+            str(market_paths["kosdaq"]),
+            "--vkospi-csv",
+            str(market_paths["vkospi"]),
+            "--model",
+            model,
+            "--second-pass-backend",
+            second_pass_backend,
+            "--ollama-host",
+            ollama_host,
+        ]
+        if openai_api_key:
+            command.extend(["--openai-api-key", openai_api_key])
+        run(command)
     except subprocess.CalledProcessError as exc:
         # Daily additive only needs the merged daily features. The downstream
         # anchor-calibration step in the legacy batch script expects a wider
@@ -284,10 +311,28 @@ def update_prepared_bubble(appended_quadrant: Path, target_date: str, undated_pa
         write_rows(dated_path, out, fieldnames)
 
 
-def publish(spec_path: Path) -> None:
+def load_env_file(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.exists():
+        return values
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            values[key] = value
+    return values
+
+
+def publish(spec_path: Path, *, env_file: Path, python_executable: str) -> None:
     env = os.environ.copy()
+    for key, value in load_env_file(env_file).items():
+        env.setdefault(key, value)
     env["PYTHONUNBUFFERED"] = "1"
-    run(["zsh", "-lc", f"set -a; source .env; python3 scripts/datawrapper_publish.py {spec_path}"], env=env)
+    run([python_executable, str(ROOT / "scripts" / "datawrapper_publish.py"), str(spec_path)], env=env)
 
 
 def main() -> None:
@@ -300,6 +345,12 @@ def main() -> None:
     parser.add_argument("--state-dir", type=Path, default=DEFAULT_STATE_DIR)
     parser.add_argument("--timeseries-spec", type=Path, default=DEFAULT_TIMESERIES_SPEC)
     parser.add_argument("--bubble-spec", type=Path, default=DEFAULT_BUBBLE_SPEC)
+    parser.add_argument("--panic-root", type=Path, default=DEFAULT_PANIC_ROOT)
+    parser.add_argument("--python-executable", default=sys.executable)
+    parser.add_argument("--second-pass-backend", default=os.environ.get("WEPOLL_SECOND_PASS_BACKEND", "ollama"))
+    parser.add_argument("--ollama-host", default=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
+    parser.add_argument("--openai-api-key", default=os.environ.get("OPENAI_API_KEY"))
+    parser.add_argument("--env-file", type=Path, default=ROOT / ".env")
     parser.add_argument("--skip-publish", action="store_true")
     args = parser.parse_args()
 
@@ -312,7 +363,17 @@ def main() -> None:
     filtered_csv = workdir / f"wepoll_stock_posts_{target_date}.csv"
     row_count = filter_csv_for_date(args.input, filtered_csv, target_date)
     market_paths = fetch_market(target_date, workdir)
-    features_path = run_daily_batch(filtered_csv, market_paths, workdir / "pipeline", args.model)
+    features_path = run_daily_batch(
+        filtered_csv,
+        market_paths,
+        workdir / "pipeline",
+        args.model,
+        panic_root=args.panic_root.resolve(),
+        python_executable=args.python_executable,
+        second_pass_backend=args.second_pass_backend,
+        ollama_host=args.ollama_host,
+        openai_api_key=args.openai_api_key,
+    )
     outputs = append_state(args.state_dir, features_path, market_paths, target_date)
 
     timeseries_dated = resolve_prepared_csv(args.timeseries_spec)
@@ -328,8 +389,8 @@ def main() -> None:
     update_prepared_bubble(outputs["quadrant"], target_date, bubble_undated, bubble_dated)
 
     if not args.skip_publish:
-        publish(args.timeseries_spec)
-        publish(args.bubble_spec)
+        publish(args.timeseries_spec, env_file=args.env_file.resolve(), python_executable=args.python_executable)
+        publish(args.bubble_spec, env_file=args.env_file.resolve(), python_executable=args.python_executable)
 
     print(
         json.dumps(
@@ -340,6 +401,7 @@ def main() -> None:
                 "state_dir": str(args.state_dir),
                 "timeseries_spec": str(args.timeseries_spec),
                 "bubble_spec": str(args.bubble_spec),
+                "panic_root": str(args.panic_root),
                 "published": not args.skip_publish,
             },
             ensure_ascii=False,

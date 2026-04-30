@@ -105,6 +105,15 @@
 DB 적재는 아래 스크립트를 쓴다.
 
 - `scripts/wepoll_sync_sqlite.py`
+  - raw CSV / state를 SQLite에 적재
+- `scripts/wepoll_download_playwright.py`
+  - 위폴 특수 계정 데이터 다운로드 페이지를 Playwright로 자동화하는 초안
+- `scripts/wepoll_fetcher_daemon.mjs`
+  - 로그인된 Playwright 브라우저를 장기 실행하며 `/health`, `/download`를 제공하는 fetcher
+- `scripts/run_wepoll_daily_from_fetcher.py`
+  - fetcher에서 raw CSV를 받아 daily append와 SQLite sync를 연달아 실행
+- `scripts/run_buykings_morning.py`
+  - top-level morning manifest를 읽고 enabled jobs를 순서대로 실행
 
 ## PNG Policy
 
@@ -131,6 +140,21 @@ weekly PNG는 항상 같은 기준으로 관리한다.
   - raw CSV / state를 SQLite에 적재하는 방식
 - [docs/datawrapper-notes.md](docs/datawrapper-notes.md)
   - Datawrapper 운영 메모
+- [docs/wepoll-automation-plan.md](docs/wepoll-automation-plan.md)
+  - Windows 서버 + Docker + 위폴 수급/Notion 자동화 계획
+- [docs/wepoll-long-lived-fetcher.md](docs/wepoll-long-lived-fetcher.md)
+  - 네이버 소셜 로그인 대응용 장기 실행 fetcher 운영안
+- [docs/wepoll-windows-server-runbook.md](docs/wepoll-windows-server-runbook.md)
+  - Windows 서버에서 fetcher와 daily batch를 운영하는 절차
+- [docs/wepoll-panic-migration.md](docs/wepoll-panic-migration.md)
+  - `wepoll-panic`을 Windows 서버로 먼저 옮기는 1차 마이그레이션 기준
+- [docs/buykings-morning-architecture.md](docs/buykings-morning-architecture.md)
+  - `buykings-morning` 상위 오케스트레이터 구조
+
+Windows 서버 넘김용 starter 세트:
+
+- [ops/windows/README.md](ops/windows/README.md)
+  - Windows 서버 Codex handoff와 PowerShell starter scripts
 
 ## Typical Commands
 

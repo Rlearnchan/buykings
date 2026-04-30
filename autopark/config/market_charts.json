@@ -1,0 +1,267 @@
+{
+  "name": "autopark-market-charts",
+  "description": "Data/API-driven charts for morning broadcast prep. Screenshots remain internal evidence only.",
+  "default_theme": "datawrapper-high-contrast",
+  "output_policy": {
+    "prepared_csv_dir": "prepared",
+    "chart_spec_dir": "charts",
+    "png_export_dir": "exports/current",
+    "screenshot_policy": "internal_only"
+  },
+  "groups": [
+    {
+      "id": "market_now",
+      "title": "1. 시장은 지금",
+      "purpose": "Fixed market dashboard charts that should be rendered from data rather than site screenshots.",
+      "charts": [
+        {
+          "id": "us-index-futures",
+          "title": "미국 주요 지수 흐름",
+          "chart_type": "multiple-lines",
+          "preferred_data_source": "yahoo_finance",
+          "candidate_sources": [
+            "yahoo_finance",
+            "stooq",
+            "marketwatch"
+          ],
+          "symbols": [
+            {"label": "Dow", "symbol": "YM=F"},
+            {"label": "Nasdaq 100", "symbol": "NQ=F"},
+            {"label": "S&P 500", "symbol": "ES=F"}
+          ],
+          "target_window": "intraday_or_1d",
+          "status": "planned"
+        },
+        {
+          "id": "us10y",
+          "title": "미국 10년물 국채금리",
+          "chart_type": "d3-lines",
+          "preferred_data_source": "yahoo_finance",
+          "fallback_sources": [
+            "fred"
+          ],
+          "candidate_sources": [
+            "fred",
+            "yahoo_finance",
+            "cnbc_structured_extract"
+          ],
+          "symbols": [
+            {"label": "US10Y", "symbol": "DGS10", "fred_series_id": "DGS10", "yahoo_symbol": "^TNX", "unit": "%"}
+          ],
+          "target_window": "1y",
+          "show_subtitle": false,
+          "subtitle_latest_value": true,
+          "subtitle_include_series_label": false,
+          "show_series_labels": false,
+          "status": "planned"
+        },
+        {
+          "id": "crude-oil",
+          "title": "WTI / 브렌트",
+          "chart_type": "d3-lines",
+          "preferred_data_source": "fred",
+          "fallback_sources": [
+            "yahoo_finance"
+          ],
+          "candidate_sources": [
+            "fred",
+            "yahoo_finance",
+            "stooq",
+            "nasdaq_data_link"
+          ],
+          "symbols": [
+            {"label": "WTI", "symbol": "CL=F", "fred_series_id": "DCOILWTICO", "unit": "$"},
+            {"label": "Brent", "symbol": "BZ=F", "fred_series_id": "DCOILBRENTEU", "unit": "$"}
+          ],
+          "target_window": "3m_or_1y",
+          "subtitle_latest_value": true,
+          "labeling": "legend",
+          "status": "combined_reference"
+        },
+        {
+          "id": "crude-oil-wti",
+          "title": "WTI",
+          "chart_type": "d3-lines",
+          "preferred_data_source": "yahoo_finance",
+          "fallback_sources": [
+            "fred"
+          ],
+          "candidate_sources": [
+            "fred",
+            "yahoo_finance",
+            "stooq",
+            "nasdaq_data_link"
+          ],
+          "symbols": [
+            {"label": "WTI", "symbol": "CL=F", "fred_series_id": "DCOILWTICO", "unit": "$"}
+          ],
+          "target_window": "3m_or_1y",
+          "show_subtitle": false,
+          "subtitle_latest_value": true,
+          "subtitle_include_series_label": false,
+          "show_series_labels": false,
+          "status": "planned"
+        },
+        {
+          "id": "crude-oil-brent",
+          "title": "브렌트",
+          "chart_type": "d3-lines",
+          "preferred_data_source": "yahoo_finance",
+          "fallback_sources": [
+            "fred"
+          ],
+          "candidate_sources": [
+            "fred",
+            "yahoo_finance",
+            "stooq",
+            "nasdaq_data_link"
+          ],
+          "symbols": [
+            {"label": "Brent", "symbol": "BZ=F", "fred_series_id": "DCOILBRENTEU", "unit": "$"}
+          ],
+          "target_window": "3m_or_1y",
+          "show_subtitle": false,
+          "subtitle_latest_value": true,
+          "subtitle_include_series_label": false,
+          "show_series_labels": false,
+          "status": "planned"
+        },
+        {
+          "id": "fx-risk",
+          "title": "달러 인덱스 / 원달러",
+          "chart_type": "multiple-lines",
+          "preferred_data_source": "yahoo_finance",
+          "candidate_sources": [
+            "yahoo_finance",
+            "stooq"
+          ],
+          "symbols": [
+            {"label": "DXY", "symbol": "DX-Y.NYB"},
+            {"label": "USD/KRW", "symbol": "KRW=X"}
+          ],
+          "target_window": "3m_or_1y",
+          "status": "combined_reference"
+        },
+        {
+          "id": "dollar-index",
+          "title": "DXY",
+          "chart_type": "d3-lines",
+          "preferred_data_source": "yahoo_finance",
+          "fallback_sources": [
+            "fred"
+          ],
+          "candidate_sources": [
+            "fred",
+            "yahoo_finance",
+            "stooq"
+          ],
+          "symbols": [
+            {"label": "DXY", "symbol": "DX-Y.NYB", "fred_series_id": "DTWEXBGS"}
+          ],
+          "target_window": "3m_or_1y",
+          "show_subtitle": false,
+          "subtitle_latest_value": true,
+          "subtitle_include_series_label": false,
+          "show_series_labels": false,
+          "status": "planned"
+        },
+        {
+          "id": "usd-krw",
+          "title": "원/달러",
+          "chart_type": "d3-lines",
+          "preferred_data_source": "yahoo_finance",
+          "fallback_sources": [
+            "fred"
+          ],
+          "candidate_sources": [
+            "fred",
+            "yahoo_finance",
+            "stooq"
+          ],
+          "symbols": [
+            {"label": "USD/KRW", "symbol": "KRW=X", "fred_series_id": "DEXKOUS", "unit": "원"}
+          ],
+          "target_window": "3m_or_1y",
+          "show_subtitle": false,
+          "subtitle_latest_value": true,
+          "subtitle_include_series_label": false,
+          "show_series_labels": false,
+          "status": "planned"
+        },
+        {
+          "id": "bitcoin",
+          "title": "비트코인",
+          "chart_type": "d3-lines",
+          "preferred_data_source": "coingecko",
+          "fallback_sources": [
+            "yahoo_finance"
+          ],
+          "candidate_sources": [
+            "coingecko",
+            "yahoo_finance",
+            "coinmarketcap"
+          ],
+          "symbols": [
+            {"label": "BTC/USD", "symbol": "BTC-USD", "coingecko_id": "bitcoin", "unit": "$"}
+          ],
+          "target_window": "3m_or_1y",
+          "show_subtitle": false,
+          "subtitle_latest_value": true,
+          "subtitle_include_series_label": false,
+          "show_series_labels": false,
+          "status": "planned"
+        },
+        {
+          "id": "fear-greed",
+          "title": "CNN 공포탐욕지수",
+          "chart_type": "locator-or-custom-gauge",
+          "preferred_data_source": "cnn_structured_extract",
+          "candidate_sources": [
+            "cnn_structured_extract",
+            "custom_static_gauge"
+          ],
+          "symbols": [
+            {"label": "Fear & Greed", "symbol": "CNN_FNG"}
+          ],
+          "target_window": "latest_and_comparison",
+          "status": "planned"
+        }
+      ]
+    },
+    {
+      "id": "feature_stocks",
+      "title": "3. 특징주 분석",
+      "purpose": "Ticker-level charts and one-line stock move context for selected broadcast candidates.",
+      "charts": [
+        {
+          "id": "ticker-price-action",
+          "title": "특징주 일봉/단기 흐름",
+          "chart_type": "d3-lines",
+          "preferred_data_source": "yahoo_finance",
+          "candidate_sources": [
+            "yahoo_finance",
+            "stooq",
+            "polygon_or_paid_api"
+          ],
+          "symbols": [],
+          "target_window": "3m_or_1y",
+          "status": "template"
+        },
+        {
+          "id": "ticker-performance-table",
+          "title": "특징주 등락률/거래량 표",
+          "chart_type": "tables",
+          "preferred_data_source": "yahoo_finance",
+          "candidate_sources": [
+            "yahoo_finance",
+            "nasdaq",
+            "polygon_or_paid_api"
+          ],
+          "symbols": [],
+          "target_window": "latest",
+          "status": "template"
+        }
+      ]
+    }
+  ]
+}

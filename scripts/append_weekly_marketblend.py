@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+from datetime import datetime
+from datetime import timedelta
 from pathlib import Path
 from statistics import mean
 from statistics import pstdev
@@ -49,6 +51,18 @@ def normalize_date(value: str) -> str:
     value = value.strip().replace('"', "").replace(" ", "")
     y, m, d = value.split("-")
     return f"{int(y):04d}-{int(m):02d}-{int(d):02d}"
+
+
+def next_date(value: str) -> str:
+    current = datetime.strptime(value, "%Y-%m-%d").date()
+    return str(current + timedelta(days=1))
+
+
+def week_bounds(value: str) -> tuple[str, str]:
+    current = datetime.strptime(value, "%Y-%m-%d").date()
+    start = current - timedelta(days=current.weekday())
+    end = start + timedelta(days=6)
+    return str(start), str(end)
 
 
 def load_rows(path: Path) -> list[dict[str, str]]:
@@ -295,8 +309,12 @@ def main() -> None:
         prev_label = label
     write_rows(args.output_quadrant, quadrant_rows, list(quadrant_rows[0].keys()))
 
-    appended_map = {r["date"]: r for r in quadrant_rows if "2026-04-06" <= r["date"] <= args.end_date}
-    replacement_start = min(appended_map) if appended_map else None
+    replacement_start = next_date(last_published_date) if last_published_date < args.end_date else None
+    appended_map = {
+        r["date"]: r
+        for r in quadrant_rows
+        if replacement_start and replacement_start <= r["date"] <= args.end_date
+    }
     combined = []
     for row in timeseries_old_rows:
         if replacement_start and row["date"] >= replacement_start:
@@ -331,14 +349,16 @@ def main() -> None:
         write_rows(args.output_ranges, ranges, ["state_label_ko", "start_date", "end_date"])
 
     bubble_rows = []
-    for idx, date_key in enumerate(sorted(appended_map), start=1):
+    week_start, week_end = week_bounds(args.end_date)
+    bubble_dates = sorted(date_key for date_key in appended_map if week_start <= date_key <= args.end_date)
+    for idx, date_key in enumerate(bubble_dates, start=1):
         row = appended_map[date_key]
         bubble_rows.append(
             {
                 "day_seq": str(idx),
                 "day_label": f"{idx}일차",
                 "date": date_key,
-                "week_range": f"2026-04-06~{args.end_date}",
+                "week_range": f"{week_start}~{week_end}",
                 "state_label_ko": row["state_label_ko"],
                 "심리(Bear-Bull) 지수": f"{parse_float(row['stance_index_0_100']):.6f}",
                 "참여 지수": f"{parse_float(row['participation_index_0_100']):.6f}",

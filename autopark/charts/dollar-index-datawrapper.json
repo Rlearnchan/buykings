@@ -1,0 +1,32 @@
+{
+  "project": "autopark",
+  "slug": "dollar-index",
+  "title": "DXY: 98.933(+0.313)",
+  "subtitle": "26.04.30 06:40 기준",
+  "chart_type": "d3-lines",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "../prepared/dollar-index-2026-04-30.csv",
+  "source_name": "Yahoo Finance",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "intro": "26.04.30 06:40 기준",
+      "aria-description": "Autopark chart placeholder for DXY"
+    },
+    "publish": {
+      "embed-width": 600
+    },
+    "visualize": {
+      "labeling": "off",
+      "custom-range-y": [
+        "95.32",
+        "102.69"
+      ]
+    },
+    "annotate": {
+      "notes": ""
+    }
+  },
+  "chart_id": "aIYNm",
+  "source_url": "https://finance.yahoo.com/quote/DX-Y.NYB"
+}

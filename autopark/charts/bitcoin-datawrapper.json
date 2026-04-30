@@ -1,0 +1,32 @@
+{
+  "project": "autopark",
+  "slug": "bitcoin",
+  "title": "비트코인: $75,888.67(-$456.55)",
+  "subtitle": "26.04.30 06:40 기준",
+  "chart_type": "d3-lines",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "../prepared/bitcoin-2026-04-30.csv",
+  "source_name": "CoinGecko",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "intro": "26.04.30 06:40 기준",
+      "aria-description": "Autopark chart placeholder for 비트코인"
+    },
+    "publish": {
+      "embed-width": 600
+    },
+    "visualize": {
+      "labeling": "off",
+      "custom-range-y": [
+        "52946.51",
+        "134680.68"
+      ]
+    },
+    "annotate": {
+      "notes": ""
+    }
+  },
+  "chart_id": "87wAG",
+  "source_url": "https://www.coingecko.com/en/coins/bitcoin"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "buykings-wepoll-ops",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "wepoll:fetcher": "node scripts/wepoll_fetcher_daemon.mjs",
+    "autopark:x": "node autopark/scripts/collect_x_timeline.mjs",
+    "autopark:capture": "node autopark/scripts/capture_source.mjs",
+    "autopark:finviz": "node autopark/scripts/capture_finviz_feature_stocks.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.59.1"
+  }
+}

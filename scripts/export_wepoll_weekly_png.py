@@ -28,6 +28,13 @@ PROFILES = {
         "margin_top_px": 15,
         "margin_right_px": 30,
     },
+    "impact-hist": {
+        "width": 600,
+        "scale": 2,
+        "logo_height_ratio": 0.09,
+        "margin_top_px": 15,
+        "margin_right_px": 30,
+    },
 }
 
 

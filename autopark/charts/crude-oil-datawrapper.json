@@ -1,0 +1,32 @@
+{
+  "project": "autopark",
+  "slug": "crude-oil",
+  "title": "WTI / 브렌트: WTI $99.62 / Brent $104.30",
+  "subtitle": "26.04.29 06:00 종가",
+  "chart_type": "d3-lines",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "../prepared/crude-oil-2026-04-29.csv",
+  "source_name": "Yahoo Finance",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "intro": "26.04.29 06:00 종가",
+      "aria-description": "Autopark chart placeholder for WTI / 브렌트"
+    },
+    "publish": {
+      "embed-width": 600
+    },
+    "visualize": {
+      "labeling": "legend",
+      "custom-range-y": [
+        "45.17",
+        "128.45"
+      ]
+    },
+    "annotate": {
+      "notes": ""
+    }
+  },
+  "chart_id": "aeYTa",
+  "source_url": "https://finance.yahoo.com/quote/CL%3DF"
+}

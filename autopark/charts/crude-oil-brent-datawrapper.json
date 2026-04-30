@@ -1,0 +1,32 @@
+{
+  "project": "autopark",
+  "slug": "crude-oil-brent",
+  "title": "브렌트: $111.91(+$0.65)",
+  "subtitle": "26.04.30 06:40 기준",
+  "chart_type": "d3-lines",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "../prepared/crude-oil-brent-2026-04-30.csv",
+  "source_name": "Yahoo Finance",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "intro": "26.04.30 06:40 기준",
+      "aria-description": "Autopark chart placeholder for 브렌트"
+    },
+    "publish": {
+      "embed-width": 600
+    },
+    "visualize": {
+      "labeling": "off",
+      "custom-range-y": [
+        "49.41",
+        "127.86"
+      ]
+    },
+    "annotate": {
+      "notes": ""
+    }
+  },
+  "chart_id": "jZDeO",
+  "source_url": "https://finance.yahoo.com/quote/BZ%3DF"
+}

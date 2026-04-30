@@ -2,6 +2,7 @@
 .env.*
 __pycache__/
 *.pyc
+*.zip
 .DS_Store
 .playwright-cli/
 projects/*/incoming/
@@ -17,5 +18,6 @@ scripts/notion_create_report_draft.py
 scripts/render_member_word2vec_periods.py
 scripts/render_member_word2vec_periods_svg.py
 tmp/
+.server-state/
 exports/**/*.png
 db/*.sqlite3

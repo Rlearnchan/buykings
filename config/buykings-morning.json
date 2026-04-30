@@ -1,0 +1,38 @@
+{
+  "name": "buykings-morning",
+  "description": "Top-level morning orchestration entrypoint for Buykings jobs.",
+  "jobs": [
+    {
+      "id": "wepoll-panic",
+      "enabled": true,
+      "kind": "command",
+      "description": "Download Wepoll raw CSV via the long-lived fetcher and run daily append/state sync.",
+      "command": [
+        "__PYTHON__",
+        "scripts/run_wepoll_daily_from_fetcher.py"
+      ]
+    },
+    {
+      "id": "autopark",
+      "enabled": false,
+      "kind": "command",
+      "description": "Prepare morning broadcast dashboard inputs, story drafts, and Notion handoff artifacts.",
+      "command": [
+        "__PYTHON__",
+        "autopark/scripts/run_live_dashboard_all_in_one.py"
+      ]
+    },
+    {
+      "id": "capture-and-collect",
+      "enabled": false,
+      "kind": "placeholder",
+      "description": "Capture and collect morning inputs from external economic sites."
+    },
+    {
+      "id": "other-morning-jobs",
+      "enabled": false,
+      "kind": "placeholder",
+      "description": "Additional recurring morning tasks to be attached later."
+    }
+  ]
+}

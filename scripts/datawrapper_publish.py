@@ -13,6 +13,19 @@ import urllib.request
 
 API_BASE = "https://api.datawrapper.de/v3"
 APP_BASE = "https://app.datawrapper.de/chart"
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+
+def load_local_env() -> None:
+    env_path = ROOT / ".env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
 
 
 def load_json(path: pathlib.Path) -> dict:
@@ -28,6 +41,7 @@ def resolve_spec_path(spec_path: pathlib.Path, raw_path: str) -> pathlib.Path:
 
 
 def read_env(name: str) -> str:
+    load_local_env()
     value = os.environ.get(name)
     if not value:
         raise SystemExit(f"Missing required environment variable: {name}")
@@ -202,6 +216,11 @@ def main() -> None:
         action="store_true",
         help="Validate config and auth, but do not create a chart",
     )
+    parser.add_argument(
+        "--metadata-only",
+        action="store_true",
+        help="Patch title/subtitle/source metadata and publish without uploading CSV data",
+    )
     args = parser.parse_args()
 
     spec_path = pathlib.Path(args.spec).resolve()
@@ -237,10 +256,13 @@ def main() -> None:
     else:
         created = client.create_chart(build_create_payload(spec))
         chart_id = created["id"]
+        spec["chart_id"] = chart_id
+        spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     assert chart_id is not None
-    csv_bytes = csv_path.read_bytes()
-    client.upload_csv(chart_id, csv_bytes)
+    if not args.metadata_only:
+        csv_bytes = csv_path.read_bytes()
+        client.upload_csv(chart_id, csv_bytes)
 
     patch_payload = build_patch_payload(spec)
     if patch_payload:
@@ -254,7 +276,8 @@ def main() -> None:
         "slug": spec.get("slug"),
         "title": spec.get("title"),
         "chart_type": spec.get("chart_type"),
-        "mode": "update" if spec.get("chart_id") else "create",
+        "mode": "create" if created else "update",
+        "metadata_only": args.metadata_only,
         "prepared_csv": str(csv_path),
     }
     result.update(chart_urls(chart_id, publish_response))

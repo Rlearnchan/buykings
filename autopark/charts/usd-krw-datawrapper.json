@@ -1,0 +1,32 @@
+{
+  "project": "autopark",
+  "slug": "usd-krw",
+  "title": "원/달러: 1,488.50원(+16.51원)",
+  "subtitle": "26.04.30 06:40 기준",
+  "chart_type": "d3-lines",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "../prepared/usd-krw-2026-04-30.csv",
+  "source_name": "Yahoo Finance",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "intro": "26.04.30 06:40 기준",
+      "aria-description": "Autopark chart placeholder for 원/달러"
+    },
+    "publish": {
+      "embed-width": 600
+    },
+    "visualize": {
+      "labeling": "off",
+      "custom-range-y": [
+        "1321.67",
+        "1542.96"
+      ]
+    },
+    "annotate": {
+      "notes": ""
+    }
+  },
+  "chart_id": "tTyEQ",
+  "source_url": "https://finance.yahoo.com/quote/KRW%3DX"
+}

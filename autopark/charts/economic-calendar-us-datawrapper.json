@@ -1,0 +1,50 @@
+{
+  "project": "autopark",
+  "slug": "economic-calendar-us",
+  "title": "오늘의 미국 경제 일정",
+  "subtitle": "26.04.30 06:40 기준, 미국 2★ 이상",
+  "chart_type": "tables",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "../prepared/economic-calendar-us-2026-04-30.csv",
+  "source_name": "Trading Economics",
+  "source_url": "https://ko.tradingeconomics.com/calendar",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "intro": "26.04.30 06:40 기준, 미국 2★ 이상",
+      "aria-description": "Trading Economics 공개 경제캘린더 HTML에서 파싱한 오늘의 미국 경제 일정"
+    },
+    "publish": {
+      "embed-width": 600,
+      "embed-height": 510
+    },
+    "visualize": {
+      "perPage": 10,
+      "striped": true,
+      "pagination": false,
+      "columns": {
+        "시각": {
+          "align": "left",
+          "width": 0.09
+        },
+        "중요도": {
+          "align": "left",
+          "width": 0.1
+        },
+        "국가": {
+          "align": "left",
+          "width": 0.07
+        },
+        "이벤트": {
+          "align": "left",
+          "width": 0.48
+        },
+        "예상": {
+          "align": "left",
+          "width": 0.26
+        }
+      }
+    }
+  },
+  "chart_id": "pK5ew"
+}

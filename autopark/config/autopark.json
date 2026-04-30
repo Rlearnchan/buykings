@@ -1,0 +1,223 @@
+{
+  "name": "autopark",
+  "description": "Morning broadcast preparation dashboard pipeline.",
+  "timezone": "Asia/Seoul",
+  "default_date_policy": "today",
+  "stages": [
+    {
+      "id": "collect",
+      "enabled": false,
+      "description": "Collect structured market data for fixed charts; keep browser screenshots as internal evidence."
+    },
+    {
+      "id": "prepare_datawrapper_charts",
+      "enabled": false,
+      "description": "Build prepared CSV/spec files and publish/export Datawrapper charts."
+    },
+    {
+      "id": "enrich",
+      "enabled": false,
+      "description": "Merge collected inputs with Wepoll and market context."
+    },
+    {
+      "id": "draft",
+      "enabled": false,
+      "description": "Draft three morning story line candidates."
+    },
+    {
+      "id": "review",
+      "enabled": false,
+      "description": "Run format/content dashboard quality checks before Notion publish; write runtime/reviews/YYYY-MM-DD/dashboard-quality.md."
+    },
+    {
+      "id": "publish_notion",
+      "enabled": false,
+      "description": "Publish approved materials to Notion."
+    },
+    {
+      "id": "ship_server",
+      "enabled": false,
+      "description": "Prepare server handoff artifacts and execution logs."
+    }
+  ],
+  "sources": [
+    {
+      "id": "finviz-index-futures",
+      "name": "주요 지수 흐름",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://finviz.com/#",
+      "requires_login": false,
+      "auth_profile": "finviz",
+      "cadence": "daily",
+      "section": "market_now",
+      "capture_notes": "최상단 캔들차트 4개. 2개씩 캡처. 2026-04-27 headless Chromium에서는 Cloudflare security verification으로 차단됐으나, headed Chrome persistent profile(`finviz`)에서는 정상 캡처됨.",
+      "known_capture_issue": "cloudflare_security_verification"
+    },
+    {
+      "id": "finviz-sp500-heatmap",
+      "name": "S&P500 히트맵",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://finviz.com/map.ashx?t=sec",
+      "requires_login": false,
+      "auth_profile": "finviz",
+      "cadence": "daily",
+      "section": "market_now",
+      "capture_notes": "히트맵 캡처. 2026-04-27 headless Chromium에서는 Cloudflare security verification으로 차단됐으나, headed Chrome persistent profile(`finviz`) bootstrap 후 정상 캡처됨.",
+      "known_capture_issue": "cloudflare_security_verification"
+    },
+    {
+      "id": "finviz-russell-heatmap",
+      "name": "러셀 2000 히트맵",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://finviz.com/map?t=sec_rut",
+      "requires_login": false,
+      "auth_profile": "finviz",
+      "cadence": "daily",
+      "section": "market_now",
+      "capture_notes": "러셀 2000 히트맵 캡처. Finviz map?t=sec_rut URL과 S&P500 히트맵과 같은 DOM/canvas 캡처 경로를 사용한다.",
+      "known_capture_issue": "cloudflare_security_verification"
+    },
+    {
+      "id": "cnbc-us10y",
+      "name": "10년물 국채금리",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://www.cnbc.com/quotes/US10Y?qfsearchterm=",
+      "requires_login": false,
+      "auth_profile": "investing",
+      "cadence": "daily",
+      "section": "market_now",
+      "capture_notes": "제목부터 그래프까지 캡처. 2026-04-27 자동 캡처 가능하나 쿠키/동의 배너 제거 품질 확인 필요.",
+      "capture_full_page": false
+    },
+    {
+      "id": "investing-wti",
+      "name": "WTI",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://www.investing.com/commodities/crude-oil-streaming-chart",
+      "requires_login": false,
+      "auth_profile": "investing",
+      "cadence": "daily",
+      "section": "market_now",
+      "capture_notes": "최초 접속 시 Area 모드이면 캔들로 변경 후 캡처. 2026-04-27 headed Chrome persistent profile(`investing`)로 본문/가격은 로드되나 TradingView chart iframe이 비어 `partial` 처리됨.",
+      "known_capture_issue": "cloudflare_security_verification"
+    },
+    {
+      "id": "investing-brent",
+      "name": "브렌트",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://www.investing.com/commodities/brent-oil-streaming-chart",
+      "requires_login": false,
+      "auth_profile": "investing",
+      "cadence": "daily",
+      "section": "market_now",
+      "capture_notes": "최초 접속 시 Area 모드이면 캔들로 변경 후 캡처. 2026-04-27 WTI 테스트 기준 본문/가격은 로드되나 TradingView chart iframe이 비어 `partial` 처리될 수 있음.",
+      "known_capture_issue": "cloudflare_security_verification"
+    },
+    {
+      "id": "investing-dollar-index",
+      "name": "달러 인덱스",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://www.investing.com/currencies/us-dollar-index-streaming-chart",
+      "requires_login": false,
+      "auth_profile": "investing",
+      "cadence": "daily",
+      "section": "market_now",
+      "capture_notes": "최초 접속 시 Area 모드이면 캔들로 변경 후 캡처. 2026-04-27 WTI 테스트 기준 본문/가격은 로드되나 TradingView chart iframe이 비어 `partial` 처리될 수 있음.",
+      "known_capture_issue": "cloudflare_security_verification"
+    },
+    {
+      "id": "investing-usd-krw",
+      "name": "원/달러",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://www.investing.com/currencies/usd-krw-chart",
+      "requires_login": false,
+      "auth_profile": "investing",
+      "cadence": "daily",
+      "section": "market_now",
+      "capture_notes": "최초 접속 시 Area 모드이면 캔들로 변경 후 캡처. 2026-04-27 WTI 테스트 기준 본문/가격은 로드되나 TradingView chart iframe이 비어 `partial` 처리될 수 있음.",
+      "known_capture_issue": "cloudflare_security_verification"
+    },
+    {
+      "id": "investing-bitcoin",
+      "name": "비트코인",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://www.investing.com/crypto/bitcoin/chart",
+      "requires_login": false,
+      "cadence": "daily",
+      "section": "market_now",
+      "capture_notes": "최초 접속 시 Area 모드이면 캔들로 변경 후 캡처. 2026-04-27 WTI 테스트 기준 본문/가격은 로드되나 TradingView chart iframe이 비어 `partial` 처리될 수 있음.",
+      "known_capture_issue": "cloudflare_security_verification"
+    },
+    {
+      "id": "earnings-whispers-x",
+      "name": "실적발표 스케줄",
+      "enabled": true,
+      "kind": "social_image_reference",
+      "url": "https://x.com/eWhispers",
+      "requires_login": true,
+      "auth_profile": "x",
+      "cadence": "weekly_or_monthly",
+      "section": "earnings_calendar",
+      "capture_notes": "주간/월간 일정 캘린더 이미지를 확인. 보통 금요일에 다음 주 일정이 메인에 올라오는 듯하나 추가 검증 필요."
+    },
+    {
+      "id": "cnn-fear-greed",
+      "name": "공포탐욕지수",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://edition.cnn.com/markets/fear-and-greed",
+      "requires_login": false,
+      "cadence": "daily",
+      "section": "market_now",
+      "capture_notes": "상단 제일 큰 계기판 그림 캡처.",
+      "capture_full_page": false
+    },
+    {
+      "id": "cme-fedwatch",
+      "name": "FED Watch",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://www.cmegroup.com/ko/markets/interest-rates/cme-fedwatch-tool.html",
+      "requires_login": false,
+      "cadence": "daily",
+      "section": "market_now",
+      "capture_notes": "Target Rate - Probabilities를 확인하고 두 개의 테이블이 나오면 하단 테이블 캡처. 2026-04-27 headless Chromium에서 ERR_HTTP2_PROTOCOL_ERROR 발생.",
+      "known_capture_issue": "http2_protocol_error"
+    },
+    {
+      "id": "polymarket-fed-rates",
+      "name": "Polymarket Fed rate probabilities",
+      "enabled": true,
+      "kind": "browser_capture",
+      "url": "https://polymarket.com/markets?search=fed%20rate%20cut",
+      "requires_login": false,
+      "cadence": "fed_event_days",
+      "section": "fed_package",
+      "capture_notes": "FOMC/Fed 이벤트가 시장 중심일 때 금리인하 베팅 등 확률형 이벤트 자료를 확인한다."
+    }
+  ],
+  "integrations": {
+    "wepoll": {
+      "enabled": true,
+      "state_dir": "../projects/wepoll-panic/state",
+      "notes": "Read-only reference to existing Buykings Wepoll outputs."
+    },
+    "notion": {
+      "enabled": false,
+      "mode": "api-first",
+      "workspace_root_page_id": "33f468fb-878d-809d-9111-d7576f583c67",
+      "dashboard_parent_page_id": "349468fb-878d-808a-bb7a-fbb542e9073e",
+      "example_page_id": "34f468fb-878d-808e-8fde-c09699d396c9",
+      "notes": "Target path: Buykings Research > 아침방송 준비 대시보드 > 날짜별 페이지. Current connector can read pages; writing needs Notion API/write-capable tool."
+    }
+  }
+}
