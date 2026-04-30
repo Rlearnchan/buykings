@@ -47,6 +47,14 @@
 |-- exports/
 |-- logo/
 |-- projects/
+|   |-- autopark/
+|   |   |-- charts/
+|   |   |-- config/
+|   |   |-- data/
+|   |   |-- docs/
+|   |   |-- exports/
+|   |   |-- runtime/
+|   |   `-- scripts/
 |   `-- wepoll-panic/
 |       |-- charts/
 |       |-- incoming/
@@ -58,6 +66,9 @@
 
 각 폴더의 역할은 이렇다.
 
+- `projects/autopark`
+  - morning broadcast dashboard automation workspace
+  - owns its charts, config, data, docs, exports, runtime, and project scripts
 - `projects/wepoll-panic/state`
   - 현재까지 누적된 일별 지수 상태값
   - daily/weekly append의 기준본

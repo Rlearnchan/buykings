@@ -24,9 +24,9 @@
 2. [wepoll-windows-server-runbook.md](/Users/bae/Documents/code/buykings/docs/wepoll-windows-server-runbook.md)
 3. [buykings-morning-architecture.md](/Users/bae/Documents/code/buykings/docs/buykings-morning-architecture.md)
 4. [wepoll-long-lived-fetcher.md](/Users/bae/Documents/code/buykings/docs/wepoll-long-lived-fetcher.md)
-5. `autopark/docs/autopark-operating-runbook.md`
-6. `autopark/docs/source-playbook.md`
-7. `autopark/docs/notion-dashboard-layout.md`
+5. `projects/autopark/docs/autopark-operating-runbook.md`
+6. `projects/autopark/docs/source-playbook.md`
+7. `projects/autopark/docs/notion-dashboard-layout.md`
 
 ## Repo Layout To Aim For
 
@@ -65,7 +65,7 @@ Windows 서버에서는 가능하면 두 레포를 GitHub에서 fresh clone/pull
 - `scripts/run_wepoll_panic_daily_batch.py`
 - `scripts/run_buykings_morning.py`
 - `config/buykings-morning.json`
-- `autopark/scripts/run_live_dashboard_all_in_one.py`
+- `projects/autopark/scripts/run_live_dashboard_all_in_one.py`
 - `ops/windows/start_autopark_chrome.ps1`
 - `ops/windows/run_autopark_daily.ps1`
 - `ops/windows/smoke_test_autopark.ps1`

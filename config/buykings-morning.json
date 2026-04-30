@@ -19,7 +19,7 @@
       "description": "Prepare morning broadcast dashboard inputs, story drafts, and Notion handoff artifacts.",
       "command": [
         "__PYTHON__",
-        "autopark/scripts/run_live_dashboard_all_in_one.py"
+        "projects/autopark/scripts/run_live_dashboard_all_in_one.py"
       ]
     },
     {

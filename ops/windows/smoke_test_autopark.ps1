@@ -46,7 +46,7 @@ if (-not $env:AUTOPARK_CDP_ENDPOINT) {
 }
 
 Invoke-Step "runner dry-run" {
-    & $PythonExe "autopark\scripts\run_live_dashboard_all_in_one.py" --date $Date --dry-run
+    & $PythonExe "projects\autopark\scripts\run_live_dashboard_all_in_one.py" --date $Date --dry-run
 }
 
 Invoke-Step "chrome cdp health" {
@@ -54,25 +54,25 @@ Invoke-Step "chrome cdp health" {
 }
 
 Invoke-Step "x wallstengine dry-run" {
-    node "autopark\scripts\collect_x_timeline.mjs" --date $Date --run-name "smoke-x" --source "x-wallstengine" --cdp-endpoint $env:AUTOPARK_CDP_ENDPOINT --max-posts 2 --lookback-hours 48 --scrolls 1 --no-download-images --dry-run
+    node "projects\autopark\scripts\collect_x_timeline.mjs" --date $Date --run-name "smoke-x" --source "x-wallstengine" --cdp-endpoint $env:AUTOPARK_CDP_ENDPOINT --max-posts 2 --lookback-hours 48 --scrolls 1 --no-download-images --dry-run
 }
 
 Invoke-Step "finviz heatmap capture" {
     $BrowserArgs = @()
     if (-not $env:AUTOPARK_CHROME_PATH) { $BrowserArgs = @("--browser-channel", "chrome") }
-    node "autopark\scripts\capture_source.mjs" --date $Date --source "finviz-sp500-heatmap" --use-auth-profiles --headed @BrowserArgs --timeout-ms 45000 --no-full-page
+    node "projects\autopark\scripts\capture_source.mjs" --date $Date --source "finviz-sp500-heatmap" --use-auth-profiles --headed @BrowserArgs --timeout-ms 45000 --no-full-page
 }
 
 Invoke-Step "datawrapper market dry-run" {
-    & $PythonExe "autopark\scripts\fetch_market_chart_data.py" --date $Date --chart "us10y" --collected-at (Get-Date -Format "yy.MM.dd HH:mm")
-    & $PythonExe "scripts\datawrapper_publish.py" --dry-run "autopark\charts\us10y-datawrapper.json"
+    & $PythonExe "projects\autopark\scripts\fetch_market_chart_data.py" --date $Date --chart "us10y" --collected-at (Get-Date -Format "yy.MM.dd HH:mm")
+    & $PythonExe "scripts\datawrapper_publish.py" --dry-run "projects\autopark\charts\us10y-datawrapper.json"
 }
 
 Invoke-Step "notion publish dry-run" {
-    & $PythonExe "autopark\scripts\build_live_notion_dashboard.py" --date $Date
+    & $PythonExe "projects\autopark\scripts\build_live_notion_dashboard.py" --date $Date
     $DateValue = [datetime]::ParseExact($Date, "yyyy-MM-dd", [Globalization.CultureInfo]::InvariantCulture)
     $Title = $DateValue.ToString("yy.MM.dd")
-    & $PythonExe "autopark\scripts\publish_recon_to_notion.py" --dry-run "autopark\runtime\notion\$Date\$Title.md"
+    & $PythonExe "projects\autopark\scripts\publish_recon_to_notion.py" --dry-run "projects\autopark\runtime\notion\$Date\$Title.md"
 }
 
 Write-Host "Autopark smoke test completed."

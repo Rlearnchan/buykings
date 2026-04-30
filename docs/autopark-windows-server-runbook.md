@@ -9,7 +9,7 @@ Autopark는 Windows PC의 로컬 Chrome 세션과 Task Scheduler로 매일 `06:0
 - GitHub: 코드, 설정, 운영 문서
 - `.env`: 서버 비밀값, Git 제외
 - `AUTOPARK_STATE_ROOT`: 날짜별 실행 산출물 mirror
-- `autopark/runtime/profiles`와 `.server-state/autopark/profiles`: 브라우저 세션, Git 제외
+- `projects/autopark/runtime/profiles`와 `.server-state/autopark/profiles`: 브라우저 세션, Git 제외
 
 ## One-Time Setup
 
@@ -67,11 +67,11 @@ powershell -ExecutionPolicy Bypass -File .\ops\windows\run_autopark_daily.ps1
 
 로컬 기본 산출물:
 
-- `autopark/runtime/notion/YYYY-MM-DD/YY.MM.DD.md`
-- `autopark/data/processed/YYYY-MM-DD/*.json`
-- `autopark/runtime/reviews/YYYY-MM-DD/dashboard-quality.*`
-- `autopark/runtime/reviews/YYYY-MM-DD/post-publish-review.*`
-- `autopark/runtime/logs/YYYY-MM-DD-live-all-in-one.*`
+- `projects/autopark/runtime/notion/YYYY-MM-DD/YY.MM.DD.md`
+- `projects/autopark/data/processed/YYYY-MM-DD/*.json`
+- `projects/autopark/runtime/reviews/YYYY-MM-DD/dashboard-quality.*`
+- `projects/autopark/runtime/reviews/YYYY-MM-DD/post-publish-review.*`
+- `projects/autopark/runtime/logs/YYYY-MM-DD-live-all-in-one.*`
 
 Mirror:
 

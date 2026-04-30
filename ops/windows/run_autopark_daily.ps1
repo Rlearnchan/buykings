@@ -43,7 +43,7 @@ if (-not $env:AUTOPARK_STATE_ROOT) {
     $env:AUTOPARK_STATE_ROOT = Join-Path $RepoRoot ".server-state\autopark"
 }
 
-$Args = @("autopark\scripts\run_live_dashboard_all_in_one.py")
+$Args = @("projects\autopark\scripts\run_live_dashboard_all_in_one.py")
 if ($Date) { $Args += @("--date", $Date) }
 if ($SkipChromeLaunch) { $Args += "--skip-chrome-launch" }
 if ($SkipPublish) { $Args += "--skip-publish" }

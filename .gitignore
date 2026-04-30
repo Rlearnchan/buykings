@@ -25,6 +25,6 @@ runtime/
 .server-state/
 scripts/node_modules/
 vendor/
-autopark/prepared/
+projects/autopark/prepared/
 exports/**/*.png
 db/*.sqlite3
