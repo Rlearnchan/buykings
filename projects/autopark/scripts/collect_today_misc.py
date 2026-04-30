@@ -27,6 +27,7 @@ PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 RUNTIME_NOTION_DIR = PROJECT_ROOT / "runtime" / "notion"
 ASSETS_DIR = PROJECT_ROOT / "runtime" / "assets"
 DEFAULT_SOURCE_IDS = [
+    "biztoc-com-source",
     "reuters-com-source",
     "cnbc-com-world",
     "tradingview-com-news",
@@ -43,6 +44,7 @@ DEFAULT_BATCH_B_IDS = [
     "x-nicktimiraos",
 ]
 SOURCE_FEEDS = {
+    "biztoc-com-source": "https://biztoc.com/feed",
     "insight-factset-com-source": "https://insight.factset.com/rss.xml",
 }
 
@@ -181,6 +183,7 @@ def parse_rss_items(feed_text: str) -> list[dict]:
         title = clean_text(item.findtext("title") or "")
         link = clean_text(item.findtext("link") or "")
         pub_date = clean_text(item.findtext("pubDate") or "")
+        description = clean_text(strip_tags(item.findtext("description") or ""))
         if not title or not link:
             continue
         published_at = None
@@ -189,7 +192,14 @@ def parse_rss_items(feed_text: str) -> list[dict]:
                 published_at = parsedate_to_datetime(pub_date).date().isoformat()
             except (TypeError, ValueError, IndexError):
                 published_at = None
-        items.append({"title": title, "url": link, "published_at": published_at})
+        items.append(
+            {
+                "title": title,
+                "url": link,
+                "published_at": published_at,
+                "summary": description,
+            }
+        )
     return items
 
 
@@ -197,6 +207,38 @@ def clean_text(value: str) -> str:
     value = html.unescape(value)
     value = re.sub(r"\s+", " ", value).strip()
     return value
+
+
+def strip_tags(value: str) -> str:
+    return re.sub(r"<[^>]+>", " ", value)
+
+
+def reuters_search_url(title: str, summary: str = "") -> str:
+    text = f"{title} {summary}"
+    words = re.findall(r"[A-Za-z0-9$.'-]+", text)
+    stopwords = {
+        "about",
+        "after",
+        "from",
+        "have",
+        "into",
+        "that",
+        "their",
+        "this",
+        "what",
+        "when",
+        "where",
+        "which",
+        "with",
+        "would",
+    }
+    query_words = [
+        word.strip(".,'").lstrip("$")
+        for word in words
+        if len(word.strip(".,'").lstrip("$")) >= 3 and word.lower().strip(".,'") not in stopwords
+    ][:10]
+    query = " ".join(query_words) or title
+    return "https://www.reuters.com/site-search/?query=" + urllib.parse.quote(query)
 
 
 def canonical_url(url: str) -> str:
@@ -471,6 +513,10 @@ def hooks_for_title(title: str) -> list[str]:
     lowered = title.lower()
     hooks = []
     for keyword in sorted(MARKET_KEYWORDS):
+        if keyword == "bank" and re.search(r"\bpower banks?\b", lowered):
+            continue
+        if keyword == "rate" and re.search(r"\bheart rate\b|\brate trackers?\b", lowered):
+            continue
         if " " in keyword:
             matched = keyword in lowered
         else:
@@ -481,7 +527,7 @@ def hooks_for_title(title: str) -> list[str]:
 
 
 def tickers_for_title(title: str) -> list[str]:
-    stop = {"AI", "CEO", "CFO", "ETF", "Fed", "GDP", "IPO", "LLC", "NYSE", "SEC", "USA"}
+    stop = {"AI", "CEO", "CFO", "ETF", "EU", "Fed", "GDP", "IPO", "LLC", "NYSE", "SEC", "TSA", "UK", "US", "USA"}
     tickers = []
     for match in TICKER_RE.findall(title):
         if match in stop:
@@ -552,11 +598,29 @@ def build_candidates(
             continue
         if require_recent_signal and item_date is None:
             continue
-        score, hooks = score_item(item["title"], source)
+        summary = clean_text(item.get("summary") or item["title"])
+        scoring_text = f"{item['title']} {summary}"
+        score, hooks = score_item(scoring_text, source)
         if score < 2:
             continue
         tickers = tickers_for_title(item["title"])
         candidate_id = f"{source['id']}-{index + 1:03d}"
+        evidence = [{"kind": "headline", "text": item["title"], "source_url": item["url"]}]
+        if summary and summary != item["title"]:
+            evidence.append({"kind": "summary", "text": summary, "source_url": item["url"]})
+        if source["id"] == "biztoc-com-source":
+            evidence.append(
+                {
+                    "kind": "reuters_search",
+                    "text": "Reuters search for quick corroboration",
+                    "source_url": reuters_search_url(item["title"], summary),
+                }
+            )
+        why_it_matters = (
+            "BizToc headline/summary candidate. Check the Reuters search evidence before promoting it."
+            if source["id"] == "biztoc-com-source"
+            else "Market-keyword headline candidate. Cross-check context before promoting it."
+        )
         candidates.append(
             Candidate(
                 id=candidate_id,
@@ -566,11 +630,11 @@ def build_candidates(
                 url=item["url"],
                 published_at=item_date.isoformat() if item_date else item.get("published_at"),
                 captured_at=captured_at,
-                summary=item["title"],
-                why_it_matters="시장 관련 키워드가 감지된 headline 후보. 사용자 노하우/교차 확인 후 방송 소재로 승격한다.",
+                summary=summary,
+                why_it_matters=why_it_matters,
                 market_hooks=hooks,
                 tickers=tickers,
-                evidence=[{"kind": "headline", "text": item["title"], "source_url": item["url"]}],
+                evidence=evidence,
                 image_refs=item.get("image_refs", []),
                 novelty=1,
                 market_relevance=min(5, max(1, score // 2)),
@@ -616,16 +680,23 @@ def render_review(candidates: list[Candidate], target_date: str) -> str:
     for index, candidate in enumerate(candidates, start=1):
         hook_text = ", ".join(candidate.market_hooks) if candidate.market_hooks else "미분류"
         ticker_text = ", ".join(candidate.tickers) if candidate.tickers else "-"
+        reuters_links = [
+            evidence["source_url"]
+            for evidence in candidate.evidence
+            if evidence.get("kind") == "reuters_search" and evidence.get("source_url")
+        ]
         lines.extend(
             [
                 f"## 후보 {index}. {candidate.headline}",
                 "",
                 f"- 출처: [{candidate.source_name}]({candidate.url})",
+                f"- 요약: {candidate.summary}",
+                f"- Reuters 확인: {reuters_links[0] if reuters_links else '-'}",
                 f"- 감지 키워드: {hook_text}",
                 f"- 관련 티커 후보: {ticker_text}",
                 f"- 이미지 후보: {len(candidate.image_refs)}",
                 f"- 점수: {candidate.score}",
-                "- 메모: 시장 관련 키워드가 감지된 headline 후보. 사용자가 방송 적합성/맥락을 확인해야 한다.",
+                f"- 메모: {candidate.why_it_matters}",
                 "",
             ]
         )
