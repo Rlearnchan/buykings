@@ -6,6 +6,18 @@ cd /app
 run_date="${AUTOPARK_DATE:-$(TZ=Asia/Seoul date +%F)}"
 timeout_seconds="${AUTOPARK_STEP_TIMEOUT:-120}"
 
+if [[ -n "${AUTOPARK_START_AT:-}" ]]; then
+  target_epoch="$(TZ=Asia/Seoul date -d "${run_date} ${AUTOPARK_START_AT}" +%s)"
+  now_epoch="$(TZ=Asia/Seoul date +%s)"
+  if (( target_epoch <= now_epoch )); then
+    target_epoch=$(( target_epoch + 24 * 3600 ))
+  fi
+  sleep_seconds=$(( target_epoch - now_epoch ))
+  target_label="$(TZ=Asia/Seoul date -d "@${target_epoch}" "+%Y-%m-%d %H:%M:%S %Z")"
+  echo "Autopark container waiting until ${target_label} (${sleep_seconds}s)"
+  sleep "$sleep_seconds"
+fi
+
 args=(
   "projects/autopark/scripts/run_live_dashboard_all_in_one.py"
   "--date" "$run_date"
