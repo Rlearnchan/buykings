@@ -1,93 +1,121 @@
 # Autopark Source Intelligence Map
 
-이 문서는 Autopark가 아침방송 대시보드를 만들 때 각 소스에서 무엇을 얻을 수 있는지 정리한 1차 리서치 맵이다.
-
-작성 기준:
-
-- 로컬 근거: `projects/autopark/sources.xlsx`, `projects/autopark/config/today_misc_sources.json`, `projects/autopark/data/processed/2026-04-30/*`
-- 웹 근거: 각 서비스의 공개 페이지/공식 설명/현재 사이트 구조
-- 목적: 모든 소스를 많이 긁는 것이 아니라, 방송 제작자가 실제로 쓸 만한 자료를 어디서 얻는지 역할을 나누는 것
+이 문서는 Autopark 소스들의 역할, 신뢰도, 자동화 우선순위를 한눈에 보기 위한 지도다.
+실제 운영 절차는 `source-playbook.md`를 기준으로 한다.
 
 ## Executive Takeaways
 
-- **속보/당일 헤드라인**은 Reuters, Bloomberg, CNBC, Yahoo Finance, TradingView가 맡는다.
-- **시장 데이터/고정 차트**는 Yahoo Finance, Trading Economics, CoinGecko, CNN Fear & Greed, CME FedWatch, Finviz가 맡는다.
-- **시각자료/거시 차트**는 IsabelNet, Bespoke, Charlie Bilello, KobeissiLetter, StockMarket.News가 강하다.
-- **실적 캘린더**는 Earnings Whispers가 가장 빠르고 시각적으로 좋다.
-- **실적 시즌의 정량 맥락**은 FactSet Insight가 가장 안정적이다.
-- **X 계정**은 단독 정보원이라기보다 "오늘 시장이 어떤 단어를 반복하는지" 보는 레이더로 쓰는 것이 좋다.
+- 속보와 일반 뉴스 후보는 BizToc, CNBC, Yahoo Finance, TradingView, Reuters 계열 feed에서 잡는다.
+- Reuters 직접 웹은 차단될 수 있으므로 Reuters X, TradingView의 Reuters 기사, BizToc 후보의 Reuters 검색 링크를 같이 쓴다.
+- 시장 데이터와 고정 차트는 Finviz, Yahoo Finance, Trading Economics, CNN Fear & Greed, CME FedWatch가 중심이다.
+- 차트형 이모저모는 IsabelNet, Bespoke, Charlie Bilello, Liz Ann Sonders, KobeissiLetter에서 잘 나온다.
+- 실적은 Earnings Whispers로 seed를 만들고 Finviz/Yahoo/CNBC/Wall St Engine/FactSet으로 숫자와 맥락을 붙인다.
+- X 계정은 원문 출처라기보다 "오늘 시장이 반복하는 단어와 숫자"를 찾는 센서다.
 
 ## Source Role Table
 
-| 소스 | 주로 얻는 데이터 | 방송 활용 | 강점 | 약점/주의 | 자동화 우선순위 |
+| 소스 | 주로 얻는 데이터 | 방송 사용 | 강점 | 주의점 | 자동화 우선순위 |
 |---|---|---|---|---|---|
-| Finviz | 지수 흐름, S&P500/러셀 히트맵, 티커 일봉, 티커별 뉴스 | `시장은 지금`, `특징주 분석` | 화면 자체가 방송용으로 직관적. 티커별 hot news가 출발점으로 좋음 | Cloudflare/headless 차단. persistent Chrome 필요 | P0 |
-| Yahoo Finance | 지표/선물/환율/티커 가격, 일반 금융뉴스 | Datawrapper 시장지표, 보조 뉴스 | 무료 chart endpoint로 시계열 수집이 쉬움. 주식/ETF/환율/선물 커버 넓음 | 공식 API가 아님. limit/변경 리스크 있음 | P0 |
-| Trading Economics | 경제 일정, 예상/이전/실제, 국가/중요도 | 경제 일정 표 | 경제캘린더가 구조화되어 있고 국가/중요도 필터 가능 | HTML 파싱은 변경 리스크. 유료 API 고려 가능 | P0 |
-| CNN Fear & Greed | 투자심리 게이지 | `시장은 지금` 심리 체크 | 한 장으로 위험선호를 설명하기 좋음 | 캡처 의존. 세부 구성요소까지 자동 수집은 후속 | P0 |
-| CME FedWatch | FOMC 회의별 금리확률, 전일/전주/전월 비교 | 금리/Fed 꼭지 | Fed funds futures 기반 확률이라는 명확한 해석 가능 | 페이지 구조 복잡. 캡처 자동화 필요 | P1 |
-| Earnings Whispers | 주간/월간 실적 캘린더 이미지, 티커 리스트 | 실적 캘린더, 특징주 후보 seed | X 이미지가 바로 방송 자료로 좋고 OCR/티커 추출 가능 | 주간 캘린더 고정 포스트 타이밍 확인 필요 | P0 |
-| FactSet Insight | S&P500 실적 시즌 업데이트, EPS/매출/마진/섹터 분석 | 실적 시즌 큰 맥락 | John Butters의 정량 실적 리포트가 강함 | 속보성은 낮고 기사 길이가 있음 | P1 |
-| IsabelNet | 리서치 하우스/IB chart, valuation, sentiment, recession, positioning | 이모저모 시각자료 | 한 장짜리 차트가 방송용 자료로 매우 좋음 | 이미지 맥락을 해석해야 함. 원 출처/시점 확인 필요 | P0 |
-| Reuters | 글로벌 속보, 정책/지정학/기업/시장 뉴스 | 메인 뉴스 후보, 단신 | 신뢰도와 속도. 글로벌 커버리지 | 사이트 직접 수집은 차단/페이월 가능. X 공개 헤드라인이 현실적 | P0 |
-| Bloomberg | 금융시장/정책/기업/기술/문화의 money angle | 메인 스토리/단신 | 금융시장 관점과 데이터 그래픽/비디오가 강함 | paywall. 공개 X 헤드라인+이미지 우선 | P0 |
-| CNBC | 미국 주식/빅테크/실적/Fed/에너지 기사 | 미국 시장 메인 뉴스, 종목 이슈 | 방송 톤과 잘 맞고 기사 제목이 직관적 | CNBC Pro와 일반 기사 분리 필요 | P0 |
-| TradingView News | 시장 뉴스 aggregation, 티커/지수/섹터 반응 | 뉴스 후보 pool | 하루치 후보를 넓게 가져오기 쉬움 | 중복/평면적 기사 많음. 선별 점수 필요 | P1 |
-| Advisor Perspectives | 장문 거시/자산배분 코멘터리, dshort/AP charts | 배경 설명, 주간/월간 맥락 | 퀄리티 좋은 장문 commentary와 지표 해설 | 매일 아침 속보용은 아님. 403 이슈 있음 | P2 |
-| Bespoke | 시장 breadth, seasonality, performance, positioning chart | 이모저모/시장 내부 구조 | 짧고 읽기 쉬운 차트/코멘트 | 상당 부분 유료/로그인 가능성 | P1 |
-| KobeissiLetter | 거시/정책/시장 stress, X 기반 시각자료/숫자 | 메인 thesis 후보, 키워드 레이더 | X에서 시장이 반응하는 숫자를 잘 뽑음 | 계정 성격상 과장/선별 편향 점검 필요 | P0 |
-| Wall St Engine | 실적/기업 발언/AI/빅테크 X 속보 | 빅테크 실적, AI 스토리 | 짧은 quote와 숫자가 빠름 | X 로그인/정렬 이슈. 원문 교차검증 필요 | P0 |
-| Charlie Bilello | 장기 차트, 자산별 수익률, 인플레/금리/시장 통계 | 이모저모 시각자료 | 설명이 짧고 차트가 방송용으로 좋음 | 개별 당일 뉴스보다는 통계/맥락형 | P1 |
-| StockMarket.News / _Investinq | 화제성 있는 시장 영상/차트/quote | 단신/환기 소재, 흥미 유발 | 시각자료와 “볼 만한 소재”가 많음 | 검증/원출처 확인 필수 | P1 |
-| Liz Ann Sonders | Schwab 관점의 시장/경제 차트 | 거시/시장 내부 구조 | 신뢰도 높은 차트와 코멘트 | 직접 원자료까지 확인하면 더 좋음 | P1 |
-| Nick Timiraos | Fed 관련 해석/신호 | Fed 주간/회의 전후 핵심 | Fed watcher로서 가치 높음 | 모든 날에 자료가 있는 것은 아님 | P1 |
+| BizToc | 일반 웹뉴스 headline, RSS summary | 오늘의 이모저모 seed | 넓고 빠르며 요약이 붙는다 | 자체 신뢰도는 중간. Reuters 검색/원문 확인 필요 | P0 |
+| Reuters | 글로벌 속보, 정책, 지정학, 기업, 시장 뉴스 | 주요 뉴스, 단신, 교차 확인 | 신뢰도와 속도 | 직접 웹 수집 401 가능. X/검색/TradingView 우회 필요 | P0 |
+| CNBC | 미국 주식, 빅테크, 실적, Fed, 에너지 | 주요 뉴스, 종목 이슈 | 방송 친화적 제목과 각도 | Pro 기사 제외 필요 | P0 |
+| Yahoo Finance | 가격, 차트, 종목 기사, 시장 기사 | 시장 차트, 기사 보강 | 무료 chart endpoint와 종목 coverage | 공식 API는 아님. rate limit/구조 변경 가능 | P0 |
+| TradingView News | 시장 뉴스 aggregation, ticker 기사 | 뉴스 후보 pool | 다양한 기사와 ticker 후보를 빠르게 모음 | 중복/화면용 기사 많음. 점수 필터 필요 | P1 |
+| Bloomberg X | 금융시장/정책/기업/기술 headline | 주요 뉴스, 단신 | money angle이 강함 | paywall 본문 접근 제한 | P0 |
+| Finviz | 지수, heatmap, futures, ticker hot news | 시장은 지금, 특징주 | 화면 자체가 방송용 | Cloudflare/headless 차단 가능. persistent Chrome 필요 | P0 |
+| Trading Economics | 경제 일정, 국가별 지표 | 경제 일정 | 구조화된 일정 데이터 | HTML 구조 변경 리스크. 유료 API 검토 가능 | P0 |
+| CNN Fear & Greed | 투자심리 gauge | 시장 심리 체크 | 설명이 쉽다 | 캡처 의존. 내부 구성요소 자동 수집은 별도 관리 | P0 |
+| CME FedWatch | FOMC 회의별 금리 확률 | Fed 패키지 | Fed funds futures 기반이라 해석이 명확 | 페이지 구조 복잡. 이벤트 주간 우선 | P1 |
+| Polymarket | 이벤트 확률 | Fed/정책/지정학 보조 | 방송 질문을 만들기 좋다 | 시장 유동성과 편향 확인 필요 | P1 |
+| Earnings Whispers | 실적 캘린더 이미지, ticker seed | 실적/특징주 | 주간 실적 seed로 좋다 | 이미지/OCR/시점 확인 필요 | P0 |
+| FactSet Insight | 실적 시즌 정량 맥락, EPS/마진/섹터 분석 | 실적 큰 그림 | John Butters 리포트가 안정적 | 속보성은 낮고 글이 길다 | P1 |
+| Wall St Engine | 빅테크 실적 숫자, quote, X 이미지 | 실적/특징주, 이모저모 | 숫자와 quote가 빠르다 | 원문 교차 확인 필수 | P0 |
+| IsabelNet | 리서치 차트, valuation, sentiment | 이모저모 시각 자료 | 한 장짜리 차트가 방송에 좋다 | 차트 출처/시점/축 해석 필요 | P0 |
+| Bespoke | breadth, seasonality, performance chart | 시장 내부 구조 | 읽기 쉬운 차트와 코멘트 | 유료/로그인 영역 주의 | P1 |
+| Charlie Bilello | 장기 통계, 자산별 수익률, 금리/인플레 비교 | 숫자형 이모저모 | 설명 가능한 차트가 많다 | 단일 뉴스보다 통계/맥락용 | P1 |
+| Kobeissi Letter | 거시 스트레스, 금리, 유가, 시장 숫자 | story seed | 시장이 반응하는 숫자를 빠르게 포착 | 과장/선별 가능성. 보조 근거 필요 | P0 |
+| Liz Ann Sonders | 신뢰도 높은 시장/경제 차트 | 거시/시장 구조 | 출처 신뢰도 높음 | 가능하면 원자료까지 확인 | P1 |
+| Nick Timiraos | Fed 해석과 정책 신호 | Fed 이벤트 해설 | Fed watcher로 가치 높음 | 매일 자료가 나오는 소스는 아님 | P1 |
+| Advisor Perspectives | 전문 거시/자산배분 commentary | 배경 설명 | 장기 맥락에 좋음 | 속보용 아님. 403 가능 | P2 |
+| StockMarket.News / _Investinq | 단신, quote, 시각 자료 seed | 단신/쉬어가기 | 소재 발굴이 빠름 | 원출처 확인 필수 | P2 |
 
-## 현재 Autopark에서 확인된 0430 수집 성과
+## 현재 Autopark 수집 구조
 
-### Batch A 뉴스
+### Batch A: 일반 웹뉴스
 
-- CNBC, Yahoo Finance, TradingView는 정상 수집.
-- Reuters 웹 직접 수집은 실패했지만 X 공개 헤드라인에서는 수집 가능.
-- 후보 수는 TradingView 15, CNBC 15, Yahoo Finance 14로 넓게 들어왔다.
-- 문제는 후보가 넓은 만큼 평면적 기사도 많다는 점이다.
+현재 기본 소스:
 
-### Batch B 특수/리서치
+- BizToc
+- Reuters
+- CNBC
+- TradingView News
+- Yahoo Finance
 
-- IsabelNet은 이미지/차트 후보가 안정적으로 들어왔다.
-- FactSet Insight는 source check는 성공했지만 0430 후보 장부에는 크게 반영되지 않았다.
-- Advisor Perspectives는 403으로 실패했다.
-- X 계정들은 수집 성공했지만, Batch B HTML 후보에서는 IsabelNet 비중이 압도적이었다.
+운영 방식:
 
-### X Timeline
+- BizToc은 RSS feed를 사용한다.
+- BizToc 후보는 headline, summary, Reuters 검색 링크를 evidence로 가진다.
+- CNBC/Yahoo/TradingView는 HTML anchor 기반 후보를 만든다.
+- Reuters 직접 웹은 401이 날 수 있으므로 실패해도 배치를 중단하지 않는다.
 
-- Reuters, Bloomberg, CNBC, Wall St Engine, KobeissiLetter, Charlie Bilello, Liz Ann Sonders, Bespoke 등이 정상 수집됐다.
-- 0430에서 CNBC의 UAE/OPEC, Bloomberg의 AI/Mercor·이란 유조선, Wall St Engine의 GOOGL TPU, Charlie Bilello의 유가/원자재 차트가 실질적으로 유용했다.
-- X는 headline + image + 반응 지표를 주지만, 원문 기사/원출처 검증을 붙여야 한다.
+### Batch B: 특수/리서치/X
 
-### 실적/특징주
+현재 starter set:
 
-- Earnings Whispers X 캘린더는 주간 티커 seed로 매우 좋았다.
-- Finviz는 일봉 + 티커 아래 hot news 한 줄 + 뉴스 테이블을 얻을 수 있어 특징주 출발점으로 적합했다.
-- FactSet은 실적 시즌 큰 숫자와 섹터별 EPS/margin context를 보강하는 역할이 좋다.
+- IsabelNet
+- FactSet Insight
+- Advisor Perspectives
+- Kobeissi Letter
+- StockMarket.News / _Investinq
+- Liz Ann Sonders
+- Bespoke
+- Nick Timiraos
+
+운영 방식:
+
+- IsabelNet/FactSet은 RSS 또는 HTML 기반 수집 후보가 있다.
+- X 계정은 browser profile 기반 추출이다.
+- X는 headline + image + 반응 지표를 주로 보고, 사실 관계는 다른 출처로 확인한다.
+
+### 고정 시장 데이터
+
+주요 소스:
+
+- Finviz
+- Yahoo Finance
+- Trading Economics
+- CNN Fear & Greed
+- CME FedWatch
+- Polymarket
+- CoinGecko
+
+운영 방식:
+
+- 고정 데이터는 "시장은 지금"의 뼈대다.
+- 뉴스 후보보다 안정성과 재현성이 중요하다.
+- 캡처 실패 시 해당 카드만 graceful degradation해야 한다.
 
 ## Recommended Source Tiers
 
-### Tier 0: 매일 고정 수집
+### Tier 0: 매일 고정
 
 - Finviz
 - Yahoo Finance
 - Trading Economics
 - CNN Fear & Greed
 - Earnings Whispers
-- Reuters X
+- BizToc
+- CNBC
+- Reuters X / Reuters 검색 / TradingView Reuters
 - Bloomberg X
-- CNBC X/웹
 - Wall St Engine
 - KobeissiLetter
 - IsabelNet
 
-### Tier 1: 조건부/주 2-3회 수집
+### Tier 1: 조건부 또는 주 2-3회
 
+- CME FedWatch
+- Polymarket
 - FactSet Insight
 - Bespoke
 - Charlie Bilello
@@ -101,38 +129,59 @@
 - MarketWatch
 - Barron's
 - WSJ
+- FT
 - The Economist
+- StockMarket.News / _Investinq
 - FRED/official APIs
-- Paid Bloomberg/Reuters/FactSet if login/cookie automation stabilizes
+- paid Bloomberg/Reuters/FactSet, if login automation stabilizes
 
 ## Data Type Taxonomy
 
-| 데이터 타입 | 대표 소스 | 노션 배치 |
+| 데이터 타입 | 대표 소스 | 배치 섹션 |
 |---|---|---|
-| 지수/히트맵/가격 차트 | Finviz, Yahoo Finance, CoinGecko | `1. 시장은 지금` |
-| 경제 일정/금리확률 | Trading Economics, CME FedWatch | `1. 시장은 지금` |
-| 심리/위험선호 | CNN Fear & Greed, IsabelNet, Kobeissi, Charlie Bilello | `1. 시장은 지금` 또는 `2. 이모저모` |
-| 속보/헤드라인 | Reuters, Bloomberg, CNBC, Yahoo Finance, TradingView | `주요 뉴스 요약`, `2. 이모저모` |
-| 차트형 리서치 | IsabelNet, Bespoke, FactSet, Advisor Perspectives | `2. 이모저모` |
-| 실적 일정 | Earnings Whispers | `3. 실적/특징주` |
-| 실적 정량 맥락 | FactSet, CNBC, Yahoo Finance, Finviz | `3. 실적/특징주` |
-| 티커별 차트/뉴스 | Finviz, Yahoo Finance | `3. 실적/특징주` |
-| 단신/환기 소재 | Reuters X, Bloomberg X, CNBC X, StockMarket.News | `2. 이모저모` 하단 또는 오프닝/클로징 후보 |
+| 지수/heatmap/가격 차트 | Finviz, Yahoo Finance, CoinGecko | 시장은 지금 |
+| 경제 일정/금리 확률 | Trading Economics, CME FedWatch | 시장은 지금, Fed 패키지 |
+| 심리/위험 신호 | CNN Fear & Greed, IsabelNet, Kobeissi, Charlie Bilello | 시장은 지금, 이모저모 |
+| 속보/headline | Reuters, Bloomberg, CNBC, Yahoo Finance, TradingView, BizToc | 주요 뉴스, 이모저모 |
+| 차트형 리서치 | IsabelNet, Bespoke, FactSet, Advisor Perspectives | 이모저모 |
+| 실적 일정 | Earnings Whispers | 실적/특징주 |
+| 실적 정량 맥락 | FactSet, CNBC, Yahoo Finance, Finviz, Wall St Engine | 실적/특징주 |
+| ticker별 뉴스/차트 | Finviz, Yahoo Finance, TradingView | 실적/특징주 |
+| 단신/쉬어가기 | Reuters X, Bloomberg X, CNBC X, StockMarket.News, BizToc | 단신, 이모저모 |
+
+## Practical Routing Rules
+
+- "오늘 무슨 일이 있었나?"는 BizToc/CNBC/Yahoo/TradingView/Reuters 계열에서 먼저 찾는다.
+- "그게 시장에 왜 중요한가?"는 Kobeissi/Wall St Engine/FactSet/Bespoke/Charlie Bilello로 보강한다.
+- "보여줄 그림이 있나?"는 Finviz/IsabelNet/Bespoke/Earnings Whispers에서 찾는다.
+- "이 ticker가 진짜 움직였나?"는 Finviz와 Yahoo로 확인한다.
+- "Fed/금리 소재인가?"는 Nick Timiraos, CME FedWatch, Trading Economics를 함께 본다.
+- "실적 시즌인가?"는 Earnings Whispers로 seed를 만들고 FactSet/Finviz/CNBC/Yahoo로 맥락을 붙인다.
+
+## Source Scoring Draft
+
+각 후보에는 다음 축으로 점수를 준다.
+
+- `freshness`: 오늘/전일 이슈인가?
+- `market_relevance`: 지수, 금리, 유가, 빅테크, 실적에 직접 영향이 있는가?
+- `visualability`: 차트, 이미지, 표, 숫자 카드로 보여줄 수 있는가?
+- `narrative_fit`: 방송의 큰 질문 중 하나에 붙는가?
+- `source_quality`: 원출처가 믿을 만한가?
+- `novelty`: 흔한 시장 요약이 아니라 새로운 관점인가?
+- `broadcast_utility`: 진행자가 바로 말하거나 PPT 한 장으로 만들 수 있는가?
 
 ## One-Week Research Protocol
 
-다음 단계는 감으로 분류하는 것이 아니라 5거래일 샘플 장부를 만드는 것이다.
-
-매일 각 소스별로 다음을 기록한다.
+일주일 동안 각 소스별로 다음 값을 기록하면 소스 품질을 수치화할 수 있다.
 
 - 수집 성공 여부
 - 후보 수
-- 이미지 수
-- 속보성 점수: 당일 새 이슈인가?
-- 방송 소재성 점수: 슬라이드 1장으로 만들 수 있는가?
+- 이미지/차트 후보 수
+- 속보성 점수
+- 방송 소재 점수
 - 원출처 신뢰도
 - 중복률
-- 실제 PPT hit 여부
+- 실제 PPT 채택 여부
 
 권장 출력:
 
@@ -142,41 +191,10 @@
 
 `projects/autopark/docs/source-scorecard-weekly.md`
 
-## Source Scoring Draft
+## Known Gaps
 
-각 후보에는 다음 점수를 부여한다.
-
-- `freshness`: 오늘/전일 새 이슈인지
-- `market_relevance`: 지수, 금리, 유가, 빅테크, 실적에 직접 영향을 주는지
-- `visualability`: 차트/이미지/표로 보여줄 수 있는지
-- `narrative_fit`: 스토리라인 3개 중 하나에 붙는지
-- `source_quality`: 원출처 신뢰도
-- `novelty`: 흔한 시장 요약이 아니라 새로운 관점인지
-- `broadcast_utility`: 진행자가 PPT에 바로 옮길 수 있는지
-
-## Practical Routing Rules
-
-- "오늘 무슨 일이 있었나"는 Reuters/Bloomberg/CNBC/Yahoo/TradingView에서 먼저 잡는다.
-- "그게 시장에 왜 중요한가"는 Kobeissi/Wall St Engine/Charlie Bilello/FactSet/Advisor Perspectives로 보강한다.
-- "보여줄 그림이 있나"는 IsabelNet/Bespoke/Finviz/Earnings Whispers에서 찾는다.
-- "티커를 볼까"는 Finviz hot news와 일봉으로 검증한다.
-- "Fed/금리 소재인가"는 Nick Timiraos, CME FedWatch, Trading Economics를 같이 본다.
-- "실적 시즌인가"는 Earnings Whispers로 티커 seed를 만들고 FactSet/Finviz/CNBC/Yahoo로 맥락을 붙인다.
-
-## Web References
-
-- Reuters: https://reutersagency.com/en/about/about-us/
-- Reuters financial markets/LSEG: https://www.lseg.com/en/data-analytics/financial-data/financial-news-coverage/global-market-news-coverage
-- Bloomberg Media: https://www.bloombergmedia.com/about/
-- CNBC: https://www.cnbc.com/
-- Yahoo Finance app description: https://apps.apple.com/us/app/yahoo-finance-stocks-news/id328412701
-- Trading Economics Calendar API: https://docs.tradingeconomics.com/economic_calendar/
-- Trading Economics API overview: https://docs.tradingeconomics.com/
-- Finviz: https://finviz.com/
-- IsabelNet blog: https://www.isabelnet.com/blog/
-- IsabelNet macro forecasts example: https://www.isabelnet.com/macro-forecasts/
-- FactSet Insight: https://insight.factset.com/
-- FactSet earnings topic: https://insight.factset.com/topic/earnings
-- CME FedWatch user guide: https://www.cmegroup.com/tools-information/quikstrike/cme-fedwatch-tool-user-guide.html
-- Advisor Perspectives global markets: https://www.advisorperspectives.com/topic/global-markets
-- Bespoke Investment Group: https://www.bespokepremium.com/
+- `today_misc_sources.json`의 일부 `broadcast_use` 한글이 깨져 있다.
+- `enabled=false`가 많아 실제 운영 기본값과 설정상의 enabled 상태가 아직 분리되어 있다.
+- paywall 소스의 자동화 정책이 더 명확해야 한다.
+- X 계정별 개별 프로필은 아직 더 세밀하게 나눌 수 있다.
+- BizToc은 넓은 후보에는 좋지만 시장 관련성 필터를 계속 다듬어야 한다.

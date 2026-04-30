@@ -1,173 +1,149 @@
 # Autopark Source Playbook
 
-이 문서는 Autopark가 매일 아침 방송 준비 대시보드를 만들 때 각 소스를 어떤 역할로 써야 하는지 정리한다. `source-intelligence-map.md`가 넓은 분류표라면, 이 문서는 실제 운영용 플레이북이다.
+이 문서는 Autopark가 아침 방송 준비용 자료를 만들 때 각 소스를 어떤 역할로 써야 하는지 정리한다.
+핵심 원칙은 "많이 긁기"가 아니라, 방송에 바로 쓸 수 있는 질문과 그림을 빠르게 찾는 것이다.
 
-## Source Tiers
+## 운영 원칙
 
-### P0: 매일 본다
+- 일반 뉴스는 BizToc/CNBC/Yahoo/TradingView에서 후보를 넓게 잡고, Reuters 검색이나 원문 기사로 교차 확인한다.
+- X 계정은 사실 확정 소스가 아니라 "시장이 지금 어떤 숫자와 문장을 반복하는지" 보는 레이어로 쓴다.
+- 차트/리서치 소스는 단독 뉴스보다 방송용 그림, 맥락, 비교축을 제공할 때 가치가 크다.
+- 실적/특징주 후보는 ticker만 뽑지 말고 숫자, 주가 반응, 왜 지금인지까지 붙어야 한다.
+- paywall 소스는 본문 요약보다 headline, 공개 이미지, 공개 X 피드를 우선한다.
 
-| 소스 | 주로 얻는 것 | Notion 배치 | 운영 규칙 |
+## P0: 매일 보는 소스
+
+| 소스 | 주 역할 | 배치 | 운영 메모 |
 |---|---|---|---|
-| Finviz | 주요 지수, S&P500/러셀 히트맵, 티커 일봉, 티커 hot news | `시장은 지금`, `실적/특징주` | 시장 루틴과 특징주 차트의 기본 소스. 티커 뉴스 한 줄이 있으면 같이 캡처한다. |
-| Yahoo Finance | 지표/선물/환율/주식 가격, 기사 후보 | Datawrapper, 보강 기사 | 무료 chart endpoint로 시장 차트를 만들고, 기사 후보는 원문 검증용으로 쓴다. |
-| CoinGecko | 비트코인 가격 | Datawrapper | BTC는 주식장과 다르게 실시간성이 있으므로 수집 시점 기준으로 표기한다. |
-| Trading Economics | 경제 일정, 국가/중요도/예상치 | 경제 일정 표 | 미국은 2스타 이상, 미국 외는 3스타만 노출한다. |
-| CNN Fear & Greed | 위험선호 게이지 | `시장은 지금` | 한 장으로 투자심리를 보여준다. |
-| Earnings Whispers | 주간 실적 캘린더, ticker seed | `실적/특징주` | 실적 시즌의 출발점. 이미지 고정 삽입 후 ticker drilldown을 건다. |
-| Wall St Engine | 빅테크 실적 숫자, 기업 quote, after-hours 반응 | `실적/특징주`, `이모저모` | 빅테크 실적일에는 최우선 X 소스. 이미지와 텍스트를 많이 수집한다. |
-| Reuters/Bloomberg/CNBC X | 속보, 단신, 정책/기업 headline | `주요 뉴스`, `이모저모`, `단신/환기` | 공개 X 계정은 페이월 우회가 아니라 headline 레이더로 쓴다. |
-| KobeissiLetter | 금리, 유가, 포지셔닝, macro stress 숫자 | `이모저모`, story seed | 과장 가능성은 있지만 시장이 주목하는 숫자를 잘 잡는다. |
-| IsabelNet | IB/리서치 차트, 거시/포지셔닝 이미지 | `이모저모` | 차트형 자료로 좋다. 다만 당일 thesis와 붙지 않으면 하단 후보로 둔다. |
+| Finviz | 지수 흐름, S&P500/Russell heatmap, 특징주, ticker hot news | 시장은 지금, 실적/특징주 | 화면 자체가 방송용이다. 특징주 출발점으로 가장 좋다. |
+| Yahoo Finance | 가격/수익률/종목 기사, 무료 chart endpoint | 시장 차트, 기사 보강 | Datawrapper 차트와 궁합이 좋다. 기사 후보는 원문 확인용으로 쓴다. |
+| Trading Economics | 경제 일정, 국가별 중요 지표 | 경제 일정 | 미국 2성 이상, 비미국 3성 이상을 기본으로 본다. |
+| CNN Fear & Greed | 투자심리 게이지 | 시장은 지금 | 한 장으로 시장 온도를 설명하기 좋다. |
+| Earnings Whispers | 주간 실적 캘린더, ticker seed | 실적/특징주 | 실적 주간의 seed. 이후 Finviz/Yahoo/Wall St Engine으로 drilldown한다. |
+| BizToc | 넓은 일반 뉴스 headline/summary seed | 오늘의 이모저모 | RSS 요약으로 후보를 잡고 Reuters 검색 링크로 교차 확인한다. |
+| CNBC | 미국 시장/기업/실적/Fed/에너지 기사 | 주요 뉴스, 오늘의 이모저모 | 방송 톤과 맞는 제목이 많다. CNBC Pro와 일반 기사를 분리해서 본다. |
+| Reuters X / TradingView Reuters | 속보, 정치/지정학/기업/시장 headline | 주요 뉴스, 단신 | Reuters 직접 웹은 401이 날 수 있으므로 X/TradingView/검색 링크를 함께 쓴다. |
+| Bloomberg X | 금융시장, 정책, 기업, 기술의 money angle | 주요 뉴스, 단신 | paywall 본문보다 공개 headline과 이미지 중심으로 쓴다. |
+| Wall St Engine | 빅테크 실적 숫자, 기업 quote, after-hours 반응 | 실적/특징주, 이모저모 | 빅테크 실적일에 우선순위가 높다. 원문/수치 교차 확인은 필수다. |
+| Kobeissi Letter | 금리, 유가, 거시 스트레스, 시장 숫자 | 이모저모, story seed | 주목도 높은 숫자를 빨리 건진다. 과장 가능성을 감안해 보조 근거를 붙인다. |
+| IsabelNet | 리서치 차트, 밸류에이션, sentiment, recession, positioning | 이모저모 | 그림 재료로 좋다. 출처/시점/축 해석을 확인하고 쓴다. |
 
-### P1: 조건부로 본다
+## P1: 조건부로 보는 소스
 
-| 소스 | 주로 얻는 것 | 쓰는 날 |
+| 소스 | 주 역할 | 보는 조건 |
 |---|---|---|
-| Polymarket | Fed/정책/선거/지정학 이벤트 확률 캡처 | FOMC, 대선/정책, 지정학 이벤트가 시장 중심일 때 |
-| CME FedWatch | FOMC 회의별 금리확률 | Fed 주간, CPI/PCE/FOMC 직후 |
-| FactSet Insight | 실적 시즌 정량 context, EPS/마진/섹터 | 실적 시즌 큰 그림이 필요할 때 |
-| Bespoke | breadth, seasonality, 시장 내부 구조 | 시장 강세/과열/폭 조정 이야기가 필요할 때 |
-| Charlie Bilello | 장기 시장 차트, 자산별 수익률 | 숫자형 이모저모, 유가/금리/인플레 비교 |
-| Liz Ann Sonders | 신뢰도 높은 시장/거시 차트 | 경기/시장 내부 구조 |
-| Nick Timiraos | Fed 해석 | Fed 이벤트 전후 |
-| TradingView News | 넓은 뉴스 후보 pool | Batch A 보강용. 중복/평면 기사 많으니 선별 점수 필요 |
+| CME FedWatch | FOMC 회의별 금리 확률 | FOMC, CPI, PCE, 고용보고서 전후 |
+| Polymarket | 이벤트 확률, 정책/지정학/선거 기대 | 확률이 이야기의 긴장을 만들 때 |
+| FactSet Insight | S&P500 실적 시즌 정량 맥락, EPS/매출/마진/섹터 | 실적 시즌의 큰 그림이 필요할 때 |
+| Bespoke | breadth, seasonality, performance, positioning chart | 시장 과열/조정/강세 구조를 설명할 때 |
+| Charlie Bilello | 장기 자산별 수익률, 금리/인플레/시장 통계 | 숫자형 이모저모나 비교 차트가 필요할 때 |
+| Liz Ann Sonders | 신뢰도 높은 시장/경제 차트 | 경기/시장 내부 구조를 설명할 때 |
+| Nick Timiraos | Fed 해석과 정책 신호 | Fed 이벤트 전후 |
+| TradingView News | 넓은 시장 뉴스 aggregation | Batch A 보강. 중복과 화면용 기사 필터링 필요 |
+| Advisor Perspectives | 전문 거시/자산배분 commentary | 매일 속보보다 주간/월간 배경 설명이 필요할 때 |
 
-### P2: 실험/보조
+## P2: 보조/실험 소스
 
-- Advisor Perspectives: 장문 거시 배경. 매일 아침 속보보다는 주간/월간 맥락.
-- StockMarket.News / _Investinq: 화제성 영상/quote. 원출처 확인 후 단신으로만 사용.
-- MarketWatch/Barron's/WSJ/Economist: 공개 headline 또는 구독 profile 자동화가 안정화된 뒤 확장.
+| 소스 | 용도 |
+|---|---|
+| MarketWatch, Barron's, WSJ, FT, Economist | 공개 headline 확인, 향후 구독/브라우저 프로필 자동화 후보 |
+| StockMarket.News / _Investinq | 단신, quote, 시각 자료 seed. 반드시 원출처 확인 |
+| Community/curiosity sources | 방송 분위기 전환용 소재. 시장 섹션의 핵심 근거로 쓰지 않는다. |
+| Workflow tools | 번역, LLM, 시각 보조 도구. 수집 대상이 아니라 작업 보조다. |
 
-## Slot별 소스 사용법
+## 섹션별 라우팅
 
 ### 1. 시장은 지금
 
 고정 순서:
 
-1. Finviz 주요 지수 흐름
-2. S&P500 히트맵
-3. 러셀2000 히트맵
-4. 미국 10년물 국채금리
-5. WTI
-6. 브렌트
-7. DXY
-8. 원달러
-9. 비트코인
-10. CNN Fear & Greed
-11. 미국 경제 일정
-12. 글로벌 경제 일정
+1. Finviz 지수/heatmap
+2. Yahoo Finance 가격 차트
+3. 10년물, WTI/Brent, DXY, USD/KRW, Bitcoin
+4. CNN Fear & Greed
+5. 미국/글로벌 경제 일정
+6. 필요 시 CME FedWatch 또는 Polymarket
 
-추가 조건:
+좋은 후보는 "지금 시장이 왜 움직였는지"와 "한 장으로 보여줄 그림"을 동시에 가진다.
 
-- 0430처럼 진행자가 S&P500/나스닥 일봉/주봉을 본 날은 지수 차트 보강을 검토한다.
-- 금리/FOMC가 핵심인 날은 시장 루틴 뒤에 `Fed package`를 별도 배치한다.
+### 2. 주요 뉴스 / 오늘의 이모저모
 
-### 2. Fed / FOMC Package
+기본 흐름:
 
-FOMC, CPI, PCE, 고용보고서 직후에는 경제 일정 표만으로 부족하다.
+1. BizToc에서 넓은 headline/summary 후보를 잡는다.
+2. CNBC/Yahoo/TradingView에서 시장 관련 후보를 보강한다.
+3. Reuters 검색 링크나 공개 Reuters/X/TradingView 기사로 사실관계를 확인한다.
+4. IsabelNet/Bespoke/Charlie Bilello에서 그림이 되는 보조 자료를 찾는다.
+5. 제목은 원문 직역보다 한국어 방송 질문형으로 바꾼다.
 
-필수 자료:
+좋은 이모저모는 "흥미롭다"에서 끝나지 않고 시장, 기업, 소비자 행동, 정책 중 하나와 연결된다.
 
-- FOMC 성명서 핵심 bullet
-- 이전 성명 대비 문구 변화
+### 3. Fed / FOMC 패키지
+
+필수 재료:
+
+- FOMC 성명 핵심 문구 변화
 - Powell 발언 요약
-- FedWatch 또는 Polymarket 금리인하 베팅
-- 10년물, DXY, WTI 반응
+- CME FedWatch 또는 Polymarket 확률 변화
+- 10년물, DXY, WTI, 주요 지수 반응
+- Nick Timiraos나 Reuters/Bloomberg/CNBC의 해석 headline
 
-배치 방식:
+배치 방식은 "시장과 금리 경로가 충돌하는 지점"을 질문으로 잡는 것이 좋다.
 
-- `시장은 지금` 바로 뒤 또는 `오늘의 이모저모` 최상단에 둔다.
-- 제목은 `FOMC 이후 시장이 보는 금리 경로`처럼 방송 질문형으로 짧게 쓴다.
+### 4. 실적 / 특징주
 
-### 3. 오늘의 이모저모
+기본 흐름:
 
-좋은 이모저모는 “재밌는 자료”가 아니라 “스토리라인에 붙일 수 있는 자료”다.
-
-선정 기준:
-
-- 자료 하나가 슬라이드 1장을 만들 수 있는가?
-- 아래/위 자료와 연결되어 흐름을 만들 수 있는가?
-- 원문 headline보다 한국어 짧은 제목으로 바꿨을 때 힘이 있는가?
-- 차트/이미지/quote가 실제로 볼 만한가?
-
-소스별 역할:
-
-- IsabelNet/Bespoke/Charlie Bilello: 차트형 맥락
-- Reuters/Bloomberg/CNBC: 당일 headline
-- KobeissiLetter: 시장이 반응하는 숫자
-- Wall St Engine: 기업/실적 quote
-- Polymarket: 확률형 이벤트 소재
-
-### 4. 실적/특징주
-
-실적 시즌의 기본 flow:
-
-1. Earnings Whispers 주간 캘린더를 넣는다.
-2. 캘린더 ticker 중 당일/전일 실적 발표 또는 after-hours 급등락 ticker를 추린다.
-3. Wall St Engine에서 해당 ticker의 숫자/quote/image를 우선 찾는다.
-4. Yahoo/Finviz에서 뉴스와 주가 반응을 확인한다.
-5. Finviz 일봉 또는 5분봉/after-hours 차트를 붙인다.
+1. Earnings Whispers에서 발표 예정 ticker seed를 잡는다.
+2. Finviz에서 주가 반응과 hot news를 본다.
+3. Yahoo/CNBC/TradingView로 기사 맥락을 붙인다.
+4. Wall St Engine에서 숫자와 quote가 있으면 보강한다.
+5. FactSet으로 시즌 전체 맥락을 붙인다.
 
 빅테크 실적 카드 필드:
 
 - EPS actual vs estimate
 - revenue actual vs estimate
-- 핵심 사업 성장률: cloud, AWS, ads, search, personal computing 등
-- AI 관련 숫자: run-rate, CAPEX, RPO/backlog, TPU, data center
-- guidance 또는 비용 우려
-- after-hours 반응
-- 방송용 한 줄 해석
+- cloud, ads, search, AWS, Azure, AI, CAPEX, RPO/backlog 같은 사업부 숫자
+- guidance와 비용 우려
+- after-hours 또는 premarket 반응
+- 방송에서 한 문장으로 말할 해석
 
-0430 기준 예시:
+### 5. 단신 / 쉬어가는 소재
 
-- MSFT: cloud 39%, AI run-rate $37B, RPO $627B, AI 비용 증가 우려
-- AMZN: AWS 28%, AI data center/self-chip CAPEX $200B
-- META: 광고 33%, EPS surprise, CAPEX +$10B
-- GOOGL: cloud 63%, EPS surprise, backlog $460B
-- QCOM/ON/INTC: 반도체 후속 흐름과 5분봉/일봉
-
-### 5. 단신 / 환기 소재
-
-단신은 메인 스토리와 경쟁시키지 않는다.
+단신은 메인 스토리를 압도하지 않아야 한다.
 
 좋은 단신:
 
-- 방송 분위기를 바꿀 수 있다.
-- 정치/기업인/문화/기술 소재지만 시장 이야기에 살짝 닿는다.
-- 1-2장으로 끝낼 수 있다.
+- 방송 분위기를 바꿔준다.
+- 정치/기업/문화/기술 소재지만 시장 이야기와 한 다리 연결된다.
+- 1-2문장으로 끝낼 수 있다.
 
-대표 소스:
+주요 소스:
 
 - Reuters/Bloomberg/CNBC X
 - StockMarket.News
 - Wall St Engine
 - Polymarket trending markets
+- BizToc curiosity 후보
 
-0430 예시:
+## 후보 점수 기준
 
-- Musk/SpaceX Mars 보상 조건
-- 책/댓글 오프닝은 개인 소재라 자동화 제외
-
-## Candidate Scoring
-
-후보는 단순 언급량이 아니라 다음 축으로 평가한다.
-
-| 점수 | 질문 |
+| 축 | 질문 |
 |---|---|
-| freshness | 오늘/전일 새 이슈인가? |
+| freshness | 오늘/전일 이슈인가? |
 | section_fit | 시장/Fed/이모저모/실적/단신 중 위치가 명확한가? |
-| visualability | 캡처/차트/표/숫자 카드로 보여줄 수 있는가? |
-| narrative_tension | 대립축을 만드는가? |
-| theme_proof | 큰 테마를 증명하는 사례인가? |
+| visualability | 차트, 이미지, 숫자 카드로 보여줄 수 있는가? |
+| narrative_tension | 진행자가 던질 질문이 생기는가? |
+| theme_proof | 오늘 방송의 큰 테마를 증명하거나 반박하는가? |
 | source_quality | 원출처가 믿을 만한가? |
-| broadcast_utility | 진행자가 바로 말할 수 있는가? |
+| broadcast_utility | 바로 말하거나 PPT 한 장으로 만들 수 있는가? |
 
-0430 이후에는 `section_fit`과 `theme_proof`를 언급량보다 높게 둔다.
+## 흔한 실패 모드
 
-## Common Failure Modes
-
-- 속보가 크다고 상단 story로 밀어 올리는 것. 실제 방송은 속보보다 전개가 좋은 소재를 고른다.
-- X 자료를 너무 많이 넣는 것. Wall St Engine처럼 역할이 뚜렷한 계정만 우선 노출한다.
-- 이모저모에 원문을 그대로 싣는 것. 제목과 quote는 한국어 방송용으로 재작성해야 한다.
-- 실적 후보를 ticker 리스트로 끝내는 것. 숫자와 주가 반응이 있어야 한다.
-- Fed 이벤트를 경제 일정에만 남기는 것. FOMC 날에는 별도 해석 패키지가 필요하다.
+- 속보가 많다는 이유만으로 상단 스토리로 올리는 것.
+- X 소재를 사실 확정처럼 쓰는 것.
+- 이모저모에 원문 제목만 나열하는 것.
+- 실적 후보를 ticker 리스트로만 내보내고 숫자와 주가 반응을 빼는 것.
+- Fed 이벤트를 경제 일정으로만 처리하고 금리 확률/시장 반응을 붙이지 않는 것.
+- paywall 기사 본문에 접근하지 못했는데 본문을 읽은 것처럼 쓰는 것.
