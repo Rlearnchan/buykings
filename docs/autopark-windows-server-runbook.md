@@ -82,3 +82,32 @@ Mirror:
 - 수집 일부 실패는 warn으로 남기고 계속 진행한다.
 - 품질 gate fail은 Notion 발행을 막는다.
 - 실행 실패는 로그와 state mirror를 보고 해당 step만 재시도한다.
+
+## Test Cycle Scheduler
+
+초기 테스트 단계에서는 매일 06:03 실행만으로 피드백이 너무 늦다. 다음 스크립트는 기본적으로
+30분 간격, 12시간 동안 리허설을 반복한다. 기본 모드는 `--skip-publish`라 Notion을 갱신하지 않고
+runtime/data/state mirror 산출물만 쌓는다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\install_autopark_test_schedule.ps1
+```
+
+발행까지 포함한 테스트가 필요하면 `-EnablePublish`를 붙인다. 이 경우에도 `AUTOPARK_PUBLISH_POLICY=gate`
+기준을 따르므로 quality gate가 pass일 때만 같은 날짜 Notion 페이지를 갱신한다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\install_autopark_test_schedule.ps1 -IntervalMinutes 30 -DurationHours 12 -EnablePublish
+```
+
+테스트 태스크를 지울 때:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\install_autopark_test_schedule.ps1 -Unregister
+```
+
+Task Scheduler 등록 권한이 없는 세션에서는 현재 PowerShell 창에서 직접 루프를 띄운다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\start_autopark_test_loop.ps1 -IntervalMinutes 30 -DurationHours 12
+```

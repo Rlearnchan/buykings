@@ -50,3 +50,36 @@
 Autopark는 기본적으로 `AUTOPARK_PUBLISH_POLICY=gate`를 사용한다. 품질 리뷰가
 `pass`일 때만 Notion 날짜 페이지를 `replace-existing`으로 발행하고, 실패하면
 Markdown/후보 장부/리뷰만 `AUTOPARK_STATE_ROOT\runs\YYYY-MM-DD\`에 보존한다.
+
+## Autopark Test Cycle
+
+테스트 단계에서는 06:03 daily run을 기다리지 않고 짧은 반복 주기로 리허설을 돌린다.
+기본값은 30분 간격, 12시간 지속, Notion 발행 없음이다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\install_autopark_test_schedule.ps1
+```
+
+발행까지 테스트하려면 gate 통과 시 같은 날짜 Notion 페이지를 갱신하도록 명시한다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\install_autopark_test_schedule.ps1 -IntervalMinutes 30 -DurationHours 12 -EnablePublish
+```
+
+한 번만 즉시 실행하려면 다음을 쓴다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\run_autopark_test_cycle.ps1
+```
+
+테스트 작업을 지울 때:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\install_autopark_test_schedule.ps1 -Unregister
+```
+
+Task Scheduler 등록 권한이 없는 세션에서는 현재 PowerShell 창에서 직접 루프를 띄운다.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\ops\windows\start_autopark_test_loop.ps1 -IntervalMinutes 30 -DurationHours 12
+```
