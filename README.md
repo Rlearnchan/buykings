@@ -1,41 +1,39 @@
 # Buykings
 
-`Buykings`는 현재 `위폴은 지금` 지수와 주간 시각화를 운영하는 저장소다.
+`Buykings`는 아침 방송과 위폴 관련 데이터 운영을 묶는 상위 자동화 저장소다.
 
-이 저장소의 역할은 단순히 차트 이미지를 보관하는 것이 아니라,
+이 저장소의 역할은 단순히 차트 이미지를 보관하는 것이 아니라, 하위 서브 프로젝트들이 각자 가진 수집/분석/발행 루틴을 한곳에서 실행하고 관리하는 것이다.
 
-- 위폴 게시물 원본 CSV를 받아
-- 일별 심리/참여 지수를 계산하고
-- Datawrapper용 차트 CSV와 PNG를 만들고
-- 그 결과를 누적 관리하는 것
+현재 대표 서브 프로젝트는 두 가지다.
 
-에 있다.
+- `projects/autopark`: 매일 아침 시장/뉴스/차트 자료를 모아 방송용 Notion 대시보드를 만들고, 방송 후 회고까지 연결한다.
+- `projects/wepoll-panic`: 위폴 게시물 원본 CSV를 받아 일별 심리/참여 지수와 주간 시각화를 누적 관리한다.
 
-즉 이 레포는 **위폴 지수 운영 파이프라인 + 발행 자산 저장소**에 가깝다.
+즉 이 레포는 **Buykings 운영 자동화 오케스트레이터 + 서브 프로젝트별 발행 자산 저장소**에 가깝다.
 
 ## What We Publish
 
-현재 바깥으로 나가는 핵심 산출물은 두 가지다.
+현재 바깥으로 나가는 핵심 산출물은 크게 세 갈래다.
 
-- 최근 6주 시계열
-- 지난 주 7일 버블 차트
+- Autopark 일별 방송 대시보드
+- 위폴 최근 6주 시계열
+- 위폴 지난 주 7일 버블 차트
 
-둘 다 `위폴은 지금`이라는 같은 트랙 안에서 운영된다.
+Autopark는 Notion과 방송 준비 자료 중심이고, 위폴 지수는 `위폴은 지금`이라는 별도 트랙 안에서 운영된다.
 
 ## How The Workflow Works
 
-현재 운영 흐름은 아래처럼 이해하면 된다.
+상위 운영 흐름은 아래처럼 이해하면 된다.
 
-1. 사람이 위폴 raw CSV를 스레드에 넘긴다.
-2. 필요한 날짜만 골라 daily append 또는 weekly 산출을 수행한다.
-3. 시장 데이터를 붙여 심리/참여 지수를 계산한다.
-4. Datawrapper용 CSV를 만든다.
-5. Datawrapper chart를 갱신한다.
-6. 최종 PNG를 저장하고, 필요하면 DB에도 적재한다.
+1. 상위 runner 또는 Codex/Windows Task Scheduler가 날짜별 job을 실행한다.
+2. 각 서브 프로젝트는 자기 폴더 안에서 raw/processed/runtime/export 산출물을 만든다.
+3. Datawrapper, Notion, YouTube transcript, SQLite 같은 외부 연동은 공통 스크립트와 환경변수를 통해 처리한다.
+4. 품질검수와 회고 결과는 runtime/docs에 남기고 다음 실행의 입력으로 일부 반영한다.
+5. 공개 가능한 코드, 차트 스펙, 운영 문서, 최종 PNG만 Git에 남긴다.
 
-핵심 원칙은 하나다.
+핵심 원칙은 두 가지다.
 
-**기존 발행값은 다시 흔들지 않고, 새 날짜만 append 한다.**
+**서브 프로젝트별 산출물 경계를 지키고, 기존 발행값은 명시적 요청 없이는 흔들지 않는다.**
 
 ## What Lives In This Repo
 
@@ -68,6 +66,7 @@
 
 - `projects/autopark`
   - morning broadcast dashboard automation workspace
+  - collects market/news/chart inputs, builds an LLM editorial brief, publishes a daily Notion dashboard, and writes post-broadcast review artifacts
   - owns its charts, config, data, docs, exports, runtime, and project scripts
 - `projects/wepoll-panic/state`
   - 현재까지 누적된 일별 지수 상태값
@@ -157,6 +156,10 @@ weekly PNG는 항상 같은 기준으로 관리한다.
   - 네이버 소셜 로그인 대응용 장기 실행 fetcher 운영안
 - [docs/wepoll-windows-server-runbook.md](docs/wepoll-windows-server-runbook.md)
   - Windows 서버에서 fetcher와 daily batch를 운영하는 절차
+- [projects/autopark/README.md](projects/autopark/README.md)
+  - Autopark daily dashboard, LLM editorial brief, FedWatch split tables, and post-broadcast retrospective loop
+- [projects/autopark/docs/autopark-editorial-retrospective-runbook.md](projects/autopark/docs/autopark-editorial-retrospective-runbook.md)
+  - Autopark 편집장/방송 회고/피드백 반영 운영 기준
 - [docs/wepoll-panic-migration.md](docs/wepoll-panic-migration.md)
   - `wepoll-panic`을 Windows 서버로 먼저 옮기는 1차 마이그레이션 기준
 - [docs/buykings-morning-architecture.md](docs/buykings-morning-architecture.md)

@@ -6,6 +6,21 @@ cd /app
 run_date="${AUTOPARK_DATE:-$(TZ=Asia/Seoul date +%F)}"
 timeout_seconds="${AUTOPARK_STEP_TIMEOUT:-120}"
 
+if [[ "${AUTOPARK_CDP_ENDPOINT:-}" == *host.docker.internal* ]]; then
+  resolved_host="$(
+    getent hosts host.docker.internal \
+      | awk 'index($1, ":") == 0 {print $1; found=1; exit} END {if (!found && NR > 0) print first} NR == 1 {first=$1}'
+  )"
+  if [[ -n "$resolved_host" ]]; then
+    endpoint_path="${AUTOPARK_CDP_ENDPOINT#*host.docker.internal}"
+    if [[ "$resolved_host" == *:* ]]; then
+      export AUTOPARK_CDP_ENDPOINT="http://[${resolved_host}]${endpoint_path}"
+    else
+      export AUTOPARK_CDP_ENDPOINT="http://${resolved_host}${endpoint_path}"
+    fi
+  fi
+fi
+
 if [[ -n "${AUTOPARK_START_AT:-}" ]]; then
   target_epoch="$(TZ=Asia/Seoul date -d "${run_date} ${AUTOPARK_START_AT}" +%s)"
   now_epoch="$(TZ=Asia/Seoul date +%s)"

@@ -1,0 +1,42 @@
+{
+  "default": {
+    "mode": "daily_broadcast",
+    "expected_broadcast": true,
+    "publish_policy": "gate",
+    "retrospective_enabled": true,
+    "news_lookback_hours": 24,
+    "batch_b_lookback_hours": 36,
+    "x_lookback_hours": 24,
+    "news_limit": 80,
+    "x_max_posts": 8,
+    "note": "일반 방송일: 당일 아침 대시보드 생성 및 품질 게이트 통과 시 Notion 게시."
+  },
+  "weekday_modes": {
+    "monday": {
+      "mode": "monday_catchup",
+      "expected_broadcast": true,
+      "publish_policy": "gate",
+      "retrospective_enabled": true,
+      "news_lookback_hours": 72,
+      "batch_b_lookback_hours": 72,
+      "x_lookback_hours": 72,
+      "news_limit": 140,
+      "x_max_posts": 16,
+      "note": "월요일 방송일: 금요일 오전 방송 이후 주말까지 누적된 정보를 72시간 기준으로 넓게 수집한다."
+    }
+  },
+  "dates": {
+    "2026-05-03": {
+      "mode": "no_broadcast",
+      "expected_broadcast": false,
+      "publish_policy": "gate",
+      "retrospective_enabled": false,
+      "news_lookback_hours": 48,
+      "batch_b_lookback_hours": 72,
+      "x_lookback_hours": 48,
+      "news_limit": 100,
+      "x_max_posts": 12,
+      "note": "휴일/비방송일: 방송 회고는 하지 않지만, 자동 발행 검증을 위해 품질 게이트 통과 시 월요일 준비용 Notion 문서를 게시한다."
+    }
+  }
+}

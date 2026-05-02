@@ -2,7 +2,7 @@
 
 기준일: 2026-04-30
 
-Autopark는 Windows PC의 로컬 Chrome 세션과 Task Scheduler로 매일 `06:03 KST`에 실행한다. Docker 분리는 Chrome 로그인/캡처가 안정화된 뒤 검토한다.
+Autopark는 Windows PC의 로컬 Chrome 세션과 Task Scheduler로 매일 `05:05 KST`에 실행한다. 목표는 07:20 방송 전에 진행자가 자료를 만들 수 있도록 `05:30 KST`까지 Notion 대시보드를 완성하는 것이다. Docker 분리는 Chrome 로그인/캡처가 안정화된 뒤 검토한다.
 
 ## Storage Split
 
@@ -58,8 +58,8 @@ powershell -ExecutionPolicy Bypass -File .\ops\windows\run_autopark_daily.ps1
 
 권장:
 
-- `05:55 KST`: `start_autopark_chrome.ps1`
-- `06:03 KST`: `run_autopark_daily.ps1`
+- `04:55 KST`: `start_autopark_chrome.ps1`
+- `05:05 KST`: `run_autopark_daily.ps1`
 
 두 작업 모두 “사용자가 로그인한 경우에만 실행”으로 둔다. Chrome 로그인 세션이 필요하기 때문이다.
 
@@ -85,7 +85,7 @@ Mirror:
 
 ## Test Cycle Scheduler
 
-초기 테스트 단계에서는 매일 06:03 실행만으로 피드백이 너무 늦다. 다음 스크립트는 기본적으로
+초기 테스트 단계에서는 매일 05:05 실행만으로 피드백이 너무 늦다. 다음 스크립트는 기본적으로
 30분 간격, 12시간 동안 리허설을 반복한다. 기본 모드는 `--skip-publish`라 Notion을 갱신하지 않고
 runtime/data/state mirror 산출물만 쌓는다.
 

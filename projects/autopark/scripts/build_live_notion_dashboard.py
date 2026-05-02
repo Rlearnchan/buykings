@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from PIL import Image, ImageDraw, ImageFont
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PROJECT_ROOT.parents[1]
@@ -19,6 +21,7 @@ RUNTIME_NOTION_DIR = PROJECT_ROOT / "runtime" / "notion"
 CHART_DIR = PROJECT_ROOT / "charts"
 LOG_DIR = PROJECT_ROOT / "runtime" / "logs"
 EXPORTS_DIR = PROJECT_ROOT / "exports" / "current"
+FEDWATCH_HEATMAP_DIR = PROJECT_ROOT / "runtime" / "assets"
 
 
 def load_json(path: Path) -> dict:
@@ -169,6 +172,301 @@ def image_path(value: str | None) -> str:
     return str(REPO_ROOT / path)
 
 
+def notion_image(alt: str, path: str | Path) -> str:
+    return f"![{clean(alt, 80)}]({image_path(str(path))})"
+
+
+def chart_heading(title: str) -> str:
+    return title.split(":", 1)[0].strip() or title
+
+
+def code_meta(value: str) -> str:
+    return f"`{value}`" if value and not value.startswith("`") else value
+
+
+def capture_meta(target_date: str, source_id: str) -> str:
+    payload = load_json(PROJECT_ROOT / "data" / "raw" / target_date / f"{source_id}.json")
+    captured = display_dt(payload.get("captured_at")) if payload.get("captured_at") else ""
+    return f"수집 시점: `{captured}`" if captured and captured != "-" else "수집 시점: `-`"
+
+
+def captured_from_file(path: str | Path) -> str:
+    try:
+        mtime = Path(path).stat().st_mtime
+    except OSError:
+        return ""
+    return datetime.fromtimestamp(mtime, ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M")
+
+
+def screenshot_source_line(target_date: str, source_id: str, source_md: str) -> str:
+    return f"출처: {source_md} · {capture_meta(target_date, source_id)}"
+
+
+def fedwatch_probability_rows(target_date: str) -> list[list[str]]:
+    payload = load_json(PROJECT_ROOT / "data" / "raw" / target_date / "cme-fedwatch.json")
+    fedwatch = ((payload.get("extracted") or {}).get("fedwatch") or {})
+    table = fedwatch.get("selected_table") or {}
+    rows = table.get("rows") or fedwatch.get("fallback_rows") or []
+    parsed = []
+    for row in rows:
+        cells = row if isinstance(row, list) else [str(row)]
+        if len(cells) == 1:
+            cells = re.split(r"\s+", cells[0].strip())
+        cells = [clean(cell) for cell in cells if clean(cell)]
+        if not cells:
+            continue
+        parsed.append(cells)
+    header_index = next((index for index, row in enumerate(parsed) if "meeting date" in " ".join(row).lower()), None)
+    if header_index is not None:
+        header = parsed[header_index]
+        data_rows = []
+        for row in parsed[header_index + 1 :]:
+            if len(row) < 3:
+                continue
+            if not re.match(r"\d{4}-\d{2}-\d{2}", row[0]):
+                continue
+            data_rows.append(row[: len(header)])
+        return data_rows[:16]
+    data_rows = [row for row in parsed if any("%" in cell for cell in row)]
+    normalized = []
+    for row in data_rows:
+        joined = " ".join(row)
+        target_match = re.search(r"\b\d{3,4}-\d{3,4}\b", joined)
+        if not target_match:
+            continue
+        values = re.findall(r"\(Current\)|\d+(?:\.\d+)?%", joined)
+        if not values:
+            continue
+        normalized.append([target_match.group(0), *values[:4]])
+    return normalized[:8]
+
+
+def fedwatch_probability_headers(target_date: str, row_width: int) -> list[str]:
+    payload = load_json(PROJECT_ROOT / "data" / "raw" / target_date / "cme-fedwatch.json")
+    fedwatch = ((payload.get("extracted") or {}).get("fedwatch") or {})
+    table = fedwatch.get("selected_table") or {}
+    raw_rows = table.get("rows") or fedwatch.get("fallback_rows") or []
+    parsed_rows = []
+    for row in raw_rows:
+        cells = row if isinstance(row, list) else [str(row)]
+        if len(cells) == 1:
+            cells = re.split(r"\s+", cells[0].strip())
+        cells = [clean(cell) for cell in cells if clean(cell)]
+        if cells:
+            parsed_rows.append(cells)
+    for row in parsed_rows:
+        if "meeting date" in " ".join(row).lower():
+            headers = ["회의일" if cell.lower() == "meeting date" else cell for cell in row]
+            return headers[:row_width]
+    raw_text = " ".join(" ".join(row) if isinstance(row, list) else str(row) for row in raw_rows)
+    date_labels = []
+    for month, day, year in re.findall(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[ .-]+(\d{1,2})[,. -]+(20\d{2})\b", raw_text, re.I):
+        date_labels.append(f"{month.title()} {int(day)}, {year}")
+    wanted = max(0, row_width - 1)
+    if date_labels:
+        return ["목표금리"] + date_labels[:wanted]
+    return ["목표금리"] + [f"차후 결정 {index}" for index in range(1, wanted + 1)]
+
+
+def percent_value(value: str) -> float:
+    match = re.search(r"-?\d+(?:\.\d+)?", clean(value))
+    return float(match.group(0)) if match else 0.0
+
+
+def trim_fedwatch_matrix(headers: list[str], rows: list[list[str]]) -> tuple[list[str], list[list[str]]]:
+    if not rows or len(headers) <= 2:
+        return headers, rows
+    max_by_col = []
+    for index in range(1, len(headers)):
+        values = [percent_value(row[index]) for row in rows if index < len(row)]
+        max_by_col.append(max(values or [0.0]))
+    keep = [0]
+    active = [index + 1 for index, value in enumerate(max_by_col) if value >= 0.5]
+    if active:
+        lo = max(1, min(active))
+        hi = min(len(headers) - 1, max(active) + 1)
+        keep.extend(range(lo, hi + 1))
+    else:
+        keep.extend(range(1, min(len(headers), 9)))
+    trimmed_headers = [headers[index] for index in keep]
+    trimmed_rows = [[row[index] if index < len(row) else "" for index in keep] for row in rows]
+    return trimmed_headers, trimmed_rows
+
+
+def heat_color(value: float) -> tuple[int, int, int]:
+    value = max(0.0, min(100.0, value)) / 100.0
+    if value <= 0:
+        return (248, 250, 252)
+    # Light blue to yellow-green, close to CME's quick visual emphasis.
+    low = (224, 244, 250)
+    mid = (102, 204, 213)
+    high = (255, 235, 132)
+    if value < 0.55:
+        t = value / 0.55
+        return tuple(round(low[i] + (mid[i] - low[i]) * t) for i in range(3))
+    t = (value - 0.55) / 0.45
+    return tuple(round(mid[i] + (high[i] - mid[i]) * t) for i in range(3))
+
+
+def font(size: int, bold: bool = False) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    candidates = [
+        "C:/Windows/Fonts/malgunbd.ttf" if bold else "C:/Windows/Fonts/malgun.ttf",
+        "C:/Windows/Fonts/arialbd.ttf" if bold else "C:/Windows/Fonts/arial.ttf",
+    ]
+    for candidate in candidates:
+        try:
+            return ImageFont.truetype(candidate, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def draw_center(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int], text: str, fill: tuple[int, int, int], text_font) -> None:
+    bbox = draw.textbbox((0, 0), text, font=text_font)
+    width = bbox[2] - bbox[0]
+    height = bbox[3] - bbox[1]
+    x = box[0] + (box[2] - box[0] - width) / 2
+    y = box[1] + (box[3] - box[1] - height) / 2 - 1
+    draw.text((x, y), text, fill=fill, font=text_font)
+
+
+def render_fedwatch_heatmap(target_date: str, headers: list[str], rows: list[list[str]]) -> str:
+    if not rows or len(headers) <= 2:
+        return ""
+    out_dir = FEDWATCH_HEATMAP_DIR / target_date
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / "fedwatch-conditional-probabilities.png"
+    cell_w = 74
+    date_w = 104
+    header_h = 38
+    row_h = 30
+    pad_x = 18
+    title_h = 48
+    note_h = 24
+    width = pad_x * 2 + date_w + cell_w * (len(headers) - 1)
+    height = title_h + header_h + row_h * len(rows) + note_h + 16
+    img = Image.new("RGB", (width, height), "white")
+    draw = ImageDraw.Draw(img)
+    title_font = font(18, bold=True)
+    header_font = font(12, bold=True)
+    cell_font = font(12)
+    small_font = font(11)
+    draw.text((pad_x, 14), "CME FedWatch - Conditional Meeting Probabilities", fill=(15, 23, 42), font=title_font)
+    x0 = pad_x
+    y0 = title_h
+    draw.rectangle((x0, y0, width - pad_x, y0 + header_h), fill=(241, 245, 249), outline=(203, 213, 225))
+    draw_center(draw, (x0, y0, x0 + date_w, y0 + header_h), headers[0], (15, 23, 42), header_font)
+    for idx, header in enumerate(headers[1:], start=0):
+        left = x0 + date_w + idx * cell_w
+        draw.rectangle((left, y0, left + cell_w, y0 + header_h), outline=(203, 213, 225))
+        draw_center(draw, (left, y0, left + cell_w, y0 + header_h), header, (15, 23, 42), header_font)
+    for r_idx, row in enumerate(rows):
+        top = y0 + header_h + r_idx * row_h
+        fill = (248, 250, 252) if r_idx % 2 else (255, 255, 255)
+        draw.rectangle((x0, top, x0 + date_w, top + row_h), fill=fill, outline=(226, 232, 240))
+        draw_center(draw, (x0, top, x0 + date_w, top + row_h), row[0], (15, 23, 42), cell_font)
+        for c_idx, value in enumerate(row[1:], start=0):
+            left = x0 + date_w + c_idx * cell_w
+            val = percent_value(value)
+            draw.rectangle((left, top, left + cell_w, top + row_h), fill=heat_color(val), outline=(226, 232, 240))
+            draw_center(draw, (left, top, left + cell_w, top + row_h), value, (15, 23, 42), cell_font)
+    draw.text((pad_x, height - note_h), "Color intensity highlights where the market-implied probability is concentrated.", fill=(71, 85, 105), font=small_font)
+    img.save(out_path)
+    return str(out_path)
+
+
+def summarize_material_text(row: dict, limit: int = 220) -> str:
+    text = clean(row.get("summary") or row.get("text") or row.get("headline") or row.get("title"), limit)
+    if not text:
+        return ""
+    blob = f"{row.get('title') or ''} {row.get('summary') or ''}".lower()
+    if "south korea" in blob and "exports" in blob and "semiconductor" in blob:
+        return "한국 수출이 반도체 수요에 힘입어 강하게 유지됐다는 자료입니다. 유가 리스크와 함께 보면 지정학 부담 속에서도 AI·반도체 수요가 경기 해석을 지탱하는지 볼 수 있습니다."
+    if "us stocks advanced" in blob and "oil supply shock" in blob:
+        return "유가 충격에도 미국 증시가 실적 호조를 근거로 버틴 장면입니다. 지정학 리스크보다 실적과 AI 기대가 우선 가격에 반영되는지 확인할 수 있습니다."
+    if "australia and japan markets" in blob and "iran" in blob:
+        return "아시아 증시가 이란발 유가 부담을 일단 넘겨보려는 분위기를 보여주는 자료입니다. 글로벌 위험선호가 아직 꺾이지 않았는지 확인할 수 있습니다."
+    if "standard intelligence" in blob and ("$75m" in blob or "computer use ai" in blob):
+        return "컴퓨터 사용 AI 스타트업의 대형 투자 유치입니다. 시장 포지셔닝보다는 AI 응용 분야의 투자 열기를 보여주는 단신에 가깝습니다."
+    if "s&p is considering rule changes" in blob and "index" in blob:
+        return "S&P와 Nasdaq이 신규 상장사의 지수 편입 속도를 높일 수 있다는 내용입니다. 대형 IPO가 나오면 지수 수요가 더 빨리 붙을 수 있다는 시장 구조 소재입니다."
+    if "ai is reshaping the american workplace" in blob:
+        return "고소득 근로자일수록 업무에서 AI 도구를 더 많이 쓰고 있다는 자료입니다. AI 기대가 생산성 논리로 확장되는지 볼 수 있습니다."
+    if "real capex" in blob and "ai" in blob:
+        return "실질 설비투자가 AI 투자에 힘입어 강하게 늘었다는 자료입니다. AI 테마가 주가 기대를 넘어 실제 투자 사이클로 이어지는지 확인하는 근거입니다."
+    if "huawei" in blob and "ai chip" in blob and ("60%" in blob or "surge" in blob):
+        return "화웨이 AI 칩 매출이 크게 늘 것으로 예상된다는 자료입니다. 중국 AI 반도체 수요와 Nvidia 공백을 함께 볼 수 있습니다."
+    if "godaddy" in blob and "ai" in blob and "revenue" in blob:
+        return "GoDaddy가 AI 기능 확대를 배경으로 예상보다 높은 매출 전망을 제시했다는 자료입니다. AI 수요가 소프트웨어 실적으로 번지는지 확인할 수 있습니다."
+    if "white house ai memo" in blob or ("bloomberg:" in blob and "ai memo" in blob):
+        return "백악관 AI 메모가 정부·국방 영역의 AI 조달 원칙을 바꾸려는 흐름을 보여주는 자료입니다. AI 인프라와 정책 수요가 기업 실적으로 이어질 수 있는지 볼 때 참고할 만합니다."
+    if "tech stocks today" in blob or ("big tech earnings" in blob and "ai spending" in blob):
+        return "빅테크 실적 이후 시장이 매출 성장보다 AI 투자 부담과 회수 속도를 더 따져보고 있다는 자료입니다."
+    if "stocks mixed" in blob and ("strong earnings" in blob or "ai hopes" in blob):
+        return "실적 호조가 지수 전체를 한 방향으로 끌기보다 AI 기대와 비용 부담을 동시에 가격에 반영하는 장면입니다."
+    if "retail investors are piling" in blob and "semiconductor" in blob:
+        return "개인 투자자가 3배 레버리지 반도체 ETF에 몰리면서, AI 반도체 기대가 위험선호와 과열 신호를 동시에 만들고 있다는 내용입니다."
+    if "both wholesale" in blob and "retail" in blob and "inventor" in blob:
+        return "도매와 소매 재고가 함께 늘었다는 자료입니다. 수요 둔화인지, 재고 재축적인지 소비 경기 해석에 붙일 수 있습니다."
+    if "point72 founder steve cohen" in blob:
+        return "스티브 코언이 Point72 전략과 운영 방향을 함께 볼 집행위원회를 만들었다는 내용입니다. 시장 소재보다는 금융가 단신에 가깝습니다."
+    if "google q1 revenues" in blob or "cloud revenue grew" in blob:
+        return "구글 매출, 순이익, 클라우드 매출이 큰 폭으로 늘었다는 자료입니다. AI 인프라 투자가 실제 실적으로 이어지는지 볼 때 쓸 수 있습니다."
+    if "compute constrain" in blob:
+        return "구글 클라우드가 수요를 모두 감당할 컴퓨팅 여력이 부족하다고 언급한 자료입니다. AI 인프라 공급 부족과 데이터센터 투자 논리로 연결됩니다."
+    lowered = text.lower()
+    if any(token in lowered for token in [" oil", "brent", "wti", "iran", "hormuz", "opec"]):
+        return f"유가와 지정학 리스크 관련 내용입니다. {text}"
+    if any(token in lowered for token in [" fed", "inflation", "pce", "rate", "powell"]):
+        return f"연준과 인플레이션 경로를 보는 자료입니다. {text}"
+    if any(token in lowered for token in [" ai", "google", "alphabet", "tpu", "cloud", "capex", "semiconductor"]):
+        return f"AI 투자와 빅테크 실적을 연결해 볼 자료입니다. {text}"
+    if any(token in lowered for token in ["call option", "retail", "positioning", "valuation"]):
+        return f"위험선호와 포지셔닝 과열을 점검할 자료입니다. {text}"
+    return text
+
+
+def is_raw_english_title(value: str) -> bool:
+    text = clean(value)
+    if not text:
+        return False
+    ascii_letters = sum(1 for char in text if "A" <= char <= "Z" or "a" <= char <= "z")
+    korean = sum(1 for char in text if "\uac00" <= char <= "\ud7a3")
+    return ascii_letters >= 12 and ascii_letters > korean * 2
+
+
+def filtered_storylines(storylines: list[dict], radar_by_id: dict) -> list[dict]:
+    filtered = []
+    used_ids = set()
+    for storyline in storylines:
+        rows = [radar_by_id.get(item_id) for item_id in storyline.get("selected_item_ids", [])]
+        rows = [row for row in rows if row]
+        if "강세장의 연료" in clean(storyline.get("title")) and len(rows) < 2:
+            continue
+        filtered.append(storyline)
+        used_ids.update(storyline.get("selected_item_ids", []))
+    if len(filtered) < 5:
+        earnings_rows = [
+            row
+            for row in sorted(radar_by_id.values(), key=lambda item: item.get("score", 0), reverse=True)
+            if row.get("id") not in used_ids
+            and "earnings_signal" in set(row.get("theme_keys") or [])
+            and ("ai_infra" in set(row.get("theme_keys") or []) or "market_positioning" in set(row.get("theme_keys") or []))
+        ]
+        if earnings_rows:
+            selected = earnings_rows[:3]
+            filtered.append(
+                {
+                    "title": "실적은 AI 기대를 증명하는가",
+                    "one_liner": "빅테크 실적과 AI 투자 자료를 묶어 시장이 기대를 숫자로 확인하고 있는지 보는 축입니다.",
+                    "why_selected": "0501 수집 자료에는 구글, 클라우드, AI 투자와 실적 반응을 연결하는 후보가 반복해서 잡혔습니다.",
+                    "angle": "개별 종목 등락보다 AI 투자와 실적 숫자가 서로 맞물리는지 먼저 설명하고, 관련 종목 차트로 확인합니다.",
+                    "selected_item_ids": [row.get("id") for row in selected if row.get("id")],
+                }
+            )
+    return filtered[:5]
+
+
 def chart_rows() -> list[tuple[str, str, str, str, str]]:
     rows = []
     for chart_id in ["us10y", "crude-oil-wti", "crude-oil-brent", "dollar-index", "usd-krw", "bitcoin"]:
@@ -240,6 +538,38 @@ def source_status_lines(target_date: str) -> list[str]:
     return lines
 
 
+def keyword_example_title(item: dict) -> str:
+    text = clean(f"{item.get('headline') or item.get('title') or ''} {item.get('summary') or item.get('text') or ''}")
+    lowered = text.lower()
+    if "entry-level jobs" in lowered and "ai" in lowered:
+        return "AI가 바꾸는 신입 채용"
+    if "sell in may" in lowered:
+        return "5월 증시 계절성 논쟁"
+    if "tesla stock" in lowered:
+        return "테슬라 실적 반응"
+    if "meta stock" in lowered or ("meta" in lowered and "ai spending" in lowered):
+        return "메타 AI 투자 부담"
+    if "oil & gas" in lowered or "commodity bull" in lowered:
+        return "에너지주와 원자재 강세"
+    if "series i" in lowered or "treasury department" in lowered:
+        return "미 국채·저축채권 금리"
+    if "iran blockade" in lowered or "hormuz" in lowered:
+        return "이란·호르무즈 유가 리스크"
+    if "tech stocks" in lowered and "big tech" in lowered:
+        return "빅테크 실적 랠리"
+    if "netomi" in lowered:
+        return "AI 고객지원 스타트업 투자"
+    if "amazon" in lowered and "backlog" in lowered:
+        return "아마존 수주잔고와 클라우드"
+    if "us stocks mixed" in lowered:
+        return "미 증시 혼조"
+    if "market concentration" in lowered:
+        return "대형주 쏠림"
+    if "sector p/e" in lowered or "valuations" in lowered:
+        return "섹터 밸류에이션"
+    return clean(item.get("headline") or item.get("title") or item.get("summary") or item.get("text"), 30)
+
+
 def core_keyword_rows(*payloads: dict, limit: int = 8) -> list[dict]:
     themes = [
         ("유가/에너지 리스크", ["oil", "crude", "brent", "wti", "opec", "uae", "iran", "hormuz", "energy", "xle"]),
@@ -275,7 +605,7 @@ def core_keyword_rows(*payloads: dict, limit: int = 8) -> list[dict]:
                 row["count"] += 1
                 row["sources"].add(source)
                 if len(row["examples"]) < 2:
-                    row["examples"].append(clean(item.get("headline") or item.get("title") or item.get("summary") or item.get("text"), 42))
+                    row["examples"].append(keyword_example_title(item))
     ranked = sorted(rows_by_theme.values(), key=lambda row: (-row["count"], row["keyword"]))
     return [row for row in ranked if row["count"]][:limit]
 
@@ -289,7 +619,7 @@ def reserve_rows(ledger: list[dict]) -> list[dict]:
 
 
 def material_title(row: dict, limit: int = 42) -> str:
-    return clean(row.get("headline") or row.get("title") or row.get("summary") or row.get("id"), limit)
+    return clean(compact_radar_title(row) or row.get("headline") or row.get("title") or row.get("summary") or row.get("id"), limit)
 
 
 def radar_material_title(row: dict, limit: int = 46) -> str:
@@ -299,6 +629,48 @@ def radar_material_title(row: dict, limit: int = 46) -> str:
 def compact_radar_title(row: dict) -> str:
     text = clean(f"{row.get('title') or ''} {row.get('summary') or ''}")
     lowered = text.lower()
+    if "south korea" in lowered and "exports" in lowered and "semiconductor" in lowered:
+        return "한국 수출과 반도체 수요"
+    if "us stocks advanced" in lowered and "oil supply shock" in lowered:
+        return "유가 충격에도 버틴 미국 증시"
+    if "australia and japan markets" in lowered and "iran" in lowered:
+        return "이란 리스크를 넘겨보는 아시아 증시"
+    if "standard intelligence" in lowered and ("$75m" in lowered or "computer use ai" in lowered):
+        return "컴퓨터 사용 AI 투자 열기"
+    if "s&p is considering rule changes" in lowered and "index" in lowered:
+        return "신규 상장사 지수 편입 논의"
+    if "ai is reshaping the american workplace" in lowered:
+        return "AI 도구가 바꾸는 고소득 업무"
+    if "real capex" in lowered and "ai" in lowered:
+        return "AI 투자가 끌어올린 설비투자"
+    if "huawei" in lowered and "ai chip" in lowered and ("60%" in lowered or "surge" in lowered):
+        return "화웨이 AI 칩 매출 급증"
+    if "godaddy" in lowered and "ai" in lowered and "revenue" in lowered:
+        return "GoDaddy의 AI 기반 매출 가이던스"
+    if "white house ai memo" in lowered or ("bloomberg:" in lowered and "ai memo" in lowered):
+        return "백악관 AI 조달 메모"
+    if "tech stocks today" in lowered or ("big tech earnings" in lowered and "ai spending" in lowered):
+        return "빅테크 실적과 AI 투자 부담"
+    if "stocks mixed" in lowered and ("strong earnings" in lowered or "ai hopes" in lowered):
+        return "실적 호조 속 미 증시 혼조"
+    if "brent crude oil prices" in lowered or ("brent" in lowered and "$120" in lowered):
+        return "브렌트 120달러 돌파"
+    if "rubio" in lowered and "wang yi" in lowered and "iran" in lowered:
+        return "미중의 이란 관련 통화"
+    if "trump to get briefed" in lowered and "iran" in lowered:
+        return "트럼프의 이란 대응 브리핑"
+    if "compute constrain" in lowered or ("googl" in lowered and "compute" in lowered):
+        return "구글 AI 컴퓨팅 부족"
+    if "retail investors are piling" in lowered and "semiconductor" in lowered:
+        return "개인 레버리지 반도체 ETF 과열"
+    if "both wholesale" in lowered and "retail" in lowered and "inventor" in lowered:
+        return "도소매 재고 증가"
+    if "point72 founder steve cohen" in lowered:
+        return "스티브 코언의 운용조직 개편"
+    if "google q1 revenues" in lowered or "cloud revenue grew" in lowered:
+        return "구글 실적과 클라우드 성장"
+    if "semiconduct" in lowered and ("s&p 500" in lowered or "breaking" in lowered):
+        return "반도체 지수 강세"
     if "uae" in lowered and "opec" in lowered:
         return "UAE의 OPEC 탈퇴"
     if "oil" in lowered and ("$100" in text or "$105" in text or "iran" in lowered or "hormuz" in lowered):
@@ -348,6 +720,24 @@ def compact_radar_title(row: dict) -> str:
 
 def material_quote(title: str, row: dict) -> str:
     lowered = f"{title} {row.get('title') or ''} {row.get('summary') or ''}".lower()
+    if "한국 수출" in title:
+        return "반도체 수요가 유가·지정학 부담 속에서도 경기 해석의 버팀목이 되는지 보여주는 자료입니다."
+    if "버틴 미국 증시" in title:
+        return "유가 충격에도 실적과 AI 기대가 지수를 방어하는지 확인할 수 있는 시장 반응 자료입니다."
+    if "아시아 증시" in title:
+        return "아시아 장이 이란 리스크를 어떻게 소화하는지 보며 글로벌 위험선호의 온도를 확인할 수 있습니다."
+    if "컴퓨터 사용 AI" in title:
+        return "AI 기대가 인프라를 넘어 실제 업무 자동화 스타트업 투자로 확산되는지 보여주는 단신입니다."
+    if "지수 편입" in title:
+        return "대형 IPO와 지수 수요가 만날 때 시장 구조가 어떻게 바뀔 수 있는지 보여주는 자료입니다."
+    if "고소득 업무" in title:
+        return "AI 도입이 소비자 유행이 아니라 고소득 업무 생산성 논리로 이동하고 있음을 보여주는 자료입니다."
+    if "설비투자" in title:
+        return "AI 테마가 실제 기업 투자와 CapEx 사이클로 이어지는지 확인하는 매크로 근거입니다."
+    if "화웨이 AI 칩" in title:
+        return "중국 AI 반도체 수요가 Nvidia 공백과 맞물려 실제 매출 성장으로 이어지는지 보여주는 자료입니다."
+    if "GoDaddy" in title:
+        return "AI 기능이 중소기업 소프트웨어 매출 전망까지 끌어올리는지 확인할 수 있는 실적 가이던스 자료입니다."
     if "유가 100달러" in title or ("oil" in lowered and ("iran" in lowered or "hormuz" in lowered)):
         return "유가가 다시 시장의 최상단 변수로 올라오며, AI 강세장이 지정학 리스크를 어디까지 견딜 수 있는지 보여주는 자료입니다."
     if "UAE의 OPEC 탈퇴" in title:
@@ -411,16 +801,12 @@ def render_radar_card(lines: list[str], row: dict, index: int | None = None, nex
     label = source_label(row.get("source") or row.get("type"), row.get("url") or "")
     lines.append(f"출처: {link(label, row.get('url') or '')}")
     if row.get("published_at"):
-        lines.append(f"작성 시점: {display_dt(row.get('published_at'))}")
-    question = material_question(title, row)
-    if question:
-        lines.append(f"- 이 자료가 여는 질문: {question}")
-    if next_title:
-        lines.append(f"- 다음에 붙일 자료: `{next_title}`")
-    if row.get("summary"):
-        lines.append(f"- {clean(row.get('summary'), 150)}")
+        lines.append(f"작성 시점: `{display_dt(row.get('published_at'))}`")
+    summary = summarize_material_text(row)
+    if summary:
+        lines.append(f"- 요약: {summary}")
     if row.get("visual_local_path"):
-        lines.extend(["", f"![{title}]({image_path(row['visual_local_path'])})"])
+        lines.extend(["", notion_image(title, row["visual_local_path"])])
     lines.append("")
 
 
@@ -431,11 +817,11 @@ def render_support_card(lines: list[str], row: dict) -> None:
     label = source_label(row.get("source_name") or row.get("source_id"), row.get("url") or "")
     lines.append(f"출처: {link(label, row.get('url') or '')}")
     if row.get("published_at"):
-        lines.append(f"작성 시점: {display_dt(row.get('published_at'))}")
+        lines.append(f"작성 시점: `{display_dt(row.get('published_at'))}`")
     lines.append(f"- {clean(row.get('summary') or row.get('headline'), 150)}")
     for image in row.get("image_refs") or []:
         if image.get("local_path"):
-            lines.extend(["", f"![{title}]({image_path(image['local_path'])})"])
+            lines.extend(["", notion_image(title, image["local_path"])])
             break
     lines.append("")
 
@@ -481,18 +867,16 @@ def relevant_finviz_summary(row: dict) -> str:
 
 
 def render_feature_stock(lines: list[str], row: dict) -> None:
-    ticker = row.get("ticker") or "-"
-    lines.extend([f"#### {ticker}", ""])
-    summary = relevant_finviz_summary(row)
-    news = relevant_finviz_news(row)
-    if summary:
-        lines.append(f"> {clean(summary, 150)}")
-        lines.append("")
+    ticker = (row.get("ticker") or "-").upper()
+    lines.extend([f"### {company_heading(ticker)}", ""])
+    lines.extend([f"> {feature_stock_focus(row)}", ""])
+    news = finviz_news_line(row)
     lines.append(f"출처: {link('Finviz', row.get('url') or '')}")
-    if news:
-        lines.append(f"- 최근 뉴스: {clean(news.get('headline'), 120)}")
+    if news.get("headline"):
+        prefix = f"{news.get('time')}: " if news.get("time") else ""
+        lines.append(f"- Finviz 한 줄 뉴스: {link(clean(prefix + news.get('headline'), 150), news.get('url') or row.get('url') or '')}")
     if row.get("screenshot_path"):
-        lines.extend(["", f"![{ticker} 일봉]({image_path(row['screenshot_path'])})"])
+        lines.extend(["", notion_image(f"{company_heading(ticker)} 일봉", row["screenshot_path"])])
     lines.append("")
 
 
@@ -505,11 +889,11 @@ def render_material_card(lines: list[str], row: dict, index: int | None = None) 
     label = source_label(row.get("source") or row.get("type"), row.get("url") or "")
     lines.append(f"출처: {link(label, row.get('url') or '')}")
     if row.get("published_at"):
-        lines.append(f"작성 시점: {display_dt(row.get('published_at'))}")
+        lines.append(f"작성 시점: `{display_dt(row.get('published_at'))}`")
     if row.get("summary"):
         lines.append(f"- {clean(row.get('summary'), 180)}")
     if row.get("visual_local_path"):
-        lines.extend(["", f"![{title}]({image_path(row['visual_local_path'])})"])
+        lines.extend(["", notion_image(title, row["visual_local_path"])])
     lines.append("")
 
 
@@ -520,7 +904,7 @@ def storyline_refs(storyline: dict, radar_by_id: dict, ledger: list[dict]) -> li
         match = radar_by_id.get(item_id) or next((row for row in ledger if row.get("id") == item_id), None)
         if not match:
             continue
-        title = compact_radar_title(match) if item_id in radar_by_id else material_title(match)
+        title = compact_radar_title(match)
         if title in seen:
             continue
         seen.add(title)
@@ -528,17 +912,43 @@ def storyline_refs(storyline: dict, radar_by_id: dict, ledger: list[dict]) -> li
     return refs
 
 
+def public_selection_reason(reason: str, title: str) -> str:
+    text = clean(reason, 180)
+    internal_patterns = [
+        "출처가 같은 방향의 신호",
+        "점수와 구체성이",
+        "기존 점수 기반",
+        "dynamic_cluster",
+        "cluster_score",
+        "selection_method",
+    ]
+    if any(pattern in text for pattern in internal_patterns):
+        if "유가" in title or "에너지" in title:
+            return "유가와 지정학 뉴스가 에너지주, 인플레이션 기대, 위험선호를 함께 흔들 수 있는 구간이라 방송 꼭지로 쓰기 좋습니다."
+        if "실적" in title:
+            return "실적 숫자가 시장 기대를 실제로 뒷받침하는지 확인할 수 있는 자료들이 모여 있어 메인 꼭지 후보로 적합합니다."
+        if "AI" in title or "OpenAI" in title:
+            return "AI 기대가 매출, 투자, 반도체 수요로 이어지는지 확인할 수 있는 자료들이 있어 독립 꼭지로 다룰 만합니다."
+        return "오늘 수집 자료에서 시장 반응과 방송 자료를 함께 만들기 좋은 각도로 잡힌 후보입니다."
+    return text
+
+
 def render_storyline(lines: list[str], index: int, storyline: dict, radar_by_id: dict, ledger: list[dict]) -> None:
     refs = storyline_refs(storyline, radar_by_id, ledger)
+    title = clean(storyline.get("title"))
+    recommendation = clean(storyline.get("recommendation") or "")
+    recommendation_label = clean(storyline.get("recommendation_label") or "")
     lines.extend(
         [
-            f"## {index}. {clean(storyline.get('title'))}",
+            f"## {index}. {title}",
+            "",
+            f"추천도: `{recommendation}` {recommendation_label}".rstrip(),
             "",
             f"> {clean(storyline.get('one_liner'), 150)}",
             "",
             "### 선정 이유",
             "",
-            f"- {clean(storyline.get('why_selected'), 150)}",
+            f"- {public_selection_reason(storyline.get('why_selected'), title)}",
         ]
     )
     if refs:
@@ -551,18 +961,207 @@ def render_storyline(lines: list[str], index: int, storyline: dict, radar_by_id:
     if len(refs) >= 2:
         lines.append(f"- 이어서 `{refs[1]}` 자료로 시장 반응 또는 보조 근거 연결")
     if len(refs) >= 3:
-        lines.append(f"- 마지막으로 `{refs[2]}` 자료를 통해 시각자료, 특징주, 후속 질문 정리")
+        lines.append(f"- 마지막으로 `{refs[2]}` 자료를 통해 시각자료와 특징주 정리")
     lines.extend(["", "### 방송 멘트 초안", ""])
-    if index == 1:
+    if "유가" in title:
         lines.append("- 오늘 시장은 유가와 지정학 이슈를 무시하는 것처럼 보이지만, 실제로는 AI 기대가 그 충격을 덮고 있는지 확인해야 합니다.")
         lines.append("- 첫 장은 리스크를 던지고, 다음 장에서 투자자들의 위험선호가 얼마나 강한지 보여주면 흐름이 자연스럽습니다.")
-    elif index == 2:
+    elif "강세장" in title or "과열" in title:
         lines.append("- 두 번째 꼭지는 시장이 비싼 줄 알면서도 왜 계속 사는지 묻는 흐름으로 잡습니다.")
         lines.append("- 포지셔닝, 콜옵션, 밸류에이션 경고를 이어 붙이면 강세장의 연료와 과열 신호를 동시에 보여줄 수 있습니다.")
+    elif "실적" in title:
+        lines.append("- AI 기대가 계속 시장을 지탱하려면 결국 실적과 클라우드 성장, CapEx 숫자로 확인돼야 합니다.")
+        lines.append("- 캘린더 이미지는 일정 확인용으로만 두고, 실제 방송에서는 알파벳과 빅테크 차트로 기대가 가격에 반영되는지 확인합니다.")
     else:
         lines.append("- AI 이야기는 이제 기대감이 아니라 매출, CapEx, 생산성으로 증명되는 단계인지가 핵심입니다.")
         lines.append("- 구글 TPU, AI 노동 자동화, 기업인의 AI 발언을 묶으면 ‘성장에 꽂힌 시장’이라는 꼭지로 독립 배치할 수 있습니다.")
     lines.append("")
+
+
+def valid_editorial_brief(brief: dict) -> bool:
+    return bool(
+        brief
+        and not brief.get("fallback")
+        and isinstance(brief.get("storylines"), list)
+        and len(brief.get("storylines") or []) >= 3
+        and brief.get("daily_thesis")
+    )
+
+
+def stars_text(value: int | str | None) -> str:
+    try:
+        stars = max(1, min(3, int(value or 1)))
+    except (TypeError, ValueError):
+        stars = 1
+    return "★" * stars + "☆" * (3 - stars)
+
+
+def evidence_title(evidence: dict, radar_by_id: dict) -> str:
+    item_id = evidence.get("item_id") or ""
+    row = radar_by_id.get(item_id)
+    return clean(evidence.get("title") or compact_radar_title(row or {}) or item_id, 80)
+
+
+def slide_order_title(value: str, radar_by_id: dict) -> str:
+    text = clean(value, 140)
+    row = radar_by_id.get(text)
+    if row:
+        return compact_radar_title(row)
+    if text.startswith("http"):
+        return clean(Path(text.rstrip("/")).name or text, 80)
+    return text
+
+
+def render_editorial_storyline(lines: list[str], index: int, storyline: dict, radar_by_id: dict) -> None:
+    title = clean(storyline.get("title"), 90)
+    evidence_to_use = storyline.get("evidence_to_use") or []
+    evidence_to_drop = storyline.get("evidence_to_drop") or []
+    slide_order = [slide_order_title(item, radar_by_id) for item in storyline.get("slide_order") or [] if clean(item)]
+    lines.extend(
+        [
+            f"## {index}. {title}",
+            "",
+            f"추천도: `{stars_text(storyline.get('recommendation_stars'))}` {clean(storyline.get('rating_reason'), 90)}".rstrip(),
+            "",
+            f"> {clean(storyline.get('hook'), 220)}",
+            "",
+            "### 왜 지금",
+            "",
+            clean(storyline.get("why_now"), 320),
+            "",
+            "### 핵심 주장",
+            "",
+            clean(storyline.get("core_argument"), 320),
+            "",
+            "### 쓸 자료",
+            "",
+        ]
+    )
+    if evidence_to_use:
+        for item in evidence_to_use[:5]:
+            title = evidence_title(item, radar_by_id)
+            reason = clean(item.get("reason"), 180)
+            lines.append(f"- `{title}`: {reason}")
+    else:
+        lines.append("- 핵심 근거가 부족합니다. 방송 전 수동 확인이 필요합니다.")
+    if evidence_to_drop:
+        lines.extend(["", "### 버릴 자료", ""])
+        for item in evidence_to_drop[:3]:
+            title = evidence_title(item, radar_by_id)
+            reason = clean(item.get("reason"), 160)
+            lines.append(f"- `{title}`: {reason}")
+    lines.extend(["", "### 구성", ""])
+    if slide_order:
+        for item in slide_order[:5]:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- 훅 → 핵심 근거 → 반론/주의점 순서로 구성합니다.")
+    lines.extend(
+        [
+            "",
+            "### 방송 멘트 초안",
+            "",
+            clean(storyline.get("talk_track"), 420),
+            "",
+            "### 반론/주의점",
+            "",
+            clean(storyline.get("counterpoint"), 260),
+            "",
+        ]
+    )
+
+
+def editorial_summary_bullets(brief: dict) -> list[str]:
+    summary = clean(brief.get("editorial_summary"), 700)
+    if not summary:
+        return []
+    parts = [part.strip() for part in re.split(r"(?<=[.!?。])\s+|(?<=다\.)\s+", summary) if part.strip()]
+    return parts[:3] if parts else [summary]
+
+
+COMPANY_NAMES = {
+    "AAPL": "애플",
+    "AMZN": "아마존",
+    "CVX": "셰브론",
+    "GOOGL": "알파벳",
+    "META": "메타",
+    "MSFT": "마이크로소프트",
+    "PI": "임핀지",
+    "UBER": "우버",
+    "V": "비자",
+    "XLE": "에너지 섹터 ETF",
+    "XOM": "엑슨모빌",
+}
+
+
+def company_heading(ticker: str) -> str:
+    name = COMPANY_NAMES.get(ticker.upper())
+    return f"{name} ({ticker.upper()})" if name else ticker.upper()
+
+
+def feature_stock_focus(row: dict) -> str:
+    ticker = (row.get("ticker") or "").upper()
+    text = clean(" ".join([*(row.get("quote_summary") or []), *((news.get("headline") or "") for news in row.get("news") or [])]))
+    lowered = text.lower()
+    if ticker == "XLE":
+        return "유가 급등에도 에너지 ETF가 얼마나 따라붙는지 확인하려는 섹터 프록시입니다. 개별 종목보다 에너지 업종 전체의 반응을 보는 용도입니다."
+    if ticker in {"CVX", "XOM"}:
+        if "venezuela" in lowered:
+            return "베네수엘라 원유 사업 재검토와 유가 전쟁 프리미엄이 겹치며 대형 에너지주의 지정학 민감도를 확인할 수 있습니다."
+        if "earnings" in lowered:
+            return "Big Oil 실적 둔화 우려와 유가 상승이 서로 충돌하는 구간이라, 에너지주가 원유 가격을 얼마나 따라가는지 보는 후보입니다."
+        return "유가 상승이 실제 대형 에너지 기업 이익 기대와 주가로 이어지는지 확인하려는 대표 종목입니다."
+    if ticker == "GOOGL":
+        return "Q1 실적 서프라이즈와 Google Cloud 63% 성장, 주가 급등이 함께 잡혀 AI 인프라 기대가 숫자로 확인된 사례입니다."
+    if ticker == "MSFT":
+        return "강한 실적과 가이던스에도 주가가 밀렸다는 뉴스가 있어, AI 기대가 이미 가격에 많이 반영됐는지 확인하는 후보입니다."
+    if ticker == "META":
+        return "빅테크 실적 시즌에서 Google과 대비되는 반응이 잡혀, AI 투자 부담을 시장이 어떻게 차별화하는지 보는 후보입니다."
+    if ticker == "AMZN":
+        return "AWS와 AI 투자 기대가 남아 있지만 빅테크 실적 반응이 엇갈려, 클라우드 성장 기대의 지속성을 확인하는 후보입니다."
+    if ticker == "V":
+        return "Visa 실적과 소비 지출 뉴스가 같이 잡혀, 소비 둔화 우려 속 결제 네트워크의 방어력을 보는 후보입니다."
+    if ticker == "PI":
+        return "반도체 주변부 실적 모멘텀이 AI 공급망 기대와 이어지는지 확인하는 후보입니다."
+    if ticker == "UBER":
+        return "플랫폼 수요와 AI 기반 예약·운영 자동화 기대를 같이 볼 수 있어, 소비 플랫폼 쪽 AI 적용 사례로 보는 후보입니다."
+    if "oil" in lowered:
+        return "유가 변동이 관련 업종 주가로 전이되는지 확인하는 후보입니다."
+    if "ai" in lowered or "cloud" in lowered:
+        return "AI 투자와 실적 기대가 실제 주가 반응으로 이어지는지 확인하는 후보입니다."
+    return "오늘 시장의 테마가 개별 종목 차트와 뉴스에 실제로 반영되는지 확인하는 후보입니다."
+
+
+def finviz_news_line(row: dict) -> dict:
+    ticker = (row.get("ticker") or "").upper()
+    keywords = {
+        "XLE": ["xle", "energy", "oil", "gas", "sector"],
+        "CVX": ["chevron", "cvx", "oil", "energy", "venezuela"],
+        "XOM": ["exxon", "xom", "oil", "energy", "venezuela"],
+        "GOOGL": ["alphabet", "google", "googl", "cloud"],
+        "MSFT": ["microsoft", "msft", "azure"],
+        "META": ["meta", "facebook"],
+        "AMZN": ["amazon", "amzn", "aws"],
+        "V": ["visa", "card", "spending", "consumer"],
+        "PI": ["impinj", "pi"],
+        "UBER": ["uber"],
+    }.get(ticker, [ticker.lower()])
+
+    def relevant(text: str) -> bool:
+        lowered = text.lower()
+        return any(keyword in lowered for keyword in keywords)
+
+    for line in row.get("quote_summary") or []:
+        text = clean(line)
+        match = re.match(r"^(Today|Yesterday|[A-Z][a-z]{2}\s+\d{1,2}),?\s+(\d{1,2}:\d{2}\s*[AP]M)(.+)$", text)
+        if match and relevant(match.group(3)):
+            return {"time": f"{match.group(1)} {match.group(2)}", "headline": clean(match.group(3), 140), "url": row.get("url") or ""}
+    for news in row.get("news") or []:
+        headline = clean(news.get("headline"), 140)
+        time_text = clean(news.get("time"))
+        if headline and relevant(headline) and (time_text.lower().startswith("today") or re.match(r"^\d{1,2}:\d{2}\s*[AP]M$", time_text, re.I)):
+            return {"time": clean(news.get("time")), "headline": headline, "url": news.get("url") or ""}
+    return {}
 
 
 def render_dashboard(target_date: str) -> str:
@@ -576,6 +1175,7 @@ def render_dashboard(target_date: str) -> str:
     batch_b = load_json(processed / "today-misc-batch-b-candidates.json")
     side_dish = load_json(processed / "side-dish-candidates.json")
     market_radar = load_json(processed / "market-radar.json")
+    editorial_brief = load_json(processed / "editorial-brief.json")
     economic = load_json(processed / "economic-calendar.json")
     ledger = live_pack.get("ledger", [])
     now = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M")
@@ -602,8 +1202,9 @@ def render_dashboard(target_date: str) -> str:
         for row in (batch_a.get("candidates") or []) + (batch_b.get("candidates") or [])
         if row.get("id")
     }
-    display_storylines = (radar_storylines or storylines)[:3]
-    today_axis = infer_today_axis(display_storylines, radar_candidates)
+    use_editorial = valid_editorial_brief(editorial_brief)
+    display_storylines = editorial_brief.get("storylines", []) if use_editorial else filtered_storylines(radar_storylines or storylines, radar_by_id)
+    today_axis = clean(editorial_brief.get("daily_thesis"), 140) if use_editorial else infer_today_axis(display_storylines, radar_candidates)
 
     lines = [
         f"# {title}",
@@ -612,13 +1213,13 @@ def render_dashboard(target_date: str) -> str:
         "",
         f"뉴스/X 수집 구간: `{window} (KST)`",
         "",
-        f"시장 데이터 기준: `{chart_rows()[0][2] if chart_rows() and chart_rows()[0][2] else '-'}`",
+        f"시장 데이터 기준: {code_meta(chart_rows()[0][2] if chart_rows() and chart_rows()[0][2] else '-')}",
         "",
         "# 🗞️ 주요 뉴스 요약",
         "",
         f"- 오늘의 대립축: {today_axis}",
     ]
-    summary_bullets = selection.get("dashboard_summary_bullets", [])
+    summary_bullets = editorial_summary_bullets(editorial_brief) if use_editorial else selection.get("dashboard_summary_bullets", [])
     if summary_bullets:
         for bullet in summary_bullets[:3]:
             lines.append(f"- {clean(bullet, 110)}")
@@ -627,38 +1228,42 @@ def render_dashboard(target_date: str) -> str:
             lines.append(f"- {clean(storyline.get('one_liner'), 110)}")
     lines.extend(["", "# 📚 추천 스토리라인", ""])
     for index, storyline in enumerate(display_storylines, start=1):
-        render_storyline(lines, index, storyline, radar_by_id, ledger)
+        if use_editorial:
+            render_editorial_storyline(lines, index, storyline, radar_by_id)
+        else:
+            render_storyline(lines, index, storyline, radar_by_id, ledger)
 
     lines.extend(["# 🤖 자료 수집", "", "## 1. 시장은 지금", ""])
     index_futures = screenshots_for(target_date, "finviz-index-futures-*.png")
     if index_futures:
-        lines.extend(["### 주요 지수 흐름", "", "출처: [Finviz](https://finviz.com/) · 수집 시점: 자동 수집", ""])
+        lines.extend(["### 주요 지수 흐름", "", screenshot_source_line(target_date, "finviz-index-futures", "[Finviz](https://finviz.com/)"), ""])
         for idx, index_future in enumerate(index_futures, start=1):
             label = "주요 지수 흐름" if idx == 1 else f"주요 지수 흐름 {idx}"
-            lines.extend([f"![{label}]({index_future})", ""])
+            lines.extend([notion_image(label, index_future), ""])
     sp500_heatmap = screenshot_for(target_date, "finviz-sp500-heatmap*.png")
     if sp500_heatmap:
-        lines.extend(["### S&P500 히트맵", "", "출처: [Finviz](https://finviz.com/map.ashx?t=sec) · 수집 시점: 자동 수집", "", f"![S&P500 히트맵]({sp500_heatmap})", ""])
+        lines.extend(["### S&P500 히트맵", "", screenshot_source_line(target_date, "finviz-sp500-heatmap", "[Finviz](https://finviz.com/map.ashx?t=sec)"), "", notion_image("S&P500 히트맵", sp500_heatmap), ""])
     russell_heatmap = screenshot_for(target_date, "*russell*heatmap*.png", "*iwm*heatmap*.png")
     lines.extend(["### 러셀 2000 히트맵", ""])
     if russell_heatmap:
-        lines.extend(["출처: [Finviz](https://finviz.com/map?t=sec_rut) · 수집 시점: 자동 수집", "", f"![러셀 2000 히트맵]({russell_heatmap})", ""])
+        lines.extend([screenshot_source_line(target_date, "finviz-russell-heatmap", "[Finviz](https://finviz.com/map?t=sec_rut)"), "", notion_image("러셀 2000 히트맵", russell_heatmap), ""])
     else:
         lines.append("- 수집 이미지 없음")
     for chart_id, chart_title, subtitle, source_name, source_url in chart_rows():
         png = EXPORTS_DIR / f"{chart_id}.png"
         if png.exists():
-            lines.extend([f"### {chart_title}", ""])
+            heading = chart_heading(chart_title)
+            lines.extend([f"### {heading}", ""])
             meta = f"출처: {link(source_name, source_url)}"
             if subtitle:
-                meta += f" · {subtitle}"
-            lines.extend([meta, "", f"![{chart_title}]({png})", ""])
+                meta += f" · {code_meta(subtitle)}"
+            lines.extend([meta, "", notion_image(heading, png), ""])
         else:
             lines.append(f"- {chart_title} / 출처: {link(source_name, source_url)}")
     fear_greed = screenshot_for(target_date, "*fear*greed*.png", "*fear-greed*.png")
     if fear_greed:
         lines.extend(["", "### 공포탐욕지수", ""])
-        lines.extend(["출처: [CNN](https://edition.cnn.com/markets/fear-and-greed) · 수집 시점: 자동 수집", "", f"![공포탐욕지수]({fear_greed})"])
+        lines.extend([screenshot_source_line(target_date, "cnn-fear-greed", "[CNN](https://edition.cnn.com/markets/fear-and-greed)"), "", notion_image("공포탐욕지수", fear_greed)])
     else:
         lines.extend(["", "### 공포탐욕지수", "", "- 이번 자동 실행에서는 이미지 수집 제외. 필요 시 CNN 캡처 루트 복구.", ""])
 
@@ -669,11 +1274,11 @@ def render_dashboard(target_date: str) -> str:
     if us_calendar_png.exists() or global_calendar_png.exists():
         lines.extend(["출처: [Trading Economics](https://ko.tradingeconomics.com/calendar) · Datawrapper 표", ""])
         if us_calendar_png.exists():
-            lines.extend([f"![오늘의 미국 경제 일정]({us_calendar_png})", ""])
+            lines.extend([notion_image("오늘의 미국 경제 일정", us_calendar_png), ""])
         if global_calendar_png.exists():
-            lines.extend([f"![오늘의 글로벌 경제 일정]({global_calendar_png})", ""])
+            lines.extend([notion_image("오늘의 글로벌 경제 일정", global_calendar_png), ""])
     elif calendar_png.exists():
-        lines.extend(["출처: [Trading Economics](https://ko.tradingeconomics.com/calendar) · Datawrapper 표", "", f"![오늘의 경제 일정]({calendar_png})", ""])
+        lines.extend(["출처: [Trading Economics](https://ko.tradingeconomics.com/calendar) · Datawrapper 표", "", notion_image("오늘의 경제 일정", calendar_png), ""])
     else:
         events = economic.get("events", [])[:8]
         if events:
@@ -685,6 +1290,43 @@ def render_dashboard(target_date: str) -> str:
                 )
         else:
             lines.append("- 경제일정 후보 없음")
+
+    fedwatch_rows = fedwatch_probability_rows(target_date)
+    if fedwatch_rows:
+        lines.extend(["", "### FedWatch 금리 확률", ""])
+        lines.append(screenshot_source_line(target_date, "cme-fedwatch", "[CME FedWatch](https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html)"))
+        lines.append("")
+        headers = fedwatch_probability_headers(target_date, max(len(row) for row in fedwatch_rows))
+        heat_headers, heat_rows = trim_fedwatch_matrix(headers, fedwatch_rows)
+        split_heatmaps = [
+            (EXPORTS_DIR / "fedwatch-conditional-probabilities-short-term.png", "FedWatch 단기 금리확률 히트맵"),
+            (EXPORTS_DIR / "fedwatch-conditional-probabilities-long-term.png", "FedWatch 장기 금리확률 히트맵"),
+        ]
+        rendered_split = [item for item in split_heatmaps if item[0].exists()]
+        if rendered_split:
+            for heatmap_path, alt in rendered_split:
+                lines.extend([notion_image(alt, heatmap_path), ""])
+        else:
+            datawrapper_heatmap = EXPORTS_DIR / "fedwatch-conditional-probabilities.png"
+            heatmap = str(datawrapper_heatmap) if datawrapper_heatmap.exists() else render_fedwatch_heatmap(target_date, heat_headers, heat_rows)
+            if heatmap:
+                lines.extend([notion_image("FedWatch 조건부 금리확률 히트맵", heatmap), ""])
+
+    fed_screens = [] if fedwatch_rows else screenshots_for(target_date, "*fedwatch*.png", "*cme-fedwatch*.png", "*polymarket*.png")
+    if fed_screens:
+        lines.extend(["", "### FedWatch/Polymarket 확률", ""])
+        for screen in fed_screens[:3]:
+            name = Path(screen).name.lower()
+            if "fedwatch" in name:
+                source_line = screenshot_source_line(target_date, "cme-fedwatch", "[CME FedWatch](https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html)")
+                label = "FedWatch 확률표"
+            elif "polymarket" in name:
+                source_line = screenshot_source_line(target_date, "polymarket-fed-rates", "[Polymarket](https://polymarket.com/)")
+                label = "Polymarket 확률 자료"
+            else:
+                source_line = "출처: 시장 확률 자료"
+                label = "시장 확률 자료"
+            lines.extend([source_line, "", notion_image(label, screen), ""])
 
     fed_rows = []
     fed_seen = set()
@@ -698,9 +1340,8 @@ def render_dashboard(target_date: str) -> str:
         fed_rows.append(row)
         if len(fed_rows) >= 3:
             break
-    fed_screens = screenshots_for(target_date, "*fedwatch*.png", "*cme-fedwatch*.png", "*polymarket*.png")
-    show_fed_package = bool(fed_rows)
-    misc_section_number = 3 if show_fed_package else 2
+    show_fed_package = False
+    misc_section_number = 2
     feature_section_number = misc_section_number + 1
     if show_fed_package:
         lines.extend(["", "## 2. Fed/FOMC package", ""])
@@ -709,7 +1350,7 @@ def render_dashboard(target_date: str) -> str:
         if fed_screens:
             for screen in fed_screens[:3]:
                 label = "FedWatch/Polymarket 확률 자료"
-                lines.extend([f"![{label}]({screen})", ""])
+                lines.extend([notion_image(label, screen), ""])
         else:
             lines.append("- FedWatch/Polymarket 캡처는 이번 실행에서 확보되지 않았습니다. 금리인하 베팅이 메인 이슈면 수동 확인 필요.")
             lines.append("")
@@ -721,7 +1362,19 @@ def render_dashboard(target_date: str) -> str:
     radar_misc_rows = []
     seen_radar_ids = set()
     seen_radar_titles = set()
-    for storyline in radar_storylines:
+    misc_source_storylines = radar_storylines
+    if use_editorial:
+        misc_source_storylines = [
+            {
+                "selected_item_ids": [
+                    item.get("item_id")
+                    for item in (storyline.get("evidence_to_use") or [])
+                    if item.get("item_id")
+                ]
+            }
+            for storyline in display_storylines
+        ]
+    for storyline in misc_source_storylines:
         for item_id in storyline.get("selected_item_ids", []):
             row = radar_by_id.get(item_id)
             if row and not row.get("visual_local_path") and candidate_by_id.get(item_id):
@@ -729,7 +1382,7 @@ def render_dashboard(target_date: str) -> str:
                 local = next((image.get("local_path") for image in images if image.get("local_path")), "")
                 if local:
                     row = {**row, "visual_local_path": local}
-            if show_fed_package and row and is_fed_material(row):
+            if row and is_fed_material(row):
                 continue
             title_key = compact_radar_title(row) if row else ""
             if row and item_id not in seen_radar_ids and title_key not in seen_radar_titles:
@@ -811,37 +1464,15 @@ def render_dashboard(target_date: str) -> str:
             )
         lines.append("")
 
-    keyword_rows = core_keyword_rows(batch_a, batch_b, side_dish, load_json(processed / "x-timeline-posts.json"))
-    if keyword_rows:
-        lines.extend(["### 오늘의 핵심 키워드", ""])
-        lines.append("| 키워드 | 감지량 | 주로 나온 곳 | 예시 소재 |")
-        lines.append("|---|---:|---|---|")
-        for row in keyword_rows:
-            sources = ", ".join(sorted(row["sources"])[:4]) or "-"
-            examples = " / ".join(example for example in row["examples"] if example) or "-"
-            lines.append(f"| **{row['keyword']}** | {row['count']} | {sources} | {examples} |")
-        lines.append("")
-
     lines.extend([f"## {feature_section_number}. 실적/특징주", ""])
     earnings_image = screenshot_for(target_date, "*earnings-calendar*.jpg", "*earnings-calendar*.png")
     if earnings_image:
-        lines.extend(["### 이번 주 실적 캘린더", "", "출처: [Earnings Whispers](https://x.com/eWhispers) · 수집 시점: 자동 수집", "", f"![이번 주 실적 캘린더]({earnings_image})", ""])
-    drilldown_rows = [row for row in earnings_drilldown.get("tickers", []) if row.get("status") == "drilldown"]
-    if drilldown_rows:
-        lines.extend(["### 실적 캘린더 기반 후보", ""])
-        for row in drilldown_rows[:8]:
-            tags = ", ".join(row.get("tags") or []) or "-"
-            lines.append(f"- `{row.get('ticker')}`: {clean(row.get('broadcast_question') or row.get('reason'), 110)}")
-            if row.get("broadcast_question"):
-                continue
-            if row.get("matched_materials"):
-                material = row["matched_materials"][0]
-                lines.append(f"  - 연결 후보: {link(source_label(material.get('source') or material.get('type'), material.get('url') or ''), material.get('url') or '')}: {clean(material.get('title'), 80)}")
-            if row.get("finviz_news"):
-                news = row["finviz_news"][0]
-                lines.append(f"  - {link(clean(news.get('headline'), 80), news.get('url') or '')}")
-        lines.append("")
-    elif not earnings_image:
+        earnings_captured = capture_meta(target_date, "earnings-calendar-x")
+        if earnings_captured.endswith("`-`"):
+            file_time = captured_from_file(earnings_image)
+            earnings_captured = f"수집 시점: `{file_time}`" if file_time else earnings_captured
+        lines.extend(["### 이번 주 실적 캘린더", "", "출처: [Earnings Whispers](https://x.com/eWhispers) · " + earnings_captured, "", notion_image("이번 주 실적 캘린더", earnings_image), ""])
+    if not earnings_image:
         lines.extend(
             [
                 "### 이번 주 실적 캘린더",
@@ -858,7 +1489,7 @@ def render_dashboard(target_date: str) -> str:
         )
     feature_rows = [row for row in finviz_features.get("items", []) if row.get("status") == "ok"]
     if feature_rows:
-        lines.extend(["", "### Finviz 일봉/핫뉴스", ""])
+        lines.append("")
         for row in feature_rows[:5]:
             render_feature_stock(lines, row)
     return "\n".join(lines).rstrip() + "\n"

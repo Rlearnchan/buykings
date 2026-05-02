@@ -1,6 +1,7 @@
 param(
     [string]$Date = "",
     [switch]$SkipChromeLaunch,
+    [switch]$SkipFedProbabilities,
     [switch]$SkipPublish,
     [switch]$SkipStateMirror
 )
@@ -46,6 +47,7 @@ if (-not $env:AUTOPARK_STATE_ROOT) {
 $Args = @("projects\autopark\scripts\run_live_dashboard_all_in_one.py")
 if ($Date) { $Args += @("--date", $Date) }
 if ($SkipChromeLaunch) { $Args += "--skip-chrome-launch" }
+if ($SkipFedProbabilities) { $Args += "--skip-fed-probabilities" }
 if ($SkipPublish) { $Args += "--skip-publish" }
 if ($SkipStateMirror) { $Args += "--skip-state-mirror" }
 

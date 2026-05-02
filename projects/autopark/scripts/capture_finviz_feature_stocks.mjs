@@ -28,6 +28,7 @@ function parseArgs(argv) {
     headed: false,
     useAuthProfile: true,
     browserChannel: null,
+    cdpEndpoint: null,
     timeoutMs: 45000,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -37,6 +38,7 @@ function parseArgs(argv) {
     else if (arg === '--headed') args.headed = true;
     else if (arg === '--no-auth-profile') args.useAuthProfile = false;
     else if (arg === '--browser-channel') args.browserChannel = argv[++i];
+    else if (arg === '--cdp-endpoint') args.cdpEndpoint = argv[++i];
     else if (arg === '--timeout-ms') args.timeoutMs = Number.parseInt(argv[++i], 10);
     else if (arg === '--help') {
       console.log('Usage: capture_finviz_feature_stocks.mjs [--date YYYY-MM-DD] [--tickers AAPL,MSFT] [--headed] [--browser-channel chrome]');
@@ -74,6 +76,11 @@ async function createContext(chromium, args) {
     locale: 'en-US',
     colorScheme: 'light',
   };
+  if (args.cdpEndpoint) {
+    const browser = await chromium.connectOverCDP(args.cdpEndpoint);
+    const context = browser.contexts()[0] || await browser.newContext(options);
+    return { context, browser, shouldCloseContext: false, shouldCloseBrowser: true };
+  }
   if (args.useAuthProfile) {
     const profilePath = path.join(projectRoot, 'runtime', 'profiles', 'finviz');
     ensureDir(profilePath);
@@ -84,7 +91,12 @@ async function createContext(chromium, args) {
       const executablePath = fallbackChromiumPath();
       if (executablePath) persistentOptions.executablePath = executablePath;
     }
-    return chromium.launchPersistentContext(profilePath, persistentOptions);
+    return {
+      context: await chromium.launchPersistentContext(profilePath, persistentOptions),
+      browser: null,
+      shouldCloseContext: true,
+      shouldCloseBrowser: false,
+    };
   }
 
   const launchOptions = { headless: !args.headed };
@@ -95,7 +107,12 @@ async function createContext(chromium, args) {
     if (executablePath) launchOptions.executablePath = executablePath;
   }
   const browser = await chromium.launch(launchOptions);
-  return browser.newContext(options);
+  return {
+    context: await browser.newContext(options),
+    browser,
+    shouldCloseContext: true,
+    shouldCloseBrowser: true,
+  };
 }
 
 async function dismissOverlays(page) {
@@ -213,8 +230,8 @@ async function captureDailyChart(page, ticker, screenshotDir) {
   if (canvasBoxes.length) {
     const rect = canvasBoxes[0];
     const filePath = path.join(screenshotDir, `finviz-${ticker.toLowerCase()}-daily.png`);
-    const topPadding = 230;
-    const bottomPadding = 120;
+    const topPadding = 210;
+    const bottomPadding = 36;
     const top = Math.max(0, Math.round(rect.y - topPadding));
     await page.screenshot({
       path: filePath,
@@ -243,9 +260,9 @@ async function captureDailyChart(page, ticker, screenshotDir) {
       path: filePath,
       clip: clampClip({
         x: box.x - 16,
-        y: box.y - 230,
+        y: box.y - 210,
         width: box.width + 32,
-        height: box.height + 350,
+        height: box.height + 250,
       }, viewport),
     });
     return path.relative(repoRoot, filePath);
@@ -258,6 +275,7 @@ async function captureDailyChart(page, ticker, screenshotDir) {
 
 async function captureTicker(context, args, ticker, screenshotDir) {
   const page = await context.newPage();
+  await page.setViewportSize({ width: 1440, height: 1400 }).catch(() => {});
   const url = `https://finviz.com/quote.ashx?t=${encodeURIComponent(ticker)}&p=d`;
   try {
     await page.emulateMedia({ colorScheme: 'light' }).catch(() => {});
@@ -299,7 +317,8 @@ async function captureTicker(context, args, ticker, screenshotDir) {
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const { chromium } = await loadPlaywright();
-  const context = await createContext(chromium, args);
+  const session = await createContext(chromium, args);
+  const { context, browser } = session;
   const screenshotDir = path.join(projectRoot, 'runtime', 'screenshots', args.date, 'feature-stocks');
   const processedDir = path.join(projectRoot, 'data', 'processed', args.date);
   ensureDir(screenshotDir);
@@ -313,7 +332,8 @@ async function main() {
       console.error(JSON.stringify({ ticker, status: result.status, screenshot_path: result.screenshot_path || null }));
     }
   } finally {
-    await context.close().catch(() => {});
+    if (session.shouldCloseContext) await context.close().catch(() => {});
+    if (session.shouldCloseBrowser && browser) await browser.close().catch(() => {});
   }
 
   const payload = {

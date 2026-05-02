@@ -66,7 +66,10 @@ $Urls = @(
 $Arguments = @(
     "--remote-debugging-port=$Port",
     "--user-data-dir=$ProfileDir",
-    "--profile-directory=Default"
+    "--profile-directory=Default",
+    "--start-maximized",
+    "--window-size=1920,1080",
+    "--force-device-scale-factor=1"
 ) + $Urls
 
 Start-Process -FilePath $ChromePath -ArgumentList $Arguments -WorkingDirectory $RepoRoot

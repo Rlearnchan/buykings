@@ -19,6 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from autopark_calendar import DEFAULT_CALENDAR, resolve_operation
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PROJECT_ROOT.parents[1]
@@ -33,7 +35,8 @@ if hasattr(sys.stderr, "reconfigure"):
 
 MARKET_CHARTS = ["us10y", "crude-oil-wti", "crude-oil-brent", "dollar-index", "usd-krw", "bitcoin"]
 FINVIZ_SOURCES = ["finviz-index-futures", "finviz-sp500-heatmap", "finviz-russell-heatmap"]
-FED_PROBABILITY_SOURCES = ["cme-fedwatch", "polymarket-fed-rates"]
+CME_PROBABILITY_SOURCES = ["cme-fedwatch"]
+DEFAULT_POLYMARKET_SOURCE = "polymarket-fed-rates"
 RUNTIME_COPY_PATTERNS = [
     ("notion", "projects/autopark/runtime/notion/{date}"),
     ("processed", "projects/autopark/data/processed/{date}"),
@@ -162,6 +165,9 @@ def launch_chrome_cdp(args: argparse.Namespace, env: dict[str, str], results: li
         f"--remote-debugging-port={port}",
         f"--user-data-dir={profile_dir}",
         "--profile-directory=Default",
+        "--start-maximized",
+        "--window-size=1920,1080",
+        "--force-device-scale-factor=1",
         env.get("AUTOPARK_START_URL", "https://x.com/wallstengine"),
     ]
     try:
@@ -329,6 +335,11 @@ def summarize_payload(payload: dict, stderr: str = "") -> str:
         return f"count={payload.get('count')}"
     if payload.get("events") is not None:
         return f"events={len(payload.get('events') or [])}"
+    if payload.get("fallback") is not None and payload.get("storyline_count") is not None:
+        summary = f"fallback={payload.get('fallback')}; storylines={payload.get('storyline_count')}"
+        if payload.get("fallback_reason"):
+            summary += f"; reason={str(payload.get('fallback_reason'))[:120]}"
+        return summary
     if payload.get("output"):
         return f"output={rel(payload.get('output'))}"
     if payload.get("markdown_path"):
@@ -428,6 +439,23 @@ def publish_info(payload: dict) -> dict:
 def make_step(name: str, status: str, summary: str, artifacts: list[str] | None = None) -> StepResult:
     now = now_kst().isoformat(timespec="seconds")
     return StepResult(name, status, now, now, 0.0, [], None, summary, artifacts or [])
+
+
+def resolve_probability_sources(args: argparse.Namespace, env: dict[str, str]) -> tuple[list[str], str]:
+    sources = list(CME_PROBABILITY_SOURCES)
+    policy = (args.polymarket_policy or env.get("AUTOPARK_POLYMARKET_POLICY") or "issue").lower()
+    if policy not in {"issue", "always", "never"}:
+        policy = "issue"
+    configured_source = args.polymarket_source or env.get("AUTOPARK_POLYMARKET_SOURCE")
+    if policy == "never":
+        return sources, "skipped: polymarket policy is never"
+    if policy == "always":
+        sources.append(configured_source or DEFAULT_POLYMARKET_SOURCE)
+        return sources, f"included by polymarket policy {policy}"
+    if configured_source and configured_source != DEFAULT_POLYMARKET_SOURCE:
+        sources.append(configured_source)
+        return sources, f"included issue-specific polymarket source {configured_source}"
+    return sources, "skipped: no issue-specific Polymarket source configured"
 
 
 def write_post_publish_review(
@@ -550,9 +578,14 @@ def main() -> int:
     parser.add_argument("--x-max-posts", type=int, default=8)
     parser.add_argument("--skip-chrome-launch", action="store_true")
     parser.add_argument("--skip-finviz", action="store_true")
+    parser.add_argument("--skip-fed-probabilities", action="store_true")
+    parser.add_argument("--polymarket-policy", choices=["issue", "always", "never"], default=None)
+    parser.add_argument("--polymarket-source", default=None)
     parser.add_argument("--skip-datawrapper-export", action="store_true")
     parser.add_argument("--skip-publish", action="store_true")
     parser.add_argument("--publish-policy", choices=["gate", "always", "never"], default=None)
+    parser.add_argument("--operation-mode", choices=["auto", "daily_broadcast", "monday_catchup", "no_broadcast"], default="auto")
+    parser.add_argument("--broadcast-calendar", type=Path, default=DEFAULT_CALENDAR)
     parser.add_argument("--skip-state-mirror", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--timeout", type=int, default=240)
@@ -563,18 +596,34 @@ def main() -> int:
         os.environ.setdefault(key, value)
     run_env = {**os.environ, **file_env}
     args.cdp_endpoint = args.cdp_endpoint or run_env.get("AUTOPARK_CDP_ENDPOINT") or "http://127.0.0.1:9222"
-    publish_policy = args.publish_policy or run_env.get("AUTOPARK_PUBLISH_POLICY", "gate").lower()
+    operation = resolve_operation(args.date, calendar_path=args.broadcast_calendar, requested_mode=args.operation_mode)
+    calendar_publish_policy = str(operation.get("publish_policy") or "gate").lower()
+    if not operation.get("expected_broadcast") and args.publish_policy is None:
+        publish_policy = calendar_publish_policy
+    else:
+        publish_policy = args.publish_policy or run_env.get("AUTOPARK_PUBLISH_POLICY") or calendar_publish_policy
+    publish_policy = publish_policy.lower()
     if publish_policy not in {"gate", "always", "never"}:
         publish_policy = "gate"
+    news_lookback = str(int(operation.get("news_lookback_hours") or 24))
+    batch_b_lookback = str(int(operation.get("batch_b_lookback_hours") or 36))
+    x_lookback = str(int(operation.get("x_lookback_hours") or 24))
+    effective_news_limit = max(args.news_limit, int(operation.get("news_limit") or args.news_limit))
+    effective_x_max_posts = max(args.x_max_posts, int(operation.get("x_max_posts") or args.x_max_posts))
+    run_env["AUTOPARK_OPERATION_MODE"] = str(operation.get("mode") or "daily_broadcast")
+    run_env["AUTOPARK_EXPECTED_BROADCAST"] = "1" if operation.get("expected_broadcast") else "0"
+    run_env["AUTOPARK_OPERATION_NOTE"] = str(operation.get("note") or "")
 
     py = resolve_python()
     node = resolve_node()
+    probability_sources, polymarket_summary = resolve_probability_sources(args, run_env)
     collected_at = args.collected_at or now_kst().strftime("%y.%m.%d %H:%M")
     started_at = now_kst().isoformat(timespec="seconds")
     results: list[StepResult] = []
     notion_url: str | None = None
     publish_payload: dict = {}
     review_payload: dict = {}
+    editorial_payload: dict = {}
 
     if args.dry_run:
         planned = [
@@ -586,14 +635,134 @@ def main() -> int:
             "capture finviz market images",
             "fetch/publish/export datawrapper charts",
             "build market radar",
+            "build editorial brief",
             "render notion markdown",
             "quality review",
             f"publish notion ({publish_policy})",
             "post-publish review",
             "state mirror",
         ]
-        print(json.dumps({"ok": True, "date": args.date, "planned": planned, "python": py, "node": node}, ensure_ascii=False, indent=2))
+        browser_commands = [
+            [
+                py,
+                "projects/autopark/scripts/preflight_0430.py",
+                "--date",
+                args.date,
+                "--cdp-endpoint",
+                args.cdp_endpoint,
+            ],
+            [
+                node,
+                "projects/autopark/scripts/collect_x_timeline.mjs",
+                "--date",
+                args.date,
+                "--run-name",
+                "x-timeline",
+                "--source-profile",
+                args.x_profile,
+                "--cdp-endpoint",
+                args.cdp_endpoint,
+            ],
+            [
+                node,
+                "projects/autopark/scripts/collect_x_timeline.mjs",
+                "--date",
+                args.date,
+                "--run-name",
+                "earnings-calendar-x",
+                "--source",
+                "fixed-earnings-calendar",
+                "--cdp-endpoint",
+                args.cdp_endpoint,
+            ],
+            *([] if args.skip_finviz else [
+                [
+                    node,
+                    "projects/autopark/scripts/capture_source.mjs",
+                    "--date",
+                    args.date,
+                    "--source",
+                    source,
+                    "--cdp-endpoint",
+                    args.cdp_endpoint,
+                ]
+                for source in [*FINVIZ_SOURCES, "cnn-fear-greed"]
+            ]),
+            *[
+                [
+                    node,
+                    "projects/autopark/scripts/capture_source.mjs",
+                    "--date",
+                    args.date,
+                    "--source",
+                    source,
+                    "--cdp-endpoint",
+                    args.cdp_endpoint,
+                ]
+                for source in ([] if args.skip_fed_probabilities else probability_sources)
+            ],
+            *([] if args.skip_finviz else [[
+                node,
+                "projects/autopark/scripts/capture_finviz_feature_stocks.mjs",
+                "--date",
+                args.date,
+                "--tickers",
+                "XLE,CVX,XOM,GOOGL,MSFT,META,AMZN,V,PI,UBER",
+                "--cdp-endpoint",
+                args.cdp_endpoint,
+            ]]),
+        ]
+        forbidden_browser_args = {"--profile", "--headed", "--browser-channel"}
+        browser_arg_violations = sorted(
+            {
+                arg
+                for command in browser_commands
+                for arg in command
+                if arg in forbidden_browser_args
+            }
+        )
+        print(
+            json.dumps(
+                {
+                    "ok": not browser_arg_violations,
+                    "date": args.date,
+                    "planned": planned,
+                    "python": py,
+                    "node": node,
+                    "cdp_endpoint": args.cdp_endpoint,
+                    "probability_sources": [] if args.skip_fed_probabilities else probability_sources,
+                    "polymarket": polymarket_summary,
+                    "operation": operation,
+                    "effective": {
+                        "publish_policy": publish_policy,
+                        "news_lookback_hours": news_lookback,
+                        "batch_b_lookback_hours": batch_b_lookback,
+                        "x_lookback_hours": x_lookback,
+                        "news_limit": effective_news_limit,
+                        "x_max_posts": effective_x_max_posts,
+                    },
+                    "editorial": {
+                        "step": "build editorial brief",
+                        "fallback": "unknown_until_run",
+                        "output": str(PROJECT_ROOT / "data" / "processed" / args.date / "editorial-brief.json"),
+                    },
+                    "browser_arg_violations": browser_arg_violations,
+                    "browser_commands": browser_commands,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
+
+    append_step(
+        results,
+        make_step(
+            "resolve broadcast calendar",
+            "ok",
+            f"mode={operation.get('mode')}; publish_policy={publish_policy}; note={operation.get('note') or ''}",
+        ),
+    )
 
     if not args.skip_chrome_launch:
         result = launch_chrome_cdp(args, run_env, results)
@@ -630,11 +799,11 @@ def main() -> int:
             "--run-name",
             "today-misc-batch-a" if not extra else "today-misc-batch-b",
             "--overall-limit",
-            str(args.news_limit),
+            str(effective_news_limit),
             "--limit-per-source",
             "15" if not extra else "12",
             "--lookback-hours",
-            "24" if not extra else "36",
+            news_lookback if not extra else batch_b_lookback,
         ] + extra
         result, _ = run(command, batch_name, args.timeout, allow_fail=True)
         append_step(results, result)
@@ -652,11 +821,11 @@ def main() -> int:
             "--cdp-endpoint",
             args.cdp_endpoint,
             "--max-posts",
-            str(args.x_max_posts),
+            str(effective_x_max_posts),
             "--lookback-hours",
-            "24",
+            x_lookback,
             "--scrolls",
-            "2",
+            "4" if int(x_lookback) > 24 else "2",
         ],
         "collect x timeline",
         args.timeout,
@@ -674,10 +843,8 @@ def main() -> int:
             "earnings-calendar-x",
             "--source",
             "fixed-earnings-calendar",
-            "--profile",
-            "projects/autopark/runtime/profiles/x",
-            "--headed",
-            *chrome_browser_args(),
+            "--cdp-endpoint",
+            args.cdp_endpoint,
             "--max-posts",
             "4",
             "--lookback-hours",
@@ -712,7 +879,9 @@ def main() -> int:
     append_step(results, result)
 
     if not args.skip_finviz:
-        if IS_MAC:
+        if args.cdp_endpoint:
+            result = make_step("sync finviz chrome profile", "ok", "using shared Autopark CDP Chrome profile")
+        elif IS_MAC:
             result, _ = run(
                 ["bash", "projects/autopark/scripts/sync_chrome_profile_for_playwright.sh"],
                 "sync finviz chrome profile",
@@ -731,9 +900,8 @@ def main() -> int:
                     args.date,
                     "--source",
                     source,
-                    "--use-auth-profiles",
-                    "--headed",
-                    *chrome_browser_args(),
+                    "--cdp-endpoint",
+                    args.cdp_endpoint,
                 ],
                 f"capture {source}",
                 args.timeout,
@@ -748,7 +916,8 @@ def main() -> int:
                 args.date,
                 "--source",
                 "cnn-fear-greed",
-                *chrome_browser_args(),
+                "--cdp-endpoint",
+                args.cdp_endpoint,
             ],
             "capture cnn-fear-greed",
             args.timeout,
@@ -756,25 +925,66 @@ def main() -> int:
         )
         append_step(results, result)
 
-    for source in FED_PROBABILITY_SOURCES:
-        result, _ = run(
-            [
-                node,
-                "projects/autopark/scripts/capture_source.mjs",
-                "--date",
-                args.date,
-                "--source",
-                source,
-                "--headed",
-                *chrome_browser_args(),
-                "--timeout-ms",
-                "45000",
-            ],
-            f"capture {source}",
-            args.timeout,
-            allow_fail=True,
-        )
-        append_step(results, result)
+    if args.skip_fed_probabilities:
+        append_step(results, make_step("capture fed probability sources", "warn", "skipped by --skip-fed-probabilities"))
+    else:
+        for source in probability_sources:
+            result, _ = run(
+                [
+                    node,
+                    "projects/autopark/scripts/capture_source.mjs",
+                    "--date",
+                    args.date,
+                    "--source",
+                    source,
+                    "--cdp-endpoint",
+                    args.cdp_endpoint,
+                    "--timeout-ms",
+                    "45000",
+                ],
+                f"capture {source}",
+                args.timeout,
+                allow_fail=True,
+            )
+            append_step(results, result)
+        if DEFAULT_POLYMARKET_SOURCE not in probability_sources and not any(source.startswith("polymarket-") for source in probability_sources):
+            append_step(results, make_step("capture polymarket", "warn", polymarket_summary))
+
+    result, fedwatch_split_payload = run(
+        [py, "projects/autopark/scripts/prepare_fedwatch_datawrapper_splits.py", "--date", args.date],
+        "prepare fedwatch datawrapper splits",
+        60,
+        allow_fail=True,
+    )
+    append_step(results, result)
+    if result.status != "ok":
+        append_step(results, make_step("publish/export fedwatch split datawrapper", "warn", "skipped because split preparation failed"))
+    elif not args.skip_datawrapper_export:
+        for fedwatch_slug in ["fedwatch-conditional-probabilities-short-term", "fedwatch-conditional-probabilities-long-term"]:
+            spec_path = PROJECT_ROOT / "charts" / f"{fedwatch_slug}-datawrapper.json"
+            result, _ = run([py, "scripts/datawrapper_publish.py", str(spec_path)], f"publish datawrapper {fedwatch_slug}", 120, allow_fail=True, env=run_env)
+            append_step(results, result)
+            try:
+                chart_id = read_chart_id(spec_path)
+                result, _ = run(
+                    [
+                        py,
+                        "scripts/datawrapper_export_png.py",
+                        chart_id,
+                        str(PROJECT_ROOT / "exports/current" / f"{fedwatch_slug}.png"),
+                        "--brand-logo",
+                        "--logo-max-height-px",
+                        "64",
+                    ],
+                    f"export png {fedwatch_slug}",
+                    120,
+                    allow_fail=True,
+                    env=run_env,
+                )
+            except Exception as exc:  # noqa: BLE001
+                now = now_kst().isoformat(timespec="seconds")
+                result = StepResult(f"export png {fedwatch_slug}", "warn", now, now, 0.0, [], None, str(exc), [])
+            append_step(results, result)
 
     for chart in MARKET_CHARTS:
         result, _ = run(
@@ -883,6 +1093,15 @@ def main() -> int:
     )
     append_step(results, result)
 
+    result, editorial_payload = run(
+        [py, "projects/autopark/scripts/build_editorial_brief.py", "--date", args.date],
+        "build editorial brief",
+        180,
+        allow_fail=True,
+        env=run_env,
+    )
+    append_step(results, result)
+
     result, _ = run(
         [py, "projects/autopark/scripts/build_earnings_ticker_drilldown.py", "--date", args.date],
         "build earnings ticker drilldown",
@@ -900,8 +1119,8 @@ def main() -> int:
                 args.date,
                 "--tickers",
                 "XLE,CVX,XOM,GOOGL,MSFT,META,AMZN,V,PI,UBER",
-                "--headed",
-                *chrome_browser_args(),
+                "--cdp-endpoint",
+                args.cdp_endpoint,
             ],
             "capture finviz feature stocks",
             max(args.timeout, 180),
@@ -996,6 +1215,15 @@ def main() -> int:
         "ended_at": ended_at,
         "notion_url": notion_url,
         "publish_policy": publish_policy,
+        "operation": operation,
+        "editorial_fallback": bool(editorial_payload.get("fallback")),
+        "editorial": {
+            "fallback": bool(editorial_payload.get("fallback")),
+            "fallback_reason": editorial_payload.get("fallback_reason"),
+            "model": editorial_payload.get("model"),
+            "storyline_count": editorial_payload.get("storyline_count"),
+            "output": editorial_payload.get("output"),
+        },
         "quality_gate": review_payload.get("gate"),
         "publish": publish_info(publish_payload),
         "state_mirror": state_mirror,

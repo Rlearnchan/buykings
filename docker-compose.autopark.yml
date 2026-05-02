@@ -11,10 +11,11 @@ services:
     environment:
       TZ: Asia/Seoul
       AUTOPARK_CDP_ENDPOINT: ${AUTOPARK_DOCKER_CDP_ENDPOINT:-http://host.docker.internal:9222}
+      AUTOPARK_CHROME_PATH: ${AUTOPARK_CHROME_PATH:-/ms-playwright/chromium-1217/chrome-linux64/chrome}
       AUTOPARK_STATE_ROOT: /state
       AUTOPARK_SKIP_CHROME_LAUNCH: "1"
       AUTOPARK_SKIP_PUBLISH: "1"
-      AUTOPARK_SKIP_DATAWRAPPER_EXPORT: "1"
+      AUTOPARK_SKIP_DATAWRAPPER_EXPORT: ${AUTOPARK_SKIP_DATAWRAPPER_EXPORT:-1}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -40,10 +41,11 @@ services:
     environment:
       TZ: Asia/Seoul
       AUTOPARK_CDP_ENDPOINT: ${AUTOPARK_DOCKER_CDP_ENDPOINT:-http://host.docker.internal:9222}
+      AUTOPARK_CHROME_PATH: ${AUTOPARK_CHROME_PATH:-/ms-playwright/chromium-1217/chrome-linux64/chrome}
       AUTOPARK_STATE_ROOT: /state
       AUTOPARK_SKIP_CHROME_LAUNCH: "1"
       AUTOPARK_SKIP_PUBLISH: "1"
-      AUTOPARK_SKIP_DATAWRAPPER_EXPORT: "1"
+      AUTOPARK_SKIP_DATAWRAPPER_EXPORT: ${AUTOPARK_SKIP_DATAWRAPPER_EXPORT:-1}
       AUTOPARK_INTERVAL_MINUTES: ${AUTOPARK_INTERVAL_MINUTES:-30}
       AUTOPARK_LOOP_DURATION_HOURS: ${AUTOPARK_LOOP_DURATION_HOURS:-12}
     extra_hosts:

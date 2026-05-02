@@ -4,7 +4,15 @@
 
 ## Daily Flow
 
-### 1. 06:00 Preflight
+운영 모드는 `projects/autopark/config/broadcast_calendar.json`이 결정한다. 일반 방송일은 `daily_broadcast`, 휴일/비방송일은 `no_broadcast`, 월요일처럼 주말 누적분을 반영해야 하는 날은 `monday_catchup`으로 둔다.
+
+- `daily_broadcast`: 당일 수집, 품질 게이트 통과 시 Notion 게시, 방송 후 회고 실행
+- `no_broadcast`: 방송 회고는 정상 스킵하되, 현재 운영 검증 단계에서는 품질 게이트 통과 시 월요일 준비용 Notion 문서를 게시
+- `monday_catchup`: 금요일 오전 방송 이후 주말까지 약 72시간 lookback으로 넓게 수집
+
+Codex 자동화는 매일 05:05에 아침 대시보드 runner를 깨우고, 매일 10:30에 방송 후 회고 runner를 깨운다. 둘 다 먼저 방송 캘린더를 확인하므로 0503 같은 비방송일은 회고가 실패가 아니라 `skipped_expected_no_broadcast`로 끝나는 것이 정상이다.
+
+### 1. 05:00 Preflight
 
 확인할 것:
 
@@ -22,7 +30,7 @@
 - Notion Markdown 생성 시각
 - Notion 발행 시각
 
-### 2. 06:00-06:15 Collection
+### 2. 05:05-05:15 Collection
 
 고정 수집:
 
@@ -40,7 +48,7 @@
 - 빅테크 실적 날: Wall St Engine posts/images 확대, after-hours movers
 - 지정학/정책 이벤트 날: Polymarket trending market, Reuters/Bloomberg/CNBC 단신
 
-### 3. 06:15-06:25 Selection
+### 3. 05:15-05:22 Selection
 
 먼저 오늘의 대립축을 한 문장으로 쓴다.
 
@@ -66,31 +74,34 @@
 - 단신/환기
 - 하단 보강 후보
 
-### 4. 06:25-06:35 Notion Draft
+### 4. 05:22-05:27 Notion Draft
 
 고정 레이아웃:
 
 1. `최종 수정 일시`
 2. `뉴스/X 수집 구간`
 3. `시장 데이터 기준`
-4. 주요 뉴스 요약
-5. 추천 스토리라인 3개
+4. 오늘의 핵심 질문
+5. 추천 스토리라인 3-5개
 6. 자료 수집
 7. 시장은 지금
-8. Fed/FOMC package, 해당일만
+8. FedWatch 금리 확률, 해당 자료가 있으면 단기/장기 표로 분리
 9. 오늘의 이모저모
 10. 실적/특징주
 11. 단신/환기, 해당일만
 
 추천 스토리라인 규칙:
 
-- 3개는 서로 다른 꼭지여야 한다.
+- 3-5개는 서로 다른 꼭지여야 한다.
+- 강한 후보가 3개뿐이면 3개만 둔다.
+- 추천도는 별 3개 만점으로 표시한다.
 - 하나의 이슈를 1, 2, 3으로 쪼개지 않는다.
 - 각 꼭지는 아래 자료 카드 제목을 코드 텍스트로 정확히 인용한다.
 - 제목은 방송 꼭지처럼 짧게 쓴다.
 - “자료를 읽어보라”가 아니라 “이 자료로 이렇게 말할 수 있다”가 보여야 한다.
+- 내부 점수, 클러스터, 출처 수 로직은 본문에 노출하지 않는다.
 
-### 5. 06:35-06:45 Self Review
+### 5. 05:27-05:30 Self Review
 
 발행 전 체크:
 
@@ -103,7 +114,7 @@
 - 같은 자료가 메인과 보강 후보에 중복되지 않았는가?
 - 이미지/차트 제목과 수집 시점이 정확한가?
 
-### 6. 06:45 Publish
+### 6. 05:30 Publish
 
 원칙:
 
@@ -111,6 +122,27 @@
 - Notion에는 실험 로그를 과하게 싣지 않는다.
 - 내부 로그와 장부는 runtime/docs에 남긴다.
 - 발행 후 block count와 이미지 실패 여부만 확인한다.
+- 07:20 방송 시작을 기준으로 진행자가 자료를 만들 시간을 확보하려면 05:30에는 대시보드가 완성돼야 한다.
+
+### 7. 09:30-당일 오후 Post-Broadcast Retrospective
+
+위폴 라이브 다시보기의 한국어 자동 자막이 뜨면 초반 진행자 구간만 수집한다. 기본 창은 40분이며, 이후 버디버디/게스트 구간은 자동 회고 대상에서 제외한다.
+
+명령:
+
+```powershell
+$env:PYTHONIOENCODING='utf-8'
+.\.venv\Scripts\python.exe projects\autopark\scripts\run_broadcast_retrospective.py --date YYYY-MM-DD --attempts 6 --sleep-minutes 60
+```
+
+회고 산출물:
+
+- `runtime/broadcast/YYYY-MM-DD/wepoll-transcript.json`
+- `runtime/broadcast/YYYY-MM-DD/host-segment.md`
+- `runtime/reviews/YYYY-MM-DD/broadcast-retrospective.md`
+- `runtime/broadcast/YYYY-MM-DD/retrospective-feedback.md`
+
+`retrospective-feedback.md`는 다음날 `build_editorial_brief.py`가 우선 참고한다. 이 파일은 시장 사실 소스가 아니라 편집 선호와 형식 피드백이다.
 
 ## Review After Actual PPT Arrives
 
@@ -159,7 +191,7 @@
 
 ### P0
 
-- Fed/FOMC package 생성기
+- Fed/FOMC package 생성기 유지보수
 - Wall St Engine earnings collector 강화
 - Big Tech earnings card builder
 - after-hours movers + Finviz/Yahoo 차트 연결
@@ -179,6 +211,15 @@
 - IR release/earnings release 교차검증
 - 구독/로그인 소스 Chrome profile 자동화
 - PPT hit-rate 기반 선별 모델 개선
+
+## Current Lessons From 0502
+
+- LLM 편집장 단계는 반복적인 규칙 기반 스토리라인을 줄이는 데 효과가 있다.
+- 추천 스토리라인은 5개를 채우는 것보다 3개 강선별이 더 낫다.
+- FedWatch는 단일 긴 표보다 단기/장기 두 표가 방송 화면에서 읽기 쉽다.
+- FedWatch 히트맵은 파랑-빨강보다 `0=흰색`, 고확률=코랄 단일 강조가 낫다.
+- Datawrapper table heatmap은 컬럼별 `heatmap: {"enabled": true}`가 필요하다.
+- 회의일은 `26.06.17`처럼 짧게 쓰되, Datawrapper 정렬을 위해 CSV에는 `@@YYYYMMDD` suffix를 둔다.
 
 ## Next Thread Bootstrap
 

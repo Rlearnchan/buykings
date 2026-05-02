@@ -301,7 +301,7 @@ def format_market_delta(current: float, previous: float, unit: str) -> str:
     delta = current - previous
     sign = "+" if delta >= 0 else ""
     if unit == "%":
-        return f"{sign}{delta:.3f}%p"
+        return f"{sign}{delta * 100:.1f}bp"
     if unit == "$":
         return f"{sign}${abs(delta):,.2f}" if delta >= 0 else f"-${abs(delta):,.2f}"
     if unit == "원":

@@ -84,6 +84,15 @@ def issue(findings: list[Finding], category: str, severity: str, title: str, det
     findings.append(Finding(category, severity, title, detail, recommendation))
 
 
+def storyline_blocks(storyline_section: str) -> list[str]:
+    matches = list(re.finditer(r"^##\s+\d+\.\s+.+?\s*$", storyline_section, flags=re.M))
+    blocks = []
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(storyline_section)
+        blocks.append(storyline_section[match.start() : end].strip())
+    return blocks
+
+
 def review_format(markdown: str, target_date: str) -> list[Finding]:
     findings: list[Finding] = []
     expected_title = display_date_title(target_date)
@@ -153,7 +162,7 @@ def review_format(markdown: str, target_date: str) -> list[Finding]:
             f"스토리라인 {story_count}개 중 quote는 {quote_count}개입니다.",
             "각 스토리라인 바로 아래에 한 줄 angle을 quote block으로 넣으세요.",
         )
-    if "선정 이유" not in storyline:
+    if "선정 이유" not in storyline and "왜 지금" not in storyline:
         issue(
             findings,
             "format",
@@ -162,7 +171,7 @@ def review_format(markdown: str, target_date: str) -> list[Finding]:
             "`추천 스토리라인` 섹션 안에 선정 이유가 보이지 않습니다.",
             "각 스토리라인마다 `선정 이유`와 `슬라이드 구성` 또는 `구성 제안`을 넣으세요.",
         )
-    if not re.search(r"슬라이드 구성|구성 제안", storyline):
+    if not re.search(r"슬라이드 구성|구성 제안|^###\s+구성", storyline, flags=re.M):
         issue(
             findings,
             "format",
@@ -195,7 +204,7 @@ def review_format(markdown: str, target_date: str) -> list[Finding]:
     return findings
 
 
-def review_content(markdown: str) -> list[Finding]:
+def review_content_legacy_broad(markdown: str) -> list[Finding]:
     findings: list[Finding] = []
     text = markdown.lower()
     market_section = section(markdown, r"시장은 지금").lower()
@@ -372,6 +381,170 @@ def review_content(markdown: str) -> list[Finding]:
     return findings
 
 
+def review_editorial_storylines(markdown: str) -> list[Finding]:
+    findings: list[Finding] = []
+    storyline = section(markdown, r"추천 스토리라인")
+    if not storyline:
+        return findings
+
+    blocks = storyline_blocks(storyline)
+    titles = [
+        normalize(match.group(1))
+        for match in re.finditer(r"^##\s+\d+\.\s+(.+?)\s*$", storyline, flags=re.M)
+    ]
+    lowered_titles = [title.lower() for title in titles]
+    duplicates = sorted({title for title in lowered_titles if lowered_titles.count(title) > 1})
+    if duplicates:
+        issue(
+            findings,
+            "content",
+            "medium",
+            "스토리라인 제목 중복",
+            f"중복 제목이 감지됐습니다: {', '.join(duplicates)}",
+            "같은 이슈를 둘로 쪼개지 말고 하나의 더 강한 꼭지로 합치세요.",
+        )
+
+    if blocks and len(re.findall(r"추천도:\s*`?[★☆]{1,3}`?", storyline)) < len(blocks):
+        issue(
+            findings,
+            "content",
+            "medium",
+            "추천도 누락",
+            "일부 스토리라인에 별점 추천도가 보이지 않습니다.",
+            "각 스토리라인 제목 아래에 `추천도: ★★★` 형식의 3점 척도를 넣으세요.",
+        )
+
+    uses_editorial_format = bool(re.search(r"^###\s+(왜 지금|쓸 자료)", storyline, flags=re.M))
+    required_slots = [
+        ("hook", r"^>\s+"),
+        ("why_now", r"^###\s+왜 지금"),
+        ("talk_track", r"^###\s+방송 멘트 초안"),
+    ]
+    if uses_editorial_format:
+        for index, block in enumerate(blocks, start=1):
+            for label, pattern in required_slots:
+                if not re.search(pattern, block, flags=re.M):
+                    issue(
+                        findings,
+                        "content",
+                        "medium",
+                        f"스토리라인 {index} {label} 누락",
+                        f"{index}번 스토리라인에 `{label}` 역할의 문단이 보이지 않습니다.",
+                        "상단 추천은 방송 글감이므로 훅, 왜 지금, 방송 멘트 초안을 모두 유지하세요.",
+                    )
+            use_match = re.search(r"^###\s+쓸 자료\s*(.*?)(?=^###\s+|\Z)", block, flags=re.M | re.S)
+            if not use_match or not re.search(r"`[^`]+`", use_match.group(1)):
+                issue(
+                    findings,
+                    "content",
+                    "medium",
+                    f"스토리라인 {index} 근거 자료 누락",
+                    f"{index}번 스토리라인에 `쓸 자료` 근거가 충분히 보이지 않습니다.",
+                    "각 주장은 실제 수집 후보 제목을 code text로 연결하세요.",
+                )
+
+    evidence_usage: dict[str, set[int]] = {}
+    if uses_editorial_format:
+        for index, block in enumerate(blocks, start=1):
+            use_match = re.search(r"^###\s+쓸 자료\s*(.*?)(?=^###\s+|\Z)", block, flags=re.M | re.S)
+            if not use_match:
+                continue
+            for ref in re.findall(r"`([^`]+)`", use_match.group(1)):
+                evidence_usage.setdefault(normalize(ref), set()).add(index)
+    repeated = [ref for ref, indexes in evidence_usage.items() if len(indexes) >= 2]
+    if repeated:
+        issue(
+            findings,
+            "content",
+            "low",
+            "핵심 근거 반복 사용",
+            f"여러 핵심 스토리라인에서 반복된 근거가 있습니다: {', '.join(repeated[:5])}",
+            "반복 근거는 하나의 메인 꼭지에 모으고 나머지 꼭지는 다른 자료로 차별화하세요.",
+        )
+
+    internal_phrases = [
+        "출처가 같은 방향의 신호",
+        "점수와 구체성이",
+        "기존 점수 기반",
+        "클러스터",
+        "selection_method",
+        "source-count",
+        "same-direction signals",
+    ]
+    leaked = [phrase for phrase in internal_phrases if phrase.lower() in markdown.lower()]
+    if leaked:
+        issue(
+            findings,
+            "content",
+            "medium",
+            "내부 로직 문장 노출",
+            f"최종 본문에 내부 선별 로직 표현이 남아 있습니다: {', '.join(leaked)}",
+            "사용자에게 보이는 문장은 방송 편집 판단으로 다시 쓰고, 점수/클러스터 설명은 숨기세요.",
+        )
+    return findings
+
+
+def review_content(markdown: str) -> list[Finding]:
+    findings: list[Finding] = []
+    market_section = section(markdown, r"시장은 지금")
+    misc_section = section(markdown, r"오늘의 이모저모")
+    feature_section = section(markdown, r"실적/특징주")
+
+    if not market_section:
+        issue(findings, "content", "high", "시장 섹션 없음", "`시장은 지금` 섹션을 찾지 못했습니다.", "시장 캡처와 차트를 `시장은 지금` 아래에 배치하세요.")
+    if not misc_section:
+        issue(findings, "content", "high", "이모저모 섹션 없음", "`오늘의 이모저모` 섹션을 찾지 못했습니다.", "후보 자료 카드를 `오늘의 이모저모` 아래에 배치하세요.")
+    if not feature_section:
+        issue(findings, "content", "medium", "실적/특징주 섹션 없음", "`실적/특징주` 섹션을 찾지 못했습니다.", "실적 캘린더와 특징주 자료를 별도 섹션으로 유지하세요.")
+
+    for forbidden in ["이 자료가 여는 질문", "다음에 붙일 자료", "오늘의 핵심 키워드", "실적 캘린더 기반 후보", "Finviz 일봉/핫뉴스", "확률 1"]:
+        if forbidden in markdown:
+            issue(
+                findings,
+                "content",
+                "medium",
+                f"compact format 금지 문구 존재: {forbidden}",
+                f"`{forbidden}` 문구는 현재 compact dashboard format에서 제거하기로 한 항목입니다.",
+                "해당 문구를 제거하고 카드 본문은 한국어 요약 중심으로 유지하세요.",
+            )
+
+    if image_count(markdown) < 8:
+        issue(
+            findings,
+            "content",
+            "medium",
+            "시각 자료 부족",
+            f"이미지 수가 {image_count(markdown)}개입니다.",
+            "시장 상태, X/뉴스 카드, 실적/특징주 이미지를 충분히 유지하세요.",
+        )
+    if table_count(markdown) == 0 and "FedWatch 금리 확률" not in markdown:
+        issue(
+            findings,
+            "content",
+            "low",
+            "테이블 자료 없음",
+            "경제 일정이나 FedWatch 확률처럼 빠르게 스캔할 표가 보이지 않습니다.",
+            "경제 일정, FedWatch, 소스 커버리지 중 하나 이상을 표로 유지하세요.",
+        )
+    english_leak_pattern = (
+        r"Bloomberg:|Tech stocks today|A draft White House|Big Tech earnings|"
+        r"US stocks advanced|Australia and Japan markets|Standard Intelligence raises|"
+        r"S&P is considering rule|Real capex \(inflation|33 minutes ago Reuters|"
+        r"Huawei expects AI chip|GoDaddy forecasts quarterly"
+    )
+    if re.search(english_leak_pattern, markdown):
+        issue(
+            findings,
+            "content",
+            "medium",
+            "영어 원문 제목 누수",
+            "최종 페이지에 원문 영어 제목이 그대로 노출됩니다.",
+            "한국어 키워드형 제목과 요약으로 변환하세요.",
+        )
+    findings.extend(review_editorial_storylines(markdown))
+    return findings
+
+
 def score(findings: list[Finding], category: str) -> int:
     penalty = {"high": 16, "medium": 8, "low": 3}
     total = sum(penalty[item.severity] for item in findings if item.category == category)
@@ -379,6 +552,51 @@ def score(findings: list[Finding], category: str) -> int:
 
 
 def render_markdown(target_date: str, source_path: Path, findings: list[Finding]) -> str:
+    format_score = score(findings, "format")
+    content_score = score(findings, "content")
+    gate = "pass" if format_score >= 80 and content_score >= 75 and not any(item.severity == "high" for item in findings) else "needs_revision"
+    now = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M")
+    lines = [
+        "# Dashboard Quality Review",
+        "",
+        f"- 대상일: `{target_date}`",
+        f"- 리뷰 시각: `{now} (KST)`",
+        f"- 대상 파일: `{source_path}`",
+        f"- format score: `{format_score}`",
+        f"- content score: `{content_score}`",
+        f"- gate: `{gate}`",
+        "",
+        "## Summary",
+        "",
+    ]
+    if findings:
+        high = sum(1 for item in findings if item.severity == "high")
+        medium = sum(1 for item in findings if item.severity == "medium")
+        low = sum(1 for item in findings if item.severity == "low")
+        lines.append(f"- findings: high {high}, medium {medium}, low {low}")
+    else:
+        lines.append("- findings: none")
+
+    for category in ["format", "content"]:
+        lines.extend(["", f"## {category.title()} Findings", ""])
+        rows = [item for item in findings if item.category == category]
+        if not rows:
+            lines.append("- 문제 없음")
+            continue
+        for index, item in enumerate(rows, start=1):
+            lines.extend(
+                [
+                    f"### {index}. [{item.severity}] {item.title}",
+                    "",
+                    f"- 문제: {item.detail}",
+                    f"- 수정: {item.recommendation}",
+                    "",
+                ]
+            )
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def render_markdown_legacy_broad(target_date: str, source_path: Path, findings: list[Finding]) -> str:
     format_score = score(findings, "format")
     content_score = score(findings, "content")
     gate = "pass" if format_score >= 80 and content_score >= 75 and not any(item.severity == "high" for item in findings) else "needs_revision"
