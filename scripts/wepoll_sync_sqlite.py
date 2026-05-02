@@ -19,6 +19,15 @@ DEFAULT_SCHEMA = ROOT / "db" / "wepoll_sqlite.sql"
 DEFAULT_STATE_DIR = ROOT / "projects" / "wepoll-panic" / "state"
 
 
+def set_csv_field_limit() -> None:
+    for limit in (sys.maxsize, 2_147_483_647, 1_000_000_000):
+        try:
+            csv.field_size_limit(limit)
+            return
+        except OverflowError:
+            continue
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--db", type=Path, default=DEFAULT_DB, help="SQLite db path")
@@ -103,7 +112,7 @@ def sha256_file(path: Path) -> str:
 
 
 def summarize_dates(path: Path) -> tuple[int, str | None, str | None]:
-    csv.field_size_limit(sys.maxsize)
+    set_csv_field_limit()
     count = 0
     dates: Counter[str] = Counter()
     with path.open(encoding="utf-8-sig", newline="") as f:
@@ -143,7 +152,7 @@ def normalize_raw_post(row: dict[str, str], source_file: str) -> dict[str, objec
 
 
 def load_raw_posts(path: Path) -> list[dict[str, object]]:
-    csv.field_size_limit(sys.maxsize)
+    set_csv_field_limit()
     source_file = str(path.resolve())
     posts: dict[str, dict[str, object]] = {}
     with path.open(encoding="utf-8-sig", newline="") as f:

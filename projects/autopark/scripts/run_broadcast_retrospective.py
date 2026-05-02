@@ -84,6 +84,7 @@ def main() -> int:
     py = args.python
     started_at = now_kst()
     operation = resolve_operation(args.date, calendar_path=args.broadcast_calendar, requested_mode=args.operation_mode)
+    log_path = PROJECT_ROOT / "runtime" / "logs" / f"{args.date}-broadcast-retrospective.json"
     if not operation.get("retrospective_enabled", True):
         payload = {
             "ok": True,
@@ -101,7 +102,6 @@ def main() -> int:
                 }
             ],
         }
-        log_path = PROJECT_ROOT / "runtime" / "logs" / f"{args.date}-broadcast-retrospective.json"
         if not args.dry_run:
             write_log(log_path, payload)
         payload["log"] = str(log_path)
@@ -121,10 +121,42 @@ def main() -> int:
             cmd.append("--dry-run")
         fetch_payload, output = run(cmd, 240, allow_fail=True)
         steps.append({"name": "fetch wepoll transcript", "attempt": attempt, "payload": fetch_payload, "output_tail": output[-1200:]})
+        if not args.dry_run:
+            write_log(
+                log_path,
+                {
+                    "ok": True,
+                    "date": args.date,
+                    "started_at": started_at,
+                    "ended_at": now_kst(),
+                    "operation": operation,
+                    "fetch": fetch_payload,
+                    "retrospective": {"status": "pending"},
+                    "steps": steps,
+                    "phase": "fetch",
+                },
+            )
         if args.dry_run or fetch_payload.get("status") == "downloaded":
             break
         if attempt < args.attempts:
-            time.sleep(max(0.0, args.sleep_minutes) * 60)
+            sleep_seconds = max(0.0, args.sleep_minutes) * 60
+            steps.append({"name": "sleep", "attempt": attempt, "payload": {"seconds": sleep_seconds}, "output_tail": ""})
+            if not args.dry_run:
+                write_log(
+                    log_path,
+                    {
+                        "ok": True,
+                        "date": args.date,
+                        "started_at": started_at,
+                        "ended_at": now_kst(),
+                        "operation": operation,
+                        "fetch": fetch_payload,
+                        "retrospective": {"status": "pending"},
+                        "steps": steps,
+                        "phase": "sleep",
+                    },
+                )
+            time.sleep(sleep_seconds)
 
     if not args.skip_retrospective and (args.dry_run or fetch_payload.get("status") == "downloaded"):
         cmd = [py, "projects/autopark/scripts/build_broadcast_retrospective.py", "--date", args.date]
@@ -145,7 +177,6 @@ def main() -> int:
         "retrospective": review_payload,
         "steps": steps,
     }
-    log_path = PROJECT_ROOT / "runtime" / "logs" / f"{args.date}-broadcast-retrospective.json"
     if not args.dry_run:
         write_log(log_path, payload)
     payload["log"] = str(log_path)

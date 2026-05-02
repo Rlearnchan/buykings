@@ -1,0 +1,153 @@
+{
+  "project": "autopark",
+  "slug": "fedwatch-conditional-probabilities-long-term",
+  "title": "FedWatch 장기 금리확률",
+  "subtitle": "26.04.29 기준",
+  "chart_type": "tables",
+  "theme": "datawrapper-high-contrast",
+  "prepared_csv": "../prepared/fedwatch-conditional-probabilities-long-term-2026-04-29.csv",
+  "source_name": "CME FedWatch",
+  "source_url": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
+  "byline": "",
+  "metadata": {
+    "describe": {
+      "intro": "26.04.29 기준",
+      "aria-description": "FedWatch 장기 금리확률 히트맵"
+    },
+    "publish": {
+      "embed-width": 760,
+      "embed-height": 514
+    },
+    "visualize": {
+      "perPage": 6,
+      "striped": false,
+      "pagination": false,
+      "searchable": false,
+      "showHeader": true,
+      "columns": {
+        "회의일": {
+          "align": "left",
+          "width": 0.14
+        },
+        "200-225": {
+          "align": "center",
+          "width": 0.1,
+          "format": "0.0",
+          "heatmap": {
+            "enabled": true
+          },
+          "append": "%"
+        },
+        "225-250": {
+          "align": "center",
+          "width": 0.1,
+          "format": "0.0",
+          "heatmap": {
+            "enabled": true
+          },
+          "append": "%"
+        },
+        "250-275": {
+          "align": "center",
+          "width": 0.1,
+          "format": "0.0",
+          "heatmap": {
+            "enabled": true
+          },
+          "append": "%"
+        },
+        "275-300": {
+          "align": "center",
+          "width": 0.1,
+          "format": "0.0",
+          "heatmap": {
+            "enabled": true
+          },
+          "append": "%"
+        },
+        "300-325": {
+          "align": "center",
+          "width": 0.1,
+          "format": "0.0",
+          "heatmap": {
+            "enabled": true
+          },
+          "append": "%"
+        },
+        "325-350": {
+          "align": "center",
+          "width": 0.1,
+          "format": "0.0",
+          "heatmap": {
+            "enabled": true
+          },
+          "append": "%"
+        },
+        "350-375": {
+          "align": "center",
+          "width": 0.1,
+          "format": "0.0",
+          "heatmap": {
+            "enabled": true
+          },
+          "append": "%"
+        },
+        "375-400": {
+          "align": "center",
+          "width": 0.1,
+          "format": "0.0",
+          "heatmap": {
+            "enabled": true
+          },
+          "append": "%"
+        },
+        "400-425": {
+          "align": "center",
+          "width": 0.1,
+          "format": "0.0",
+          "heatmap": {
+            "enabled": true
+          },
+          "append": "%"
+        },
+        "425-450": {
+          "align": "center",
+          "width": 0.1,
+          "format": "0.0",
+          "heatmap": {
+            "enabled": true
+          },
+          "append": "%"
+        }
+      },
+      "heatmap": {
+        "palette": 0,
+        "mode": "continuous",
+        "stops": "equidistant",
+        "colors": [
+          {
+            "color": "#ffffff",
+            "position": 0
+          },
+          {
+            "color": "#ffe8cf",
+            "position": 0.5
+          },
+          {
+            "color": "#e85d3f",
+            "position": 1
+          }
+        ],
+        "rangeMax": "100",
+        "rangeMin": "0",
+        "stopCount": 3,
+        "hideValues": false,
+        "showLegend": false
+      },
+      "legend": {
+        "enabled": false
+      }
+    }
+  },
+  "chart_id": "nxGfe"
+}

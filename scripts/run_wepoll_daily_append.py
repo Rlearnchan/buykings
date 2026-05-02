@@ -26,6 +26,15 @@ DEFAULT_BUBBLE_SPEC = ROOT / "projects" / "wepoll-panic" / "charts" / "weekly-bu
 DEFAULT_BASELINE_MARKET = DEFAULT_PANIC_ROOT / "output" / "yearly_hybrid_batch_v4" / "market_daily_normalized.csv"
 
 
+def set_csv_field_limit() -> None:
+    for limit in (sys.maxsize, 2_147_483_647, 1_000_000_000):
+        try:
+            csv.field_size_limit(limit)
+            return
+        except OverflowError:
+            continue
+
+
 def read_json(path: Path) -> dict:
     with path.open(encoding="utf-8") as f:
         return json.load(f)
@@ -43,7 +52,7 @@ def run(cmd: list[str], *, env: dict[str, str] | None = None) -> None:
 
 
 def load_date_counts(path: Path) -> Counter[str]:
-    csv.field_size_limit(sys.maxsize)
+    set_csv_field_limit()
     counts: Counter[str] = Counter()
     with path.open(encoding="utf-8-sig", newline="") as f:
         for row in csv.DictReader(f):
@@ -64,7 +73,7 @@ def choose_target_date(counts: Counter[str], today: date, min_rows: int) -> str:
 
 
 def filter_csv_for_date(src: Path, dst: Path, target_date: str) -> int:
-    csv.field_size_limit(sys.maxsize)
+    set_csv_field_limit()
     rows: list[dict[str, str]] = []
     fieldnames: list[str] | None = None
     with src.open(encoding="utf-8-sig", newline="") as f:
@@ -88,18 +97,28 @@ def fetch_market(target_date: str, workdir: Path) -> dict[str, Path]:
     outputs = {}
     for preset in ["kospi", "kosdaq", "vkospi"]:
         output = workdir / f"{preset}.csv"
-        run(
-            [
-                sys.executable,
-                str(ROOT / "scripts" / "fetch_investing_historical.py"),
-                "--preset",
-                preset,
-                "--output",
-                str(output),
-                "--required-date",
-                required_market_date,
-            ]
-        )
+        candidate = datetime.strptime(required_market_date, "%Y-%m-%d").date()
+        for _ in range(10):
+            try:
+                run(
+                    [
+                        sys.executable,
+                        str(ROOT / "scripts" / "fetch_investing_historical.py"),
+                        "--preset",
+                        preset,
+                        "--output",
+                        str(output),
+                        "--required-date",
+                        str(candidate),
+                    ]
+                )
+                break
+            except subprocess.CalledProcessError:
+                candidate -= timedelta(days=1)
+                while candidate.weekday() >= 5:
+                    candidate -= timedelta(days=1)
+        else:
+            raise SystemExit(f"Could not fetch market data for {preset} near {target_date}")
         outputs[preset] = output
     return outputs
 
@@ -177,6 +196,7 @@ def append_state(
     new_features: Path,
     market_paths: dict[str, Path],
     target_date: str,
+    baseline_market: Path,
 ) -> dict[str, Path]:
     outputs = {
         "stance": state_dir / "appended_stance.csv",
@@ -205,7 +225,7 @@ def append_state(
             "--market-vkospi",
             str(market_paths["vkospi"]),
             "--market-existing",
-            str(DEFAULT_BASELINE_MARKET),
+            str(baseline_market),
             "--end-date",
             target_date,
             "--output-stance",
@@ -311,6 +331,60 @@ def update_prepared_bubble(appended_quadrant: Path, target_date: str, undated_pa
         write_rows(dated_path, out, fieldnames)
 
 
+def date_label(value: str) -> str:
+    return datetime.strptime(value, "%Y-%m-%d").strftime("%Y.%m.%d")
+
+
+def next_day(value: str) -> str:
+    return str(datetime.strptime(value, "%Y-%m-%d").date() + timedelta(days=1))
+
+
+def update_timeseries_spec(spec_path: Path, prepared_csv: Path) -> None:
+    rows = load_rows(prepared_csv)
+    if not rows:
+        return
+    start_date = rows[0]["date"]
+    end_date = rows[-1]["date"]
+    week_start, _ = week_bounds(end_date)
+    spec = read_json(spec_path)
+    metadata = spec.setdefault("metadata", {})
+    metadata.setdefault("annotate", {})["notes"] = (
+        f"분석 기간: {date_label(start_date)} ~ {date_label(end_date)}, "
+        "지수는 50(중립)을 기준으로 해석"
+    )
+    visualize = metadata.setdefault("visualize", {})
+    for annotation in visualize.get("range-annotations", []) or []:
+        position = annotation.get("position") or {}
+        if annotation.get("type") == "y":
+            position["x0"] = f"{start_date} 00:00"
+            position["x1"] = f"{end_date} 00:00"
+        elif annotation.get("type") == "x":
+            position["x0"] = f"{week_start} 00:00"
+            position["x1"] = f"{next_day(end_date)} 00:00"
+        annotation["position"] = position
+    spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def update_bubble_spec(spec_path: Path, prepared_csv: Path) -> None:
+    rows = load_rows(prepared_csv)
+    if not rows:
+        return
+    start_date = rows[0]["date"]
+    end_date = rows[-1]["date"]
+    spec = read_json(spec_path)
+    metadata = spec.setdefault("metadata", {})
+    metadata.setdefault("annotate", {})["notes"] = (
+        f"분석 기간: {date_label(start_date)} ~ {date_label(end_date)}, "
+        "순서는 해당 주 1일차부터 최신 일차까지"
+    )
+    spec_path.write_text(json.dumps(spec, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def update_chart_specs(timeseries_spec: Path, bubble_spec: Path) -> None:
+    update_timeseries_spec(timeseries_spec, resolve_prepared_csv(timeseries_spec))
+    update_bubble_spec(bubble_spec, resolve_prepared_csv(bubble_spec))
+
+
 def load_env_file(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
     if not path.exists():
@@ -341,18 +415,25 @@ def main() -> None:
     parser.add_argument("--target-date", help="Append this date explicitly (YYYY-MM-DD)")
     parser.add_argument("--min-rows", type=int, default=150, help="Minimum rows to treat a date as complete when auto-selecting")
     parser.add_argument("--today", default=str(date.today()), help="Override today's date for auto-selection")
-    parser.add_argument("--model", default="gemma3:4b")
+    parser.add_argument("--model", default=None)
     parser.add_argument("--state-dir", type=Path, default=DEFAULT_STATE_DIR)
     parser.add_argument("--timeseries-spec", type=Path, default=DEFAULT_TIMESERIES_SPEC)
     parser.add_argument("--bubble-spec", type=Path, default=DEFAULT_BUBBLE_SPEC)
-    parser.add_argument("--panic-root", type=Path, default=DEFAULT_PANIC_ROOT)
+    parser.add_argument("--panic-root", type=Path)
     parser.add_argument("--python-executable", default=sys.executable)
-    parser.add_argument("--second-pass-backend", default=os.environ.get("WEPOLL_SECOND_PASS_BACKEND", "ollama"))
+    parser.add_argument("--second-pass-backend", default=os.environ.get("WEPOLL_SECOND_PASS_BACKEND"))
     parser.add_argument("--ollama-host", default=os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434"))
     parser.add_argument("--openai-api-key", default=os.environ.get("OPENAI_API_KEY"))
     parser.add_argument("--env-file", type=Path, default=ROOT / ".env")
     parser.add_argument("--skip-publish", action="store_true")
     args = parser.parse_args()
+    env_values = load_env_file(args.env_file.resolve())
+    panic_root = args.panic_root or (
+        Path(env_values["WEPOLL_PANIC_ROOT"]) if env_values.get("WEPOLL_PANIC_ROOT") else DEFAULT_PANIC_ROOT
+    )
+    model = args.model or env_values.get("WEPOLL_SECOND_PASS_MODEL") or "gemma3:4b"
+    second_pass_backend = args.second_pass_backend or env_values.get("WEPOLL_SECOND_PASS_BACKEND") or "ollama"
+    openai_api_key = args.openai_api_key or env_values.get("OPENAI_API_KEY")
 
     counts = load_date_counts(args.input)
     target_date = args.target_date or choose_target_date(counts, date.fromisoformat(args.today), args.min_rows)
@@ -367,14 +448,15 @@ def main() -> None:
         filtered_csv,
         market_paths,
         workdir / "pipeline",
-        args.model,
-        panic_root=args.panic_root.resolve(),
+        model,
+        panic_root=panic_root.resolve(),
         python_executable=args.python_executable,
-        second_pass_backend=args.second_pass_backend,
+        second_pass_backend=second_pass_backend,
         ollama_host=args.ollama_host,
-        openai_api_key=args.openai_api_key,
+        openai_api_key=openai_api_key,
     )
-    outputs = append_state(args.state_dir, features_path, market_paths, target_date)
+    baseline_market = panic_root.resolve() / "output" / "yearly_hybrid_batch_v4" / "market_daily_normalized.csv"
+    outputs = append_state(args.state_dir, features_path, market_paths, target_date, baseline_market)
 
     timeseries_dated = resolve_prepared_csv(args.timeseries_spec)
     bubble_dated = resolve_prepared_csv(args.bubble_spec)
@@ -387,6 +469,7 @@ def main() -> None:
     update_prepared_timeseries(outputs["timeseries"], timeseries_undated, timeseries_dated)
     update_prepared_ranges(timeseries_dated, ranges_undated, ranges_dated)
     update_prepared_bubble(outputs["quadrant"], target_date, bubble_undated, bubble_dated)
+    update_chart_specs(args.timeseries_spec, args.bubble_spec)
 
     if not args.skip_publish:
         publish(args.timeseries_spec, env_file=args.env_file.resolve(), python_executable=args.python_executable)
@@ -401,7 +484,7 @@ def main() -> None:
                 "state_dir": str(args.state_dir),
                 "timeseries_spec": str(args.timeseries_spec),
                 "bubble_spec": str(args.bubble_spec),
-                "panic_root": str(args.panic_root),
+                "panic_root": str(panic_root),
                 "published": not args.skip_publish,
             },
             ensure_ascii=False,

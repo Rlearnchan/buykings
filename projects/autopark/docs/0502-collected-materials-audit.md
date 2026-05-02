@@ -1,0 +1,890 @@
+# 0502 Autopark Collected Materials Audit
+
+- 대상일: `2026-05-02`
+- 생성 목적: 자동 수집 품질 개선을 위한 원천 후보 전수 점검
+- 기준 데이터: `market-radar.json` 후보 106개를 중심으로, news/X/visual/earnings/Finviz 보강 파일을 연결
+- 판정 기준: 점수, 스토리라인 채택 여부, 방송 슬롯 적합도, 소스 반복성
+
+## Executive Notes
+
+- 총 시장 레이더 후보는 106개입니다.
+- 뉴스 후보는 batch A 51개, batch B 8개이고, X 타임라인은 52개, 실적 캘린더 X는 4개입니다.
+- 시각 카드 후보는 6개, 실적 캘린더 추출 티커는 66개, Finviz 보강 티커는 10개입니다.
+- 최종 레이더 스토리라인은 3개이며 직접 채택된 원천 ID는 7개입니다.
+- 유용도는 자동 점수만 보지 않고, 실제 스토리라인에 들어갔는지와 방송에서 바로 쓸 수 있는 질문/각도가 있는지를 같이 봤습니다.
+
+## Selected Storylines
+
+1. 유가 리스크를 시장은 어디까지 무시할 수 있나
+   - 한 줄: 유가와 지정학 리스크가 커지는 와중에도 주식시장이 버티는 이유를 AI 기대와 위험선호로 읽는 축입니다.
+   - 각도: 먼저 유가·호르무즈·OPEC 재료를 짚고, 이어서 주식시장이 바로 꺾이지 않는 이유를 위험선호와 AI 기대에서 찾습니다.
+   - 근거: (13) The Kobeissi Letter (@KobeissiLetter) / X: BREAKING: President Trump says he is “not satisfied” with the latest peace… / Blog – ISABELNET: WTI Oil Prices in Real Terms / International Business, World News & Global Stock Market Analysis: Exxon Mobil and Chevron earnings fall as Iran war disrupts oil shipments
+2. 강세장의 연료인가, 과열의 신호인가
+   - 한 줄: 개인 콜옵션, 레버리지 ETF, 밸류에이션 자료를 묶어 위험선호가 얼마나 강한지 보는 축입니다.
+   - 각도: 포지셔닝 차트와 밸류에이션 경고를 앞에 놓고, 강세의 연료인지 과열 신호인지 묻는 흐름으로 정리합니다.
+   - 근거: (13) The Kobeissi Letter (@KobeissiLetter) / X: Risk appetite among investors is skyrocketing: Risky asset fund inflows hav…
+3. AI 기대는 아직 시장의 방패인가
+   - 한 줄: AI 인프라, 빅테크 실적, 반도체 스토리지가 지정학 리스크보다 크게 가격에 반영되는지 보는 축입니다.
+   - 각도: AI 관련 주가와 기업 뉴스, 인프라 수요 자료를 묶되 단순 호재가 아니라 숫자로 확인되는지 봅니다.
+   - 근거: (16) StockMarket.News (@_Investinq) / X: Mark Cuban's raising a question that a lot of people are asking about the b… / (16) Wall St Engine (@wallstengine) / X: OpenAI CFO Sarah Friar pushed back on concerns about missed internal target… / (2) Charlie Bilello (@charliebilello) / Twitter: Last 10 Years NVIDIA $NVDA: +22,875% Bitcoin $BTC : +17,205% $AMD: +10,030%…
+
+## All Market Radar Candidates
+
+- 001. Risk appetite among investors is skyrocketing: Risky asset fund inflows have exceeded safe asset fund inflows by a recor
+  - Source: (13) The Kobeissi Letter (@KobeissiLetter) / X | Type: x_social | Score: 17 | Usefulness: 상: 스토리라인 직접 채택
+  - URL: https://x.com/KobeissiLetter/status/2050269904662835529
+  - Original/content cue: The Kobeissi Letter @KobeissiLetter · 3시간 Risk appetite among investors is skyrocketing: Risky asset fund inflows have exceeded safe asset fund inflows by a record $220 billion over the last 4 weeks. Risky assets represent equities and cor...
+  - Summary: Risk appetite among investors is skyrocketing: Risky asset fund inflows have exceeded safe asset fund inflows by a record $220 billion over the last 4 weeks. Risky assets represent equities and corporate bonds, among others, while safe assets include money ma...
+  - Broadcast use: 대표 스토리 근거; question=지금의 강세는 추세인가, 과열 신호인가?; slot=추천 스토리라인 후보
+  - Themes: 시장 포지셔닝/밸류에이션, 금리/매크로
+- 002. BREAKING: President Trump says he is “not satisfied” with the latest peace proposal from Iran which was sent to Pakistan
+  - Source: (13) The Kobeissi Letter (@KobeissiLetter) / X | Type: x_social | Score: 16 | Usefulness: 상: 스토리라인 직접 채택
+  - URL: https://x.com/KobeissiLetter/status/2050251496994881669
+  - Original/content cue: The Kobeissi Letter @KobeissiLetter · 4시간 BREAKING: President Trump says he is “not satisfied” with the latest peace proposal from Iran which was sent to Pakistani mediators this morning. US oil prices are erasing losses on the news. 189 4...
+  - Summary: BREAKING: President Trump says he is “not satisfied” with the latest peace proposal from Iran which was sent to Pakistani mediators this morning. US oil prices are erasing losses on the news.
+  - Broadcast use: 대표 스토리 근거; question=유가와 지정학 리스크가 시장의 위험선호를 어디까지 누르는가?; slot=시장 배경/리스크
+  - Themes: 에너지/지정학, 단신/화제
+- 003. Mark Cuban's raising a question that a lot of people are asking about the biggest infrastructure build in human history.
+  - Source: (16) StockMarket.News (@_Investinq) / X | Type: x_social | Score: 16 | Usefulness: 상: 스토리라인 직접 채택
+  - URL: https://x.com/_Investinq/status/2050070498306904444
+  - Original/content cue: 메인에 올림 StockMarket.News @_Investinq · 16시간 Mark Cuban's raising a question that a lot of people are asking about the biggest infrastructure build in human history. @mcuban argument is that the hyperscalers are overplaying their hand. The t...
+  - Summary: Mark Cuban's raising a question that a lot of people are asking about the biggest infrastructure build in human history. @mcuban argument is that the hyperscalers are overplaying their hand. The trillion dollar data center spending numbers won't come to fruit...
+  - Broadcast use: 대표 스토리 근거; question=금리와 달러가 오늘 시장 방향을 얼마나 제한하는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라, 금리/매크로
+- 004. OpenAI CFO Sarah Friar pushed back on concerns about missed internal targets, saying the company is “beating” its plan o
+  - Source: (16) Wall St Engine (@wallstengine) / X | Type: x_social | Score: 15 | Usefulness: 상: 스토리라인 직접 채택
+  - URL: https://x.com/wallstengine/status/2050140615288254494
+  - Original/content cue: Wall St Engine 님이 재게시함 Wall St Engine @wallstengine · 11시간 OpenAI CFO Sarah Friar pushed back on concerns about missed internal targets, saying the company is “beating” its plan overall and sees a “vertical wall of demand” for its products...
+  - Summary: OpenAI CFO Sarah Friar pushed back on concerns about missed internal targets, saying the company is “beating” its plan overall and sees a “vertical wall of demand” for its products. Friar added that compute, not demand, is often the main constraint.
+  - Broadcast use: 대표 스토리 근거; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 005. We are seeing a historic earnings boom. The current year-over-year blended earnings growth rate for the S&P 500 is a who
+  - Source: (13) The Kobeissi Letter (@KobeissiLetter) / X | Type: x_social | Score: 15 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/KobeissiLetter/status/2050289392028135602
+  - Original/content cue: The Kobeissi Letter @KobeissiLetter · 2시간 We are seeing a historic earnings boom. The current year-over-year blended earnings growth rate for the S&P 500 is a whopping +27.1%, more than DOUBLE the +13.1% expected. With ~63% of S&P 500 comp...
+  - Summary: We are seeing a historic earnings boom. The current year-over-year blended earnings growth rate for the S&P 500 is a whopping +27.1%, more than DOUBLE the +13.1% expected. With ~63% of S&P 500 companies reporting Q1 earnings thus far, we are on track for the ...
+  - Broadcast use: 스토리 후보; question=금리와 달러가 오늘 시장 방향을 얼마나 제한하는가?; slot=추천 스토리라인 후보
+  - Themes: 실적 신호, 금리/매크로
+- 006. $META ACQUIRED ASSURED ROBOT INTELLIGENCE ...a startup building AI models for robots, as it expands its humanoid technol
+  - Source: (16) Wall St Engine (@wallstengine) / X | Type: x_social | Score: 14 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/wallstengine/status/2050261735953830363
+  - Original/content cue: Wall St Engine @wallstengine · 3시간 $META ACQUIRED ASSURED ROBOT INTELLIGENCE ...a startup building AI models for robots, as it expands its humanoid technology push. The team will join Meta Superintelligence Labs and work with Meta Robotics...
+  - Summary: $META ACQUIRED ASSURED ROBOT INTELLIGENCE ...a startup building AI models for robots, as it expands its humanoid technology push. The team will join Meta Superintelligence Labs and work with Meta Robotics Studio. Terms were not disclosed.
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 007. A March poll found 61% of women expect AI to do more harm than good in their lives, versus 49% of men.
+  - Source: (16) Wall St Engine (@wallstengine) / X | Type: x_social | Score: 14 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/wallstengine/status/2050295015314997614
+  - Original/content cue: Wall St Engine @wallstengine · 1시간 A March poll found 61% of women expect AI to do more harm than good in their lives, versus 49% of men. 5 6 21 6천
+  - Summary: A March poll found 61% of women expect AI to do more harm than good in their lives, versus 49% of men.
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 008. WTI Oil Prices in Real Terms
+  - Source: Blog – ISABELNET | Type: news | Score: 14 | Usefulness: 상: 스토리라인 직접 채택
+  - URL: https://www.isabelnet.com/the-cost-of-a-barrel-of-oil-in-real-u-s-dollar-terms
+  - Original/content cue: WTI Oil Prices in Real Terms
+  - Summary: WTI Oil Prices in Real Terms
+  - Broadcast use: 대표 스토리 근거; question=유가와 지정학 리스크가 금리와 인플레이션 압력을 다시 키우는가?; slot=추천 스토리라인 후보
+  - Tickers: WTI
+  - Themes: 에너지/지정학, 금리/매크로
+- 009. BREAKING: Spirit Airlines is now expected to cease operations at 3 AM ET on Saturday, per WSJ. In ~11 hours from now, Sp
+  - Source: (13) The Kobeissi Letter (@KobeissiLetter) / X | Type: x_social | Score: 13 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/KobeissiLetter/status/2050308977481728428
+  - Original/content cue: The Kobeissi Letter @KobeissiLetter · 44분 BREAKING: Spirit Airlines is now expected to cease operations at 3 AM ET on Saturday, per WSJ. In ~11 hours from now, Spirit Airlines may indefinitely shut down amid bankruptcy. 108 158 895 9만
+  - Summary: BREAKING: Spirit Airlines is now expected to cease operations at 3 AM ET on Saturday, per WSJ. In ~11 hours from now, Spirit Airlines may indefinitely shut down amid bankruptcy.
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 010. BREAKING: The S&P 500 closes at its highest level on record, now up +14.5% since the March 30th bottom. That's +$8.3 TRI
+  - Source: (13) The Kobeissi Letter (@KobeissiLetter) / X | Type: x_social | Score: 13 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/KobeissiLetter/status/2050305432325927335
+  - Original/content cue: The Kobeissi Letter @KobeissiLetter · 58분 BREAKING: The S&P 500 closes at its highest level on record, now up +14.5% since the March 30th bottom. That's +$8.3 TRILLION in market cap in 24 trading days. 145 262 1.7천 10만
+  - Summary: BREAKING: The S&P 500 closes at its highest level on record, now up +14.5% since the March 30th bottom. That's +$8.3 TRILLION in market cap in 24 trading days.
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 011. Bloomberg on J&J’s Spravato is a good look at what actually made the drug work commercially. J&J turned the ketamine-der
+  - Source: (16) Wall St Engine (@wallstengine) / X | Type: x_social | Score: 13 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/wallstengine/status/2050297952556777916
+  - Original/content cue: Wall St Engine @wallstengine · 1시간 Bloomberg on J&J’s Spravato is a good look at what actually made the drug work commercially. J&J turned the ketamine-derived nasal spray into a $1.7B product by building a clinic and insurance model aroun...
+  - Summary: Bloomberg on J&J’s Spravato is a good look at what actually made the drug work commercially. J&J turned the ketamine-derived nasal spray into a $1.7B product by building a clinic and insurance model around a roughly 2-hour monitored treatment window.
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 012. Last 10 Years NVIDIA $NVDA: +22,875% Bitcoin $BTC : +17,205% $AMD: +10,030% Tesla $TSLA: +2,362% Apple $AAPL: +1,233% Go
+  - Source: (2) Charlie Bilello (@charliebilello) / Twitter | Type: x_social | Score: 13 | Usefulness: 상: 스토리라인 직접 채택
+  - URL: https://x.com/charliebilello/status/2050263578188333549
+  - Original/content cue: Charlie Bilello @charliebilello · 3시간 Last 10 Years NVIDIA $NVDA: +22,875% Bitcoin $BTC : +17,205% $AMD: +10,030% Tesla $TSLA: +2,362% Apple $AAPL: +1,233% Google $GOOGL: +999% Netflix $NFLX: +932% Microsoft $MSFT: +844% Amazon $AMZN: +717...
+  - Summary: Last 10 Years NVIDIA $NVDA: +22,875% Bitcoin $BTC : +17,205% $AMD: +10,030% Tesla $TSLA: +2,362% Apple $AAPL: +1,233% Google $GOOGL: +999% Netflix $NFLX: +932% Microsoft $MSFT: +844% Amazon $AMZN: +717% Meta: $META: +425% S&P 500 $SPY: +312% Gold $GLD: +245% ...
+  - Broadcast use: 대표 스토리 근거; question=금리와 달러가 오늘 시장 방향을 얼마나 제한하는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라, 금리/매크로
+- 013. #FF @PeterMallouk , a great follow! The market isn’t red or blue - it’s green. It doesn’t care about politics. It runs o
+  - Source: (2) Charlie Bilello (@charliebilello) / Twitter | Type: x_social | Score: 12 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/charliebilello/status/2050259734930800740
+  - Original/content cue: Charlie Bilello @charliebilello · 3시간 #FF @PeterMallouk , a great follow! 인용 Peter Mallouk @PeterMallouk · 7시간 The market isn’t red or blue - it’s green. It doesn’t care about politics. It runs on earnings, innovation, and growth. 11 6 107...
+  - Summary: #FF @PeterMallouk , a great follow! The market isn’t red or blue - it’s green. It doesn’t care about politics. It runs on earnings, innovation, and growth.
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 014. $IREN energized its 1.4 GW Sweetwater 1 data center site in Texas, connecting the substation to the ERCOT grid and marki
+  - Source: (16) Wall St Engine (@wallstengine) / X | Type: x_social | Score: 12 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/wallstengine/status/2050308069427642759
+  - Original/content cue: Wall St Engine @wallstengine · 48분 $IREN energized its 1.4 GW Sweetwater 1 data center site in Texas, connecting the substation to the ERCOT grid and marking a key step in building out its 2 GW Sweetwater campus. The company said power wil...
+  - Summary: $IREN energized its 1.4 GW Sweetwater 1 data center site in Texas, connecting the substation to the ERCOT grid and marking a key step in building out its 2 GW Sweetwater campus. The company said power will ramp as data centers are commissioned.
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 015. An update on our S&P 500 outlook: This is an …
+  - Source: (13) The Kobeissi Letter (@KobeissiLetter) / X | Type: x_social | Score: 12 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/KobeissiLetter/status/2050279526559596719
+  - Original/content cue: The Kobeissi Letter @KobeissiLetter · 2시간 An update on our S&P 500 outlook: This is an … Subscribe to unlock 1 7 393
+  - Summary: An update on our S&P 500 outlook: This is an …
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 016. Jobs and earnings will dominate the first full week of May. Here's what's ahead
+  - Source: CNBC (@CNBC) / X | Type: x_social | Score: 12 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/CNBC/status/2050307876070043707
+  - Original/content cue: CNBC @CNBC · 49분 Jobs and earnings will dominate the first full week of May. Here's what's ahead cnbc.com Jobs and earnings will dominate the first full week of May. Here's what's ahead A solid jobs report could alleviate fears of a weaken...
+  - Summary: Jobs and earnings will dominate the first full week of May. Here's what's ahead
+  - Broadcast use: 스토리 후보; question=금리와 달러가 오늘 시장 방향을 얼마나 제한하는가?; slot=추천 스토리라인 후보
+  - Themes: 실적 신호, 금리/매크로
+- 017. Reuters: U.S. cyber officials are weighing a plan to cut government deadlines for fixing actively exploited software fla
+  - Source: (16) Wall St Engine (@wallstengine) / X | Type: x_social | Score: 12 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/wallstengine/status/2050287651597754583
+  - Original/content cue: Wall St Engine @wallstengine · 2시간 Reuters: U.S. cyber officials are weighing a plan to cut government deadlines for fixing actively exploited software flaws from roughly 2 to 3 weeks to just 3 days, as newer AI hacking tools raise fears t...
+  - Summary: Reuters: U.S. cyber officials are weighing a plan to cut government deadlines for fixing actively exploited software flaws from roughly 2 to 3 weeks to just 3 days, as newer AI hacking tools raise fears that attackers can turn fresh bugs into working exploits...
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 018. The market isn’t red or blue - it’s green. It doesn’t care about politics. It runs on earnings, innovation, and growth.
+  - Source: (2) Charlie Bilello (@charliebilello) / Twitter | Type: x_social | Score: 12 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/PeterMallouk/status/2050199558995738866
+  - Original/content cue: Charlie Bilello 님이 재게시함 Peter Mallouk @PeterMallouk · 7시간 The market isn’t red or blue - it’s green. It doesn’t care about politics. It runs on earnings, innovation, and growth. 33 61 327 5.6만
+  - Summary: The market isn’t red or blue - it’s green. It doesn’t care about politics. It runs on earnings, innovation, and growth.
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 019. $DJT WEIGHS SPINOUT AFTER TAE MERGER PLAN Trump Media interim CEO Kevin McGurn told WSJ it is weighing whether to keep o
+  - Source: (16) Wall St Engine (@wallstengine) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/wallstengine/status/2050277018332438646
+  - Original/content cue: Wall St Engine @wallstengine · 2시간 $DJT WEIGHS SPINOUT AFTER TAE MERGER PLAN Trump Media interim CEO Kevin McGurn told WSJ it is weighing whether to keep or separate Truth Social/Truth+ from its planned TAE fusion merger. The media spinout...
+  - Summary: $DJT WEIGHS SPINOUT AFTER TAE MERGER PLAN Trump Media interim CEO Kevin McGurn told WSJ it is weighing whether to keep or separate Truth Social/Truth+ from its planned TAE fusion merger. The media spinout is the current path, while crypto assets remain undeci...
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 020. % of Companies with Revenue Exposure to Just One Sector (TOPIX 500, MXAPJ, STOXX 600, S&P 500)
+  - Source: Blog – ISABELNET | Type: news | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://www.isabelnet.com/of-sp-500-companies-guiding-next-quarter-eps-above-consensus
+  - Original/content cue: % of Companies with Revenue Exposure to Just One Sector (TOPIX 500, MXAPJ, STOXX 600, S&P 500)
+  - Summary: % of Companies with Revenue Exposure to Just One Sector (TOPIX 500, MXAPJ, STOXX 600, S&P 500)
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Tickers: MXAPJ, STOXX, TOPIX
+  - Themes: 실적 신호
+- 021. Apple raised the starting price of its Mac mini desktop to $799 from $599, adjusting to inventory shortages driven by AI
+  - Source: Bloomberg (@business) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/business/status/2050313441793978449
+  - Original/content cue: Bloomberg @business · 27분 Apple raised the starting price of its Mac mini desktop to $799 from $599, adjusting to inventory shortages driven by AI demand and the tight supply of processors Apple Raises Mac Mini’s Starting Price to $799 Aft...
+  - Summary: Apple raised the starting price of its Mac mini desktop to $799 from $599, adjusting to inventory shortages driven by AI demand and the tight supply of processors
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 022. BREAKING: President Trump announces he is raising tariffs on cars and trucks coming into the US from the EU to 25%. Pres
+  - Source: (13) The Kobeissi Letter (@KobeissiLetter) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/KobeissiLetter/status/2050241996921417808
+  - Original/content cue: The Kobeissi Letter @KobeissiLetter · 5시간 BREAKING: President Trump announces he is raising tariffs on cars and trucks coming into the US from the EU to 25%. President Trump says this is due to the EU "not complying with out fully agreed t...
+  - Summary: BREAKING: President Trump announces he is raising tariffs on cars and trucks coming into the US from the EU to 25%. President Trump says this is due to the EU "not complying with out fully agreed to trade deal."
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 023. BlackRock says these bonds have attractive yields — and can help insulate from AI disruption
+  - Source: CNBC (@CNBC) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/CNBC/status/2050292868107891024
+  - Original/content cue: CNBC @CNBC · 1시간 BlackRock says these bonds have attractive yields — and can help insulate from AI disruption BlackRock says these bonds have attractive yields — and can help insulate from AI disruption 출처: cnbc.com 2 3 4 7.9천
+  - Summary: BlackRock says these bonds have attractive yields — and can help insulate from AI disruption
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 024. Cerebras is seeking to raise as much as $4 billion in its initial public offering, according to people familiar with the
+  - Source: Bloomberg (@business) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/business/status/2050318058711834985
+  - Original/content cue: Bloomberg @business · 8분 Cerebras is seeking to raise as much as $4 billion in its initial public offering, according to people familiar with the matter, as demand for the artificial intelligence chipmaker and data center operator’s shares...
+  - Summary: Cerebras is seeking to raise as much as $4 billion in its initial public offering, according to people familiar with the matter, as demand for the artificial intelligence chipmaker and data center operator’s shares heats up
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 025. Coming soon: Chronicling the disruptions and threats of AI on businesses, workers, governments and economies with analys
+  - Source: Bloomberg (@business) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/business/status/2050231455209390523
+  - Original/content cue: 메인에 올림 Bloomberg @business · 5시간 Coming soon: Chronicling the disruptions and threats of AI on businesses, workers, governments and economies with analysis from Bloomberg’s global newsroom. Get on the list: http:// bloom.bg/4w8RpOY 6 3 11 ...
+  - Summary: Coming soon: Chronicling the disruptions and threats of AI on businesses, workers, governments and economies with analysis from Bloomberg’s global newsroom. Get on the list: http:// bloom.bg/4w8RpOY
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 026. Exclusive: US officials weigh cutting deadlines to fix digital flaws amid worries over AI-powered hacking, sources say h
+  - Source: Reuters (@Reuters) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/Reuters/status/2050316901406945577
+  - Original/content cue: Reuters @Reuters · 13분 Exclusive: US officials weigh cutting deadlines to fix digital flaws amid worries over AI-powered hacking, sources say http:// reut.rs/4tNc9Kw Exclusive: US officials weigh cutting deadlines to fix digital flaws amid...
+  - Summary: Exclusive: US officials weigh cutting deadlines to fix digital flaws amid worries over AI-powered hacking, sources say http:// reut.rs/4tNc9Kw
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 027. Exxon Mobil and Chevron earnings fall as Iran war disrupts oil shipments
+  - Source: International Business, World News & Global Stock Market Analysis | Type: news | Score: 11 | Usefulness: 상: 스토리라인 직접 채택
+  - URL: https://www.cnbc.com/2026/05/01/exxon-xom-chevron-cvx-q1-2026-earnings.html
+  - Original/content cue: Exxon Mobil and Chevron earnings fall as Iran war disrupts oil shipments
+  - Summary: Exxon Mobil and Chevron earnings fall as Iran war disrupts oil shipments
+  - Broadcast use: 대표 스토리 근거; question=유가와 지정학 리스크가 시장의 위험선호를 어디까지 누르는가?; slot=시장 배경/리스크
+  - Themes: 실적 신호, 에너지/지정학
+- 028. ISM Manufacturing missed at 52.7 vs. 53.2 expected.
+  - Source: (16) Bespoke (@bespokeinvest) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/bespokeinvest/status/2050220859948741074
+  - Original/content cue: Bespoke @bespokeinvest · 6시간 ISM Manufacturing missed at 52.7 vs. 53.2 expected. 1 9 3.9천
+  - Summary: ISM Manufacturing missed at 52.7 vs. 53.2 expected.
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 029. Jobs and earnings will dominate the first full week of May. Here's what's ahead
+  - Source: International Business, World News & Global Stock Market Analysis | Type: news | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://www.cnbc.com/2026/05/01/stock-market-next-week-outlook-for-may-4-8-2026.html
+  - Original/content cue: Jobs and earnings will dominate the first full week of May. Here's what's ahead
+  - Summary: Jobs and earnings will dominate the first full week of May. Here's what's ahead
+  - Broadcast use: 스토리 후보; question=금리와 달러가 오늘 시장 방향을 얼마나 제한하는가?; slot=추천 스토리라인 후보
+  - Themes: 실적 신호, 금리/매크로
+- 030. Oil Falls on Hopes for US-Iran Negotiations, Hormuz Progress
+  - Source: Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | Type: news | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://finance.yahoo.com/news/oil-holds-weekly-gain-as-trump-says-iran-blockade-is-working-010949017.html
+  - Original/content cue: Oil Falls on Hopes for US-Iran Negotiations, Hormuz Progress
+  - Summary: Oil Falls on Hopes for US-Iran Negotiations, Hormuz Progress
+  - Broadcast use: 에너지/지정학, 단신/화제 맥락; question=유가와 지정학 리스크가 시장의 위험선호를 어디까지 누르는가?; slot=시장 배경/리스크
+  - Themes: 에너지/지정학, 단신/화제
+- 031. Shool's Out...Forever In the last year, 3 PM has taken on new significance. A year ago tomorrow, at 3 PM, after a five-h
+  - Source: (16) Bespoke (@bespokeinvest) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/bespokeinvest/status/2050262824576786594
+  - Original/content cue: Bespoke @bespokeinvest · 3시간 Shool's Out...Forever In the last year, 3 PM has taken on new significance. A year ago tomorrow, at 3 PM, after a five-hour Q&A session at Berkshire Hathaway’s 60th annual meeting, Warren Buffett decided it was...
+  - Summary: Shool's Out...Forever In the last year, 3 PM has taken on new significance. A year ago tomorrow, at 3 PM, after a five-hour Q&A session at Berkshire Hathaway’s 60th annual meeting, Warren Buffett decided it was time. $BRK.B https:// bespokepremium.com/interac...
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 032. The Nasdaq Composite just crossed above 25,000 for the first time. A year ago it was at 18,000. 5 years ago it was at 14
+  - Source: (2) Charlie Bilello (@charliebilello) / Twitter | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/charliebilello/status/2050210847650132146
+  - Original/content cue: Charlie Bilello @charliebilello · 7시간 The Nasdaq Composite just crossed above 25,000 for the first time. A year ago it was at 18,000. 5 years ago it was at 14,000. 10 years ago it was at 4,800. 30 54 208 1.6만
+  - Summary: The Nasdaq Composite just crossed above 25,000 for the first time. A year ago it was at 18,000. 5 years ago it was at 14,000. 10 years ago it was at 4,800.
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 033. The Tech sector ETF $XLK gained 20%+ in April, its second-ever 20%+ monthly gain. The only other time it gained 20%+ was
+  - Source: (16) Bespoke (@bespokeinvest) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/bespokeinvest/status/2050286082734932276
+  - Original/content cue: Bespoke @bespokeinvest · 2시간 The Tech sector ETF $XLK gained 20%+ in April, its second-ever 20%+ monthly gain. The only other time it gained 20%+ was in October 2002 (+24.8%). 1 2 21 3.8천
+  - Summary: The Tech sector ETF $XLK gained 20%+ in April, its second-ever 20%+ monthly gain. The only other time it gained 20%+ was in October 2002 (+24.8%).
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 034. These were the 25 worst performing Russell 1,000 stocks in April. Lucid $LCID, Charter $CHTR, Liberty $LBRDK, Tractor Su
+  - Source: (16) Bespoke (@bespokeinvest) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/bespokeinvest/status/2050283700940611807
+  - Original/content cue: Bespoke @bespokeinvest · 2시간 These were the 25 worst performing Russell 1,000 stocks in April. Lucid $LCID, Charter $CHTR, Liberty $LBRDK, Tractor Supply $TSCO got hit the hardest. 2 13 3.8천
+  - Summary: These were the 25 worst performing Russell 1,000 stocks in April. Lucid $LCID, Charter $CHTR, Liberty $LBRDK, Tractor Supply $TSCO got hit the hardest.
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 035. U.S. crude oil exports hit record high last week, surpassing 6 million barrels a day
+  - Source: (16) Liz Ann Sonders (@LizAnnSonders) / X | Type: x_social | Score: 11 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/LizAnnSonders/status/2050173135220072734
+  - Original/content cue: Liz Ann Sonders @LizAnnSonders · 9시간 U.S. crude oil exports hit record high last week, surpassing 6 million barrels a day 18 52 187 2.2만
+  - Summary: U.S. crude oil exports hit record high last week, surpassing 6 million barrels a day
+  - Broadcast use: 에너지/지정학 맥락; question=유가와 지정학 리스크가 시장의 위험선호를 어디까지 누르는가?; slot=시장 배경/리스크
+  - Themes: 에너지/지정학
+- 036. Another great episode with my stellar new co-host @CollinMartinCS Check out our recent episode of #OnInvesting! @LizAnnS
+  - Source: (16) Liz Ann Sonders (@LizAnnSonders) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/LizAnnSonders/status/2050314621395833225
+  - Original/content cue: Liz Ann Sonders @LizAnnSonders · 21분 Another great episode with my stellar new co-host @CollinMartinCS 인용 Collin Martin @CollinMartinCS · 23분 Check out our recent episode of #OnInvesting! @LizAnnSonders and I talked about what the Fed may ...
+  - Summary: Another great episode with my stellar new co-host @CollinMartinCS Check out our recent episode of #OnInvesting! @LizAnnSonders and I talked about what the Fed may look like with Kevin Warsh as chair, as well as a quick recap of the FOMC meeting that had plent...
+  - Broadcast use: 스토리 후보; question=금리와 달러가 오늘 시장 방향을 얼마나 제한하는가?; slot=추천 스토리라인 후보
+  - Themes: 금리/매크로
+- 037. April ISM Manufacturing PMI unchanged at 52.7 vs. 52.3 est. & 52.7 prior … new orders up to 54.1 vs. 53.5 prior; prices
+  - Source: (16) Liz Ann Sonders (@LizAnnSonders) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/LizAnnSonders/status/2050225270855012631
+  - Original/content cue: Liz Ann Sonders @LizAnnSonders · 6시간 April ISM Manufacturing PMI unchanged at 52.7 vs. 52.3 est. & 52.7 prior … new orders up to 54.1 vs. 53.5 prior; prices paid up to 84.6 vs. 78.3 prior … employment down to 46.4 vs. 48.7 prior 5 13 57 7....
+  - Summary: April ISM Manufacturing PMI unchanged at 52.7 vs. 52.3 est. & 52.7 prior … new orders up to 54.1 vs. 53.5 prior; prices paid up to 84.6 vs. 78.3 prior … employment down to 46.4 vs. 48.7 prior
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 038. Boat retailer West Marine is laying the groundwork for a potential Chapter 11 bankruptcy to restructure its debt, includ
+  - Source: Bloomberg (@business) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/business/status/2050315586786193760
+  - Original/content cue: Bloomberg @business · 18분 Boat retailer West Marine is laying the groundwork for a potential Chapter 11 bankruptcy to restructure its debt, including leases, according to people with knowledge of the matter Retailer West Marine Readies Pos...
+  - Summary: Boat retailer West Marine is laying the groundwork for a potential Chapter 11 bankruptcy to restructure its debt, including leases, according to people with knowledge of the matter
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 039. Bull-bear @AAIISentiment spread reversed last week’s spike and edged back into negative territory
+  - Source: (16) Liz Ann Sonders (@LizAnnSonders) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/LizAnnSonders/status/2050173054043422750
+  - Original/content cue: Liz Ann Sonders @LizAnnSonders · 9시간 Bull-bear @AAIISentiment spread reversed last week’s spike and edged back into negative territory 13 35 8.2천
+  - Summary: Bull-bear @AAIISentiment spread reversed last week’s spike and edged back into negative territory
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 040. Canada approves second generic version of Ozempic http:// reut.rs/42EbQFM
+  - Source: Reuters (@Reuters) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/Reuters/status/2050312045380219011
+  - Original/content cue: Reuters @Reuters · 32분 Canada approves second generic version of Ozempic http:// reut.rs/42EbQFM Canada approves second generic version of Ozempic 출처: reuters.com 5 7 18 1.1만
+  - Summary: Canada approves second generic version of Ozempic http:// reut.rs/42EbQFM
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 041. Employment Cost Index (ECI) increased +0.9% in the first quarter, largely due to a rise in benefits
+  - Source: (16) Liz Ann Sonders (@LizAnnSonders) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/LizAnnSonders/status/2050172889547067622
+  - Original/content cue: Liz Ann Sonders @LizAnnSonders · 9시간 Employment Cost Index (ECI) increased +0.9% in the first quarter, largely due to a rise in benefits 2 8 33 7.6천
+  - Summary: Employment Cost Index (ECI) increased +0.9% in the first quarter, largely due to a rise in benefits
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 042. In y/y terms, 1Q2026 real GDP rose +2.7%, up from +2.0% in 4Q2024 and strongest since 3Q2024
+  - Source: (16) Liz Ann Sonders (@LizAnnSonders) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/LizAnnSonders/status/2050172810534818097
+  - Original/content cue: Liz Ann Sonders @LizAnnSonders · 9시간 In y/y terms, 1Q2026 real GDP rose +2.7%, up from +2.0% in 4Q2024 and strongest since 3Q2024 13 44 7.4천
+  - Summary: In y/y terms, 1Q2026 real GDP rose +2.7%, up from +2.0% in 4Q2024 and strongest since 3Q2024
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 043. It's not just big tech's rally. Piper Sandler's Michael Kantrowitz ( @MichaelKantro ) on the opportunities outside of th
+  - Source: CNBC (@CNBC) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/CNBCTheExchange/status/2050287269127307308
+  - Original/content cue: CNBC 님이 재게시함 The Exchange @CNBCTheExchange · 2시간 It's not just big tech's rally. Piper Sandler's Michael Kantrowitz ( @MichaelKantro ) on the opportunities outside of the Mag 7. cc: @KellyCNBC Earnings breadth and macro data are improving ...
+  - Summary: It's not just big tech's rally. Piper Sandler's Michael Kantrowitz ( @MichaelKantro ) on the opportunities outside of the Mag 7. cc: @KellyCNBC
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 044. On today’s Big Take podcast, host Sarah Holder and Bloomberg reporter @VTSilver go inside the world of casino-style game
+  - Source: Bloomberg (@business) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/business/status/2050319436544934015
+  - Original/content cue: Bloomberg @business · 3분 On today’s Big Take podcast, host Sarah Holder and Bloomberg reporter @VTSilver go inside the world of casino-style games like Monopoly GO! and High 5 Casino to understand who’s profiting the most from their rise a...
+  - Summary: On today’s Big Take podcast, host Sarah Holder and Bloomberg reporter @VTSilver go inside the world of casino-style games like Monopoly GO! and High 5 Casino to understand who’s profiting the most from their rise and the increased scrutiny on how they do busi...
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 045. Prices paid component of April ISM Manufacturing PMI soared to four-year high of 84.6
+  - Source: (16) Liz Ann Sonders (@LizAnnSonders) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/LizAnnSonders/status/2050225388928795107
+  - Original/content cue: Liz Ann Sonders @LizAnnSonders · 6시간 Prices paid component of April ISM Manufacturing PMI soared to four-year high of 84.6 10 26 95 1.6만
+  - Summary: Prices paid component of April ISM Manufacturing PMI soared to four-year high of 84.6
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 046. Quiet, steady gains in ADM likely to be followed by more, Carter Worth says
+  - Source: CNBC (@CNBC) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/CNBC/status/2050290151834698141
+  - Original/content cue: CNBC @CNBC · 1시간 Quiet, steady gains in ADM likely to be followed by more, Carter Worth says Quiet, steady gains in ADM likely to be followed by more, Carter Worth says 출처: cnbc.com 2 2 5 7.6천
+  - Summary: Quiet, steady gains in ADM likely to be followed by more, Carter Worth says
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 047. S&P 500, Nasdaq jump to fresh records amid AI optimism Stocks rose Friday amid a fresh wave of earnings, extending a tech rally that pushed…
+  - Source: Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | Type: news | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://finance.yahoo.com/markets/stocks/live/stock-market-today-friday-may-1-records-apple-iran-231056146.html
+  - Original/content cue: S&P 500, Nasdaq jump to fresh records amid AI optimism Stocks rose Friday amid a fresh wave of earnings, extending a tech rally that pushed major indexes to record highs.
+  - Summary: S&P 500, Nasdaq jump to fresh records amid AI optimism Stocks rose Friday amid a fresh wave of earnings, extending a tech rally that pushed major indexes to record highs.
+  - Broadcast use: AI/인프라, 실적 신호 맥락; question=AI 인프라 수요가 실제 숫자와 가이던스로 확인되는가?; slot=시장 레이어 -> 특징주
+  - Themes: AI/인프라, 실적 신호, 에너지/지정학
+- 048. TOMORROW: Berkshire Hathaway's Greg Abel will face shareholders for the first time as CEO at the 2026 Berkshire Hathaway
+  - Source: CNBC (@CNBC) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/CNBC/status/2050311819969859588
+  - Original/content cue: CNBC @CNBC · 33분 TOMORROW: Berkshire Hathaway's Greg Abel will face shareholders for the first time as CEO at the 2026 Berkshire Hathaway Annual Shareholder Meeting. Watch live on Saturday, May 2 at 9:15 a.m. ET. Only on http:// CNBC.com. ...
+  - Summary: TOMORROW: Berkshire Hathaway's Greg Abel will face shareholders for the first time as CEO at the 2026 Berkshire Hathaway Annual Shareholder Meeting. Watch live on Saturday, May 2 at 9:15 a.m. ET. Only on http:// CNBC.com.
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 049. Tech stocks today: Apple earnings beat, memory crunch, and the Musk Vs. Altman fight continues
+  - Source: Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | Type: news | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://finance.yahoo.com/sectors/technology/live/tech-stocks-today-nvidia-magnificent-seven-113535737.html
+  - Original/content cue: Tech stocks today: Apple earnings beat, memory crunch, and the Musk Vs. Altman fight continues
+  - Summary: Tech stocks today: Apple earnings beat, memory crunch, and the Musk Vs. Altman fight continues
+  - Broadcast use: 실적 신호, 단신/화제 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호, 단신/화제
+- 050. UK defence firm Ultra agrees deal with prosecutors over failure to prevent bribery http:// reut.rs/3OCJQiD
+  - Source: Reuters (@Reuters) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/Reuters/status/2050313094249783758
+  - Original/content cue: Reuters @Reuters · 28분 UK defence firm Ultra agrees deal with prosecutors over failure to prevent bribery http:// reut.rs/3OCJQiD UK defence firm Ultra agrees deal with prosecutors over failure to prevent bribery 출처: reuters.com 3 6 3 1.1만
+  - Summary: UK defence firm Ultra agrees deal with prosecutors over failure to prevent bribery http:// reut.rs/3OCJQiD
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 051. US cautions Americans in UK to be alert after Britain raised threat level http:// reut.rs/4eG2GA3
+  - Source: Reuters (@Reuters) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/Reuters/status/2050319739369447860
+  - Original/content cue: Reuters @Reuters · 1분 US cautions Americans in UK to be alert after Britain raised threat level http:// reut.rs/4eG2GA3 US cautions Americans in UK to be alert after Britain raised threat level 출처: reuters.com 2 2 4 1.7천
+  - Summary: US cautions Americans in UK to be alert after Britain raised threat level http:// reut.rs/4eG2GA3
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 052. Walt Disney senior executives are discussing how to unify the company’s disparate mobile apps and turn its streaming ser
+  - Source: Bloomberg (@business) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/business/status/2050314332978749488
+  - Original/content cue: Bloomberg @business · 23분 Walt Disney senior executives are discussing how to unify the company’s disparate mobile apps and turn its streaming service into the first stop for all things Disney Disney’s New CEO Is Exploring a ‘Super App’ Fo...
+  - Summary: Walt Disney senior executives are discussing how to unify the company’s disparate mobile apps and turn its streaming service into the first stop for all things Disney
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 053. Western Digital CEO Irving Tan says “there’s a lot more opportunity to expand pricing.” cc: @KellyCNBC
+  - Source: CNBC (@CNBC) / X | Type: x_social | Score: 10 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/CNBCTheExchange/status/2050287386676867463
+  - Original/content cue: CNBC 님이 재게시함 The Exchange @CNBCTheExchange · 2시간 Western Digital CEO Irving Tan says “there’s a lot more opportunity to expand pricing.” cc: @KellyCNBC Western Digital CEO: Split from Sandisk was the right thing to do 출처: cnbc.com 1 1 5 7....
+  - Summary: Western Digital CEO Irving Tan says “there’s a lot more opportunity to expand pricing.” cc: @KellyCNBC
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 054. An April to Remember for Stocks https:// open.substack.com/pub/bespokeinv est/p/an-april-to-remember-for-stocks?r=826dn&
+  - Source: (16) Bespoke (@bespokeinvest) / X | Type: x_social | Score: 9 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/bespokeinvest/status/2050233055902609731
+  - Original/content cue: Bespoke @bespokeinvest · 5시간 An April to Remember for Stocks https:// open.substack.com/pub/bespokeinv est/p/an-april-to-remember-for-stocks?r=826dn&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true … 6 3.4천
+  - Summary: An April to Remember for Stocks https:// open.substack.com/pub/bespokeinv est/p/an-april-to-remember-for-stocks?r=826dn&utm_campaign=post&utm_medium=web&showWelcomeOnShare=true …
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 055. Exxon CEO expects higher oil prices as market absorbs full impact of Iran war
+  - Source: International Business, World News & Global Stock Market Analysis | Type: news | Score: 9 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://www.cnbc.com/2026/05/01/exxon-ceo-iran-war-oil-strait-hormuz.html
+  - Original/content cue: Exxon CEO expects higher oil prices as market absorbs full impact of Iran war
+  - Summary: Exxon CEO expects higher oil prices as market absorbs full impact of Iran war
+  - Broadcast use: 에너지/지정학 맥락; question=유가와 지정학 리스크가 시장의 위험선호를 어디까지 누르는가?; slot=시장 배경/리스크
+  - Themes: 에너지/지정학
+- 056. S&P 500 Earnings Season Update: May 1, 2026
+  - Source: FactSet Insight - Commentary and research from our desk to yours | Type: news | Score: 9 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://insight.factset.com/sp-500-earnings-season-update-may-1-2026
+  - Original/content cue: S&P 500 Earnings Season Update: May 1, 2026
+  - Summary: Nearly two-thirds of the way through the earnings season, the S&P 500 is reporting impressive results. Both the percentage of S&P 500 companies reporting positive earnings surprises and the magnitude of earnings surprises are above recent averages. As a resul...
+  - Broadcast use: 스토리 후보; question=금리와 달러가 오늘 시장 방향을 얼마나 제한하는가?; slot=추천 스토리라인 후보
+  - Themes: 실적 신호, 금리/매크로
+- 057. S&P 500 Performance After April >5%
+  - Source: Blog – ISABELNET | Type: news | Score: 9 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://www.isabelnet.com/sp-500-performance-after-april-5
+  - Original/content cue: S&P 500 Performance After April >5%
+  - Summary: S&P 500 Performance After April >5%
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 058. S&P 500 Returns in April
+  - Source: Blog – ISABELNET | Type: news | Score: 9 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://www.isabelnet.com/sp-500-returns-in-april
+  - Original/content cue: S&P 500 Returns in April
+  - Summary: S&P 500 Returns in April
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 059. Smoothed U.S. Recession Probabilities
+  - Source: Blog – ISABELNET | Type: news | Score: 9 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://www.isabelnet.com/smoothed-u-s-recession-probabilities
+  - Original/content cue: Smoothed U.S. Recession Probabilities
+  - Summary: Smoothed U.S. Recession Probabilities
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 060. Trump says 'not happy' on Iran, touts strait '100% shut'
+  - Source: Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | Type: news | Score: 9 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://finance.yahoo.com/news/trump-vows-maintain-pressure-iran-070946270.html
+  - Original/content cue: Trump says 'not happy' on Iran, touts strait '100% shut'
+  - Summary: Trump says 'not happy' on Iran, touts strait '100% shut'
+  - Broadcast use: 에너지/지정학, 단신/화제 맥락; question=유가와 지정학 리스크가 시장의 위험선호를 어디까지 누르는가?; slot=시장 배경/리스크
+  - Themes: 에너지/지정학, 단신/화제
+- 061. U.S. Stock Market Bull and Bear Indicator – S&P 500
+  - Source: Blog – ISABELNET | Type: news | Score: 9 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://www.isabelnet.com/u-s-stock-market-bull-and-bear-indicator
+  - Original/content cue: U.S. Stock Market Bull and Bear Indicator – S&P 500
+  - Summary: U.S. Stock Market Bull and Bear Indicator – S&P 500
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 062. Why are US stock markets rising despite oil? #world
+  - Source: BizToc | Type: news | Score: 9 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://alltoc.com/world/why-are-us-stock-markets-rising-despite-oil
+  - Original/content cue: Why are US stock markets rising despite oil? #world
+  - Summary: Stocks hit records while oil rises: investors refocus on AI and earnings U.S. equity markets have continued to reach fresh highs even as oil prices climb to levels described in the feed as “Iran war highs,” reflecting a split between what’s moving markets’ ne...
+  - Broadcast use: AI/인프라, 실적 신호 맥락; question=AI 인프라 수요가 실제 숫자와 가이던스로 확인되는가?; slot=시장 레이어 -> 특징주
+  - Themes: AI/인프라, 실적 신호, 에너지/지정학
+- 063. #earnings before the open on Monday, May 4, 2026 https:// earningswhispers.com/calendar $NCLH $BRK.B (Saturday) $TSN $AX
+  - Source: 실적발표 스케줄 | Type: x_social | Score: 8 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/eWhispers/status/2050263397619454186
+  - Original/content cue: Earnings Whispers @eWhispers · 3시간 #earnings before the open on Monday, May 4, 2026 https:// earningswhispers.com/calendar $NCLH $BRK.B (Saturday) $TSN $AXSM $CCOI $ADCT $HESM $KRYS $CNA $PNW $TWST $RLJ $SGC $NSSC $ALX $FSTR 인용 Earnings Wh...
+  - Summary: #earnings before the open on Monday, May 4, 2026 https:// earningswhispers.com/calendar $NCLH $BRK.B (Saturday) $TSN $AXSM $CCOI $ADCT $HESM $KRYS $CNA $PNW $TWST $RLJ $SGC $NSSC $ALX $FSTR #earnings for the week of May 4, 2026 https:// earningswhispers.com/c...
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 064. #earnings for the week of May 4, 2026 https:// earningswhispers.com/calendar $PLTR $AMD $SHOP $LITE $COHR $ANET $APP $AF
+  - Source: 실적발표 스케줄 | Type: x_social | Score: 8 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/eWhispers/status/2050210540614570491
+  - Original/content cue: 메인에 올림 Earnings Whispers @eWhispers · 7시간 #earnings for the week of May 4, 2026 https:// earningswhispers.com/calendar $PLTR $AMD $SHOP $LITE $COHR $ANET $APP $AFRM $OXY $DVN $GILD $FN $MCK $DOCN $ALSN $CGNX $OUST $ADCT $VNOM $AEP $MPC $GC...
+  - Summary: #earnings for the week of May 4, 2026 https:// earningswhispers.com/calendar $PLTR $AMD $SHOP $LITE $COHR $ANET $APP $AFRM $OXY $DVN $GILD $FN $MCK $DOCN $ALSN $CGNX $OUST $ADCT $VNOM $AEP $MPC $GCT $CVE $DVA $AEIS $ABNB $DD $WMB $BUD $EXPE $CF $PSTL $ICHR $D...
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 065. Apple's stock gains as company execs cite iPhone, Mac demand in boosting guidance
+  - Source: International Business, World News & Global Stock Market Analysis | Type: news | Score: 8 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://www.cnbc.com/2026/05/01/apple-stock-rallies-on-q2-earnings-and-q3-guidance.html
+  - Original/content cue: Apple's stock gains as company execs cite iPhone, Mac demand in boosting guidance
+  - Summary: Apple's stock gains as company execs cite iPhone, Mac demand in boosting guidance
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 066. Chip stocks surge in ‘historic’ month as investors’ AI buildout concerns ease
+  - Source: International Business, World News & Global Stock Market Analysis | Type: news | Score: 8 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://www.cnbc.com/2026/05/01/tech-download-chip-stocks-surge-historic-month-intel-apple.html
+  - Original/content cue: Chip stocks surge in ‘historic’ month as investors’ AI buildout concerns ease
+  - Summary: Chip stocks surge in ‘historic’ month as investors’ AI buildout concerns ease
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 067. Most of the Mag7 is over for this earnings season, but don't worry, there are still 107 companies in the North American
+  - Source: 실적발표 스케줄 | Type: x_social | Score: 8 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/eWhispers/status/2050284011465924740
+  - Original/content cue: Earnings Whispers @eWhispers · 2시간 Most of the Mag7 is over for this earnings season, but don't worry, there are still 107 companies in the North American Tech ETF $IGM reporting earnings this week. https:// earningswhispers.com/wrs $PLTR ...
+  - Summary: Most of the Mag7 is over for this earnings season, but don't worry, there are still 107 companies in the North American Tech ETF $IGM reporting earnings this week. https:// earningswhispers.com/wrs $PLTR $AMD $SHOP $LITE $SMCI $COHR $ANET $IONQ $ON $AAOI $MST...
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 068. New York archdiocese to pay $800 million to settle sex abuse cases http:// reut.rs/49pda30
+  - Source: Reuters (@Reuters) / X | Type: x_social | Score: 8 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/Reuters/status/2050315639286354105
+  - Original/content cue: Reuters @Reuters · 18분 New York archdiocese to pay $800 million to settle sex abuse cases http:// reut.rs/49pda30 reuters.com New York archdiocese to pay $800 million to settle sex abuse cases The Catholic Archdiocese of New York has agree...
+  - Summary: New York archdiocese to pay $800 million to settle sex abuse cases http:// reut.rs/49pda30
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 069. Saudi oil prince's iron grip faces ultimate test with UAE's shock OPEC exit
+  - Source: Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | Type: news | Score: 8 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://finance.yahoo.com/news/saudi-oil-princes-iron-grip-184805042.html
+  - Original/content cue: Saudi oil prince's iron grip faces ultimate test with UAE's shock OPEC exit
+  - Summary: Saudi oil prince's iron grip faces ultimate test with UAE's shock OPEC exit
+  - Broadcast use: 에너지/지정학 맥락; question=유가와 지정학 리스크가 시장의 위험선호를 어디까지 누르는가?; slot=시장 배경/리스크
+  - Tickers: OPEC, UAE
+  - Themes: 에너지/지정학
+- 070. Texas homeowners sue Musk’s SpaceX over Starship rocket launches http:// reut.rs/4tGP6kh
+  - Source: Reuters (@Reuters) / X | Type: x_social | Score: 8 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/Reuters/status/2050310562173624589
+  - Original/content cue: Reuters @Reuters · 38분 Texas homeowners sue Musk’s SpaceX over Starship rocket launches http:// reut.rs/4tGP6kh Texas homeowners sue Musk’s SpaceX over Starship rocket launches 출처: reuters.com 8 8 21 1.2만
+  - Summary: Texas homeowners sue Musk’s SpaceX over Starship rocket launches http:// reut.rs/4tGP6kh
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 071. Trump gives Spirit final rescue proposal as airline prepares shutdown http:// reut.rs/4tLgP3k
+  - Source: Reuters (@Reuters) / X | Type: x_social | Score: 8 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/Reuters/status/2050314388465205523
+  - Original/content cue: Reuters @Reuters · 23분 Trump gives Spirit final rescue proposal as airline prepares shutdown http:// reut.rs/4tLgP3k Trump gives Spirit final rescue proposal as airline prepares shutdown 출처: reuters.com 5 4 11 1.1만
+  - Summary: Trump gives Spirit final rescue proposal as airline prepares shutdown http:// reut.rs/4tLgP3k
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 072. WATCH: President Trump participates in an event with seniors in Florida
+  - Source: CNBC (@CNBC) / X | Type: x_social | Score: 8 | Usefulness: 상: 후보 선별 우선권
+  - URL: https://x.com/CNBC/status/2050307173586960687
+  - Original/content cue: CNBC @CNBC · 52분 WATCH: President Trump participates in an event with seniors in Florida youtube.com CNBC Television 19 likes. "LIVE: President Trump participates in an event with seniors in Florida — 5/01/2026" 3 3 1만
+  - Summary: WATCH: President Trump participates in an event with seniors in Florida
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 073. 10 minutes ago Reuters RB Global Inc expected to post earnings of 99 cents a share - Earnings Preview
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/reuters.com,2026:newsml_L8N41E1YX:0-rb-global-inc-expected-to-post-earnings-of-99-cents-a-share-earnings-preview
+  - Original/content cue: 10 minutes ago Reuters RB Global Inc expected to post earnings of 99 cents a share - Earnings Preview
+  - Summary: 10 minutes ago Reuters RB Global Inc expected to post earnings of 99 cents a share - Earnings Preview
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Tickers: RB
+  - Themes: 실적 신호
+- 074. 11 minutes ago Reuters Cargojet Inc expected to post earnings of 82 cents a share - Earnings Preview
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/reuters.com,2026:newsml_L8N41E1YV:0-cargojet-inc-expected-to-post-earnings-of-82-cents-a-share-earnings-preview
+  - Original/content cue: 11 minutes ago Reuters Cargojet Inc expected to post earnings of 82 cents a share - Earnings Preview
+  - Summary: 11 minutes ago Reuters Cargojet Inc expected to post earnings of 82 cents a share - Earnings Preview
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 075. 11 minutes ago Reuters Caribou Biosciences Inc expected to post a loss of 32 cents a share - Earnings Preview
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/reuters.com,2026:newsml_L8N41E1YW:0-caribou-biosciences-inc-expected-to-post-a-loss-of-32-cents-a-share-earnings-preview
+  - Original/content cue: 11 minutes ago Reuters Caribou Biosciences Inc expected to post a loss of 32 cents a share - Earnings Preview
+  - Summary: 11 minutes ago Reuters Caribou Biosciences Inc expected to post a loss of 32 cents a share - Earnings Preview
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 076. 13 minutes ago Reuters Innovative Industrial Properties Inc expected to post earnings of $1.07 a share - Earnings Preview
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/reuters.com,2026:newsml_L8N41E1YR:0-innovative-industrial-properties-inc-expected-to-post-earnings-of-1-07-a-share-earnings-preview
+  - Original/content cue: 13 minutes ago Reuters Innovative Industrial Properties Inc expected to post earnings of $1.07 a share - Earnings Preview
+  - Summary: 13 minutes ago Reuters Innovative Industrial Properties Inc expected to post earnings of $1.07 a share - Earnings Preview
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 077. 14 minutes ago Reuters Evolus Inc expected to post a loss of 13 cents a share - Earnings Preview
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/reuters.com,2026:newsml_L8N41E1YQ:0-evolus-inc-expected-to-post-a-loss-of-13-cents-a-share-earnings-preview
+  - Original/content cue: 14 minutes ago Reuters Evolus Inc expected to post a loss of 13 cents a share - Earnings Preview
+  - Summary: 14 minutes ago Reuters Evolus Inc expected to post a loss of 13 cents a share - Earnings Preview
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 078. 15 minutes ago Reuters DPM Metals Inc expected to post earnings of 90 cents a share - Earnings Preview
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/reuters.com,2026:newsml_L8N41E1YP:0-dpm-metals-inc-expected-to-post-earnings-of-90-cents-a-share-earnings-preview
+  - Original/content cue: 15 minutes ago Reuters DPM Metals Inc expected to post earnings of 90 cents a share - Earnings Preview
+  - Summary: 15 minutes ago Reuters DPM Metals Inc expected to post earnings of 90 cents a share - Earnings Preview
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Tickers: DPM
+  - Themes: 실적 신호
+- 079. 16 minutes ago Reuters Global Industrial Co expected to post earnings of 41 cents a share - Earnings Preview
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/reuters.com,2026:newsml_L8N41E1YK:0-global-industrial-co-expected-to-post-earnings-of-41-cents-a-share-earnings-preview
+  - Original/content cue: 16 minutes ago Reuters Global Industrial Co expected to post earnings of 41 cents a share - Earnings Preview
+  - Summary: 16 minutes ago Reuters Global Industrial Co expected to post earnings of 41 cents a share - Earnings Preview
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 080. 17 minutes ago Reuters DHI Group Inc expected to post earnings of 3 cents a share - Earnings Preview
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/reuters.com,2026:newsml_L8N41E1YI:0-dhi-group-inc-expected-to-post-earnings-of-3-cents-a-share-earnings-preview
+  - Original/content cue: 17 minutes ago Reuters DHI Group Inc expected to post earnings of 3 cents a share - Earnings Preview
+  - Summary: 17 minutes ago Reuters DHI Group Inc expected to post earnings of 3 cents a share - Earnings Preview
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Tickers: DHI
+  - Themes: 실적 신호
+- 081. 19 minutes ago Reuters Advanced Micro Devices Inc expected to post earnings of $1.29 a share - Earnings Preview
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/reuters.com,2026:newsml_L8N41E1YH:0-advanced-micro-devices-inc-expected-to-post-earnings-of-1-29-a-share-earnings-preview
+  - Original/content cue: 19 minutes ago Reuters Advanced Micro Devices Inc expected to post earnings of $1.29 a share - Earnings Preview
+  - Summary: 19 minutes ago Reuters Advanced Micro Devices Inc expected to post earnings of $1.29 a share - Earnings Preview
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 082. 19 minutes ago Reuters Universal Logistics Holdings Inc reports results for the quarter ended March 31 - Earnings Summary
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/reuters.com,2026:newsml_L8N41E1YG:0-universal-logistics-holdings-inc-reports-results-for-the-quarter-ended-march-31-earnings-summary
+  - Original/content cue: 19 minutes ago Reuters Universal Logistics Holdings Inc reports results for the quarter ended March 31 - Earnings Summary
+  - Summary: 19 minutes ago Reuters Universal Logistics Holdings Inc reports results for the quarter ended March 31 - Earnings Summary
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 083. 26 minutes ago Reuters S&P 500, Nasdaq end higher, notch weekly gains after earnings-heavy week
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/reuters.com,2026:newsml_L6N41E0SZ:0-s-p-500-nasdaq-end-higher-notch-weekly-gains-after-earnings-heavy-week
+  - Original/content cue: 26 minutes ago Reuters S&P 500, Nasdaq end higher, notch weekly gains after earnings-heavy week
+  - Summary: 26 minutes ago Reuters S&P 500, Nasdaq end higher, notch weekly gains after earnings-heavy week
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 084. Alphabet is winning the AI revolution. Here's how Mike Khouw is trading it
+  - Source: International Business, World News & Global Stock Market Analysis | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.cnbc.com/2026/05/01/alphabet-is-winning-the-ai-revolution-heres-how-mike-khouw-is-trading-it.html
+  - Original/content cue: Alphabet is winning the AI revolution. Here's how Mike Khouw is trading it
+  - Summary: Alphabet is winning the AI revolution. Here's how Mike Khouw is trading it
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 085. Be honest. Did that spook you? $SOXX $XSD
+  - Source: 실적발표 스케줄 | Type: x_social | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://x.com/eWhispers/status/2050249317101793450
+  - Original/content cue: Earnings Whispers @eWhispers · 4시간 Be honest. Did that spook you? $SOXX $XSD 8 1 33 1.4만
+  - Summary: Be honest. Did that spook you? $SOXX $XSD
+  - Broadcast use: 오늘의 이모저모; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+- 086. BlackRock says these bonds have attractive yields — and can help insulate from AI disruption
+  - Source: International Business, World News & Global Stock Market Analysis | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.cnbc.com/2026/05/01/blackrock-says-these-bonds-have-attractive-yields-and-can-help-insulate-from-ai-disruption.html
+  - Original/content cue: BlackRock says these bonds have attractive yields — and can help insulate from AI disruption
+  - Summary: BlackRock says these bonds have attractive yields — and can help insulate from AI disruption
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 087. China’s EV price war turns into AI arms race beyond cheaper cars
+  - Source: International Business, World News & Global Stock Market Analysis | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.cnbc.com/2026/05/01/china-ev-ai-features-price-war-bytedance-alibaba-doubao-volcano-engine.html
+  - Original/content cue: China’s EV price war turns into AI arms race beyond cheaper cars
+  - Summary: China’s EV price war turns into AI arms race beyond cheaper cars
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Tickers: EV
+  - Themes: AI/인프라
+- 088. Cramer says Apple and Eli Lilly still have room to run after post-earnings rallies
+  - Source: International Business, World News & Global Stock Market Analysis | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.cnbc.com/2026/05/01/cramer-says-apple-and-eli-lilly-still-have-room-to-run-after-rallies.html
+  - Original/content cue: Cramer says Apple and Eli Lilly still have room to run after post-earnings rallies
+  - Summary: Cramer says Apple and Eli Lilly still have room to run after post-earnings rallies
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 089. How is the Iran war powers deadline affecting Congress? #world
+  - Source: BizToc | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://alltoc.com/world/how-is-the-iran-war-powers-deadline-affecting-congress
+  - Original/content cue: How is the Iran war powers deadline affecting Congress? #world
+  - Summary: Congress faces the War Powers clock as hostilities persist Several stories point to a standoff between the Trump administration’s military campaign against Iran and Congress’s ability—or willingness—to constrain it under the War Powers Act. Senate Republicans...
+  - Broadcast use: 에너지/지정학, 단신/화제 맥락; question=유가와 지정학 리스크가 시장의 위험선호를 어디까지 누르는가?; slot=시장 배경/리스크
+  - Themes: 에너지/지정학, 단신/화제
+- 090. The market isn't grading all Big Tech earnings the same — here's why
+  - Source: International Business, World News & Global Stock Market Analysis | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.cnbc.com/2026/05/01/the-market-isnt-grading-all-big-tech-earnings-the-same-heres-why.html
+  - Original/content cue: The market isn't grading all Big Tech earnings the same — here's why
+  - Summary: The market isn't grading all Big Tech earnings the same — here's why
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 091. We covered the crazy moves in April and what it might mean over at Bespoke Premium. You can start a trial here: https://
+  - Source: (16) Bespoke (@bespokeinvest) / X | Type: x_social | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://x.com/bespokeinvest/status/2050286289291714824
+  - Original/content cue: Bespoke @bespokeinvest · 2시간 We covered the crazy moves in April and what it might mean over at Bespoke Premium. You can start a trial here: https:// bespokepremium.com/bespoke-member -plans/ … 3 3천
+  - Summary: We covered the crazy moves in April and what it might mean over at Bespoke Premium. You can start a trial here: https:// bespokepremium.com/bespoke-member -plans/ …
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 092. Why is the 60-day Iran deadline central? #politics
+  - Source: BizToc | Type: news | Score: 7 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://alltoc.com/politics/why-is-the-60-day-iran-deadline-central
+  - Original/content cue: Why is the 60-day Iran deadline central? #politics
+  - Summary: The War Powers clock: why Congress’s approval matters Several stories emphasize that President Trump’s Iran operation is approaching a statutory 60 day milestone under the War Powers framework, making the legal question—whether the administration has congress...
+  - Broadcast use: 에너지/지정학, 단신/화제 맥락; question=유가와 지정학 리스크가 시장의 위험선호를 어디까지 누르는가?; slot=시장 배경/리스크
+  - Themes: 에너지/지정학, 단신/화제
+- 093. 14 hours ago TradingView AAPL: Apple Stock Jumps on Rising Revenue in Tim Cook’s 89th Quarter as CEO
+  - Source: Financial News & Top Stories — Market Analysis — TradingView | Type: news | Score: 6 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://www.tradingview.com/news/tradingview:7525bb531094b:0-aapl-apple-stock-jumps-on-rising-revenue-in-tim-cook-s-89th-quarter-as-ceo
+  - Original/content cue: 14 hours ago TradingView AAPL: Apple Stock Jumps on Rising Revenue in Tim Cook’s 89th Quarter as CEO
+  - Summary: 14 hours ago TradingView AAPL: Apple Stock Jumps on Rising Revenue in Tim Cook’s 89th Quarter as CEO
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Tickers: AAPL
+  - Themes: 실적 신호
+- 094. Auto Insurers’ Profits Could Increase Given Persistently High Gas Prices
+  - Source: FactSet Insight - Commentary and research from our desk to yours | Type: news | Score: 6 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://insight.factset.com/auto-insurers-profits-could-increase-given-persistently-high-gas-prices
+  - Original/content cue: Auto Insurers’ Profits Could Increase Given Persistently High Gas Prices
+  - Summary: Data has emerged supporting a view in prior notes that combined ratios for auto insurers could be headed lower, which would send profits higher. Early indicators suggest this drop is already unfolding. Our 4/24 note ( Artificial Intelligence Has Evolved from ...
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 095. Roblox CEO cites challenges from its age check for dimmed outlook as stock plummets
+  - Source: Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | Type: news | Score: 6 | Usefulness: 중: 보조 근거/차트 멘트
+  - URL: https://finance.yahoo.com/markets/article/roblox-ceo-cites-challenges-from-its-age-check-for-dimmed-outlook-as-stock-plummets-182507944.html
+  - Original/content cue: Roblox CEO cites challenges from its age check for dimmed outlook as stock plummets
+  - Summary: Roblox CEO cites challenges from its age check for dimmed outlook as stock plummets
+  - Broadcast use: 실적 신호 맥락; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=오늘의 이모저모
+  - Themes: 실적 신호
+- 096. What did Exxon and Chevron report during Iran disruption? #world
+  - Source: BizToc | Type: news | Score: 5 | Usefulness: 하: 맥락 보강
+  - URL: https://alltoc.com/world/what-did-exxon-and-chevron-report-during-iran-disruption
+  - Original/content cue: What did Exxon and Chevron report during Iran disruption? #world
+  - Summary: Exxon and Chevron’s profits fell even as oil prices stayed high Two major U.S. oil companies—Exxon Mobil and Chevron—reported lower profits while the Iran war disrupted oil shipments, according to coverage in the feed. The dynamic matters because it highlight...
+  - Broadcast use: 에너지/지정학 맥락; question=유가와 지정학 리스크가 시장의 위험선호를 어디까지 누르는가?; slot=시장 배경/리스크
+  - Themes: 에너지/지정학
+- 097. Why did the Pentagon ban Anthropic from classified work? #tech
+  - Source: BizToc | Type: news | Score: 5 | Usefulness: 하: 맥락 보강
+  - URL: https://alltoc.com/tech/why-did-the-pentagon-ban-anthropic-from-classified-work
+  - Original/content cue: Why did the Pentagon ban Anthropic from classified work? #tech
+  - Summary: Anthropic’s Mythos remains excluded from classified AI deals The U.S. Department of Defense moved forward with AI contracts for classified military work using multiple commercial vendors, but Anthropic was not included . The dispute centers on Anthropic’s “My...
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 098. Which games refused generative AI use? #gaming
+  - Source: BizToc | Type: news | Score: 4 | Usefulness: 하: 맥락 보강
+  - URL: https://alltoc.com/gaming/which-games-refused-generative-ai-use
+  - Original/content cue: Which games refused generative AI use? #gaming
+  - Summary: Subnautica 2 and 007: First Light both deny generative AI use Two high profile upcoming releases— Subnautica 2 and 007: First Light —have both stated they were not made using generative AI technologies , according to statements referenced in recent reporting....
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 099. Why did DoD contract use classified AI tools? #tech
+  - Source: BizToc | Type: news | Score: 4 | Usefulness: 하: 맥락 보강
+  - URL: https://alltoc.com/tech/why-did-dod-contract-use-classified-ai-tools
+  - Original/content cue: Why did DoD contract use classified AI tools? #tech
+  - Summary: DoD strikes deals to run AI on classified networks The U.S. Department of Defense has reached agreements with Nvidia, Microsoft, Reflection AI, and AWS to use their AI tools on classified military networks for “lawful” purposes . The key operational shift is ...
+  - Broadcast use: 스토리 후보; question=오늘 시장이 어떤 소재를 보고 있는가?; slot=추천 스토리라인 후보
+  - Themes: AI/인프라
+- 100. EU parliament trade chief calls Trump tariff threat unacceptable
+  - Source: Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | Type: news | Score: 3 | Usefulness: 낮음: 보관/검토용
+  - URL: https://finance.yahoo.com/news/eu-parliament-trade-chief-calls-173638434.html
+  - Original/content cue: EU parliament trade chief calls Trump tariff threat unacceptable
+  - Summary: EU parliament trade chief calls Trump tariff threat unacceptable
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 101. Trump gives Spirit final rescue proposal as airline faces shutdown
+  - Source: Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | Type: news | Score: 3 | Usefulness: 낮음: 보관/검토용
+  - URL: https://finance.yahoo.com/markets/stocks/articles/trump-gives-spirit-final-rescue-170653324.html
+  - Original/content cue: Trump gives Spirit final rescue proposal as airline faces shutdown
+  - Summary: Trump gives Spirit final rescue proposal as airline faces shutdown
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 102. Trump hits EU with 25% tariff on imported cars and trucks
+  - Source: Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | Type: news | Score: 3 | Usefulness: 낮음: 보관/검토용
+  - URL: https://finance.yahoo.com/economy/policy/live/trump-tariffs-live-updates-us-opens-tariff-refund-portal-with-checks-expected-this-summer-223100182.html
+  - Original/content cue: Trump hits EU with 25% tariff on imported cars and trucks
+  - Summary: Trump hits EU with 25% tariff on imported cars and trucks
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 103. Trump ramps up pressure on Cuba with fresh sanctions push
+  - Source: Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | Type: news | Score: 3 | Usefulness: 낮음: 보관/검토용
+  - URL: https://finance.yahoo.com/news/trump-ramps-pressure-cuba-fresh-180922398.html
+  - Original/content cue: Trump ramps up pressure on Cuba with fresh sanctions push
+  - Summary: Trump ramps up pressure on Cuba with fresh sanctions push
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 104. Trump signs executive order creating new retirement accounts for workers without 401(k)s
+  - Source: Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | Type: news | Score: 3 | Usefulness: 낮음: 보관/검토용
+  - URL: https://finance.yahoo.com/news/trump-signs-executive-order-creating-new-retirement-accounts-for-workers-without-401ks-173706589.html
+  - Original/content cue: Trump signs executive order creating new retirement accounts for workers without 401(k)s
+  - Summary: Trump signs executive order creating new retirement accounts for workers without 401(k)s
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 105. Why did Trump drop Casey Means as surgeon general? #health
+  - Source: BizToc | Type: news | Score: 1 | Usefulness: 낮음: 보관/검토용
+  - URL: https://alltoc.com/health/why-did-trump-drop-casey-means-as-surgeon-general
+  - Original/content cue: Why did Trump drop Casey Means as surgeon general? #health
+  - Summary: Trump replaces Casey Means with Nicole Saphier President Donald Trump withdrew Dr. Casey Means’s stalled nomination for U.S. surgeon general and announced Dr. Nicole Saphier as his replacement. The key issue described in coverage is that Means’s path forward ...
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+- 106. Why did Trump raise EU auto tariffs to 25%? #world
+  - Source: BizToc | Type: news | Score: 1 | Usefulness: 낮음: 보관/검토용
+  - URL: https://alltoc.com/world/why-did-trump-raise-eu-auto-tariffs-to-25
+  - Original/content cue: Why did Trump raise EU auto tariffs to 25%? #world
+  - Summary: Trump moves to 25% tariffs on EU cars and trucks President Donald Trump announced he would raise tariffs on vehicles imported from the European Union to 25% , framing the move as pressure on the EU for not honoring a trade arrangement. Multiple feed items des...
+  - Broadcast use: 단신/화제 맥락; question=오프닝이나 마무리에 붙일 만한 화제인가?; slot=단신/화제
+  - Themes: 단신/화제
+
+## Earnings Calendar Tickers
+
+- 01. PLTR | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 02. AMD | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 03. SHOP | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 04. LITE | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 05. COHR | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 06. ANET | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 07. APP | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 08. AFRM | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 09. OXY | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 10. DVN | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 11. GILD | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 12. FN | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 13. MCK | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 14. DOCN | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 15. ALSN | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 16. CGNX | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 17. OUST | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 18. ADCT | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 19. VNOM | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 20. AEP | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 21. MPC | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 22. GCT | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 23. CVE | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 24. DVA | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 25. AEIS | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 26. ABNB | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 27. DD | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 28. WMB | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 29. BUD | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 30. EXPE | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 31. CF | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 32. PSTL | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 33. ICHR | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 34. DAVE | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 35. ADEA | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 36. PLOW | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 37. WBI | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 38. WPM | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 39. HSBC | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050210540614570491
+- 40. IGM | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050284011465924740
+- 41. SMCI | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050284011465924740
+- 42. IONQ | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050284011465924740
+- 43. ON | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050284011465924740
+- 44. AAOI | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050284011465924740
+- 45. MSTR | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050284011465924740
+- 46. HUT | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050284011465924740
+- 47. FSLY | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050284011465924740
+- 48. PINS | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050284011465924740
+- 49. SOUN | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050284011465924740
+- 50. NCLH | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 51. BRK-B | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 52. TSN | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 53. AXSM | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 54. CCOI | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 55. HESM | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 56. KRYS | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 57. CNA | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 58. PNW | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 59. TWST | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 60. RLJ | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 61. SGC | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 62. NSSC | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 63. ALX | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 64. FSTR | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050263397619454186
+- 65. SOXX | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050249317101793450
+- 66. XSD | tags=- | source=실적발표 스케줄 | url=https://x.com/eWhispers/status/2050249317101793450
+
+## Finviz Feature Stock Evidence
+
+- XLE: status=ok; url=https://finviz.com/quote.ashx?t=XLE&p=d; screenshot=projects\autopark\runtime\screenshots\2026-05-02\feature-stocks\finviz-xle-daily.png; quote=["AI trade is leading the stock market again: Chart of the Day","Occidental CEO's Tenure May Be Ending. It Hasn't Been Good for the Stock.","Targa Resources Stock: Is TRGP Underpe...; news=The stock market's big breakout still needs an under-the-hood check: Chart of the Day / Daily ETF Flows: Investors Buy XLE / Traders Are 'Pulling the Plug' on Energy Stocks. Where They're Putting Money Instead.
+- CVX: status=ok; url=https://finviz.com/quote.ashx?t=CVX&p=d; screenshot=projects\autopark\runtime\screenshots\2026-05-02\feature-stocks\finviz-cvx-daily.png; quote=["Today, 1:34 PMChevron Q1 2026: production up 15% as $2.9B timing losses cut adjusted EPS to $1.41, 2026 growth guidance reaffirmed","Chevron CFO Bonner on Earnings, Buyback and ...; news=Trump Rues State of Iran Talks, Says Prefers Not to Strike / Chevron CFO Bonner on Earnings, Buyback and Oil Prices / Oil Falls on Hopes for US-Iran Negotiations, Hormuz Progress
+- XOM: status=ok; url=https://finviz.com/quote.ashx?t=XOM&p=d; screenshot=projects\autopark\runtime\screenshots\2026-05-02\feature-stocks\finviz-xom-daily.png; quote=["Oil Falls on Hopes for US-Iran Negotiations, Hormuz Progress","ExxonMobil CEO sees chance of higher oil prices as earnings dip","Occidental Petroleum Names a New CEO. How the St...; news=Exxon Mobil CEO: It will take one to two months for oil supply to reestablish after the strait opens / Oil Falls on Hopes for US-Iran Negotiations, Hormuz Progress / ExxonMobil CEO sees chance of higher oil prices as earnings dip
+- GOOGL: status=ok; url=https://finviz.com/quote.ashx?t=GOOGL&p=d; screenshot=projects\autopark\runtime\screenshots\2026-05-02\feature-stocks\finviz-googl-daily.png; quote=["Earnings: Google is biggest AI winner, OpenAI could be a 'surprise' loser","Cathie Wood's ARK Bought Alphabet, Meta-and Sold This Chip Stock","BCA upgrade equities, downgrades c...; news=Nvidia, Google, Microsoft Win Major Pentagon AI Contracts / See which companies made Times 2026 most influential list and why / Earnings: Google is biggest AI winner, OpenAI could be a 'surprise' loser
+- MSFT: status=ok; url=https://finviz.com/quote.ashx?t=MSFT&p=d; screenshot=projects\autopark\runtime\screenshots\2026-05-02\feature-stocks\finviz-msft-daily.png; quote=["Earnings: Google is biggest AI winner, OpenAI could be a 'surprise' loser","BCA upgrade equities, downgrades cash as AI boom continues","Unprecedented AI Spending Is Rewriting B...; news=Nvidia, Google, Microsoft Win Major Pentagon AI Contracts / Earnings: Google is biggest AI winner, OpenAI could be a 'surprise' loser / Stocks Eye Weekly Wins After Impressive April Finish
+- META: status=ok; url=https://finviz.com/quote.ashx?t=META&p=d; screenshot=projects\autopark\runtime\screenshots\2026-05-02\feature-stocks\finviz-meta-daily.png; quote=["Cathie Wood's ARK Bought Alphabet, Meta-and Sold This Chip Stock","Reddit rallies as AIdriven ad growth fuels strong revenue outlook","Unprecedented AI Spending Is Rewriting Big...; news=Meta Platforms Acquires Humanoid Robot Startup Assured Robot Intelligence / Nasdaq Smashes 25,000 Barrier in Historic First / Cathie Wood's ARK Bought Alphabet, Meta-and Sold This Chip Stock
+- AMZN: status=ok; url=https://finviz.com/quote.ashx?t=AMZN&p=d; screenshot=projects\autopark\runtime\screenshots\2026-05-02\feature-stocks\finviz-amzn-daily.png; quote=["Earnings: Google is biggest AI winner, OpenAI could be a 'surprise' loser","BCA upgrade equities, downgrades cash as AI boom continues","SPS Commerce Inc (SPSC) Q1 2026 Earnings...; news=Earnings: Google is biggest AI winner, OpenAI could be a 'surprise' loser / Estee Lauder to cut up to 3,000 more jobs as it pursues Puig deal / Apple Stock Surged After Earnings. 3 Concerns Lurking Beneath the Surface.
+- V: status=ok; url=https://finviz.com/quote.ashx?t=V&p=d; screenshot=projects\autopark\runtime\screenshots\2026-05-02\feature-stocks\finviz-v-daily.png; quote=["Apr 29, 8:35 AMVisa posts strongest revenue growth since 2022, beats Q2 estimates and raises FY26 revenue and EPS guidance","Visa Stock Soars Because AI Agents Will Pay With Car...; news=Visa Exec AI is in the Fabric of Everything we Do at HumanX Conference / Mastercard posts 18% increase in Q1 2026 net income to $3.9bn / Crypto Card Spending Surges 500% to $600 Million Monthly, Visa Captures 90% Share
+- PI: status=ok; url=https://finviz.com/quote.ashx?t=PI&p=d; screenshot=projects\autopark\runtime\screenshots\2026-05-02\feature-stocks\finviz-pi-daily.png; quote=["Apr 30, 8:30 PMStrong Q2 guidance and record bookings drive Impinj's 20% surge on April 30.","Impinj Inc (PI) Q1 2026 Earnings Call Highlights: Record Bookings Amidst Revenue Ch...; news=This Chip Maker's Stock Is Soaring After Earnings. Analysts See 20% More Upside. / Impinj, Inc. Q1 2026 Earnings Call Summary / Impinj Inc (PI) Q1 2026 Earnings Call Highlights: Record Bookings Amidst Revenue Challenges
+- UBER: status=ok; url=https://finviz.com/quote.ashx?t=UBER&p=d; screenshot=projects\autopark\runtime\screenshots\2026-05-02\feature-stocks\finviz-uber-daily.png; quote=["China Blocks Metas $2 Billion Acquisition of AI Firm Manus","Dow Jones, Nasdaq close lower as US-Iran peace talks stall, UnitedHealth surges on earnings","Dow Jones falls as Uni...; news=Trump expands worker access to retirement plans with new order / Uber Expands In Hong Kong With FlyTaxi Acquisition / Record-low consumer sentiment centers on housing crisis
+
+## Visual Cards
+
+- 1. U.S. Stock Market Bull and Bear Indicator – S&P 500 | source=Blog – ISABELNET | local=projects\autopark\runtime\assets\2026-05-02\today-misc-batch-b\isabelnet-com-blog-isabelnet-com-blog-003-1.png | manual_review=true
+  - Description: U.S. Stock Market Bull and Bear Indicator – S&P 500
+  - Use: market, s&p, stock; tickers=-
+- 2. % of Companies with Revenue Exposure to Just One Sector (TOPIX 500, MXAPJ, STOXX 600, S&P 500) | source=Blog – ISABELNET | local=projects\autopark\runtime\assets\2026-05-02\today-misc-batch-b\isabelnet-com-blog-isabelnet-com-blog-012-1.png | manual_review=true
+  - Description: % of Companies with Revenue Exposure to Just One Sector (TOPIX 500, MXAPJ, STOXX 600, S&P 500)
+  - Use: s&p; tickers=MXAPJ, STOXX, TOPIX
+- 3. S&P 500 Performance After April >5% | source=Blog – ISABELNET | local=projects\autopark\runtime\assets\2026-05-02\today-misc-batch-b\isabelnet-com-blog-isabelnet-com-blog-005-1.png | manual_review=true
+  - Description: S&P 500 Performance After April >5%
+  - Use: s&p; tickers=-
+- 4. S&P 500 Returns in April | source=Blog – ISABELNET | local=projects\autopark\runtime\assets\2026-05-02\today-misc-batch-b\isabelnet-com-blog-isabelnet-com-blog-006-1.png | manual_review=true
+  - Description: S&P 500 Returns in April
+  - Use: s&p; tickers=-
+- 5. Smoothed U.S. Recession Probabilities | source=Blog – ISABELNET | local=projects\autopark\runtime\assets\2026-05-02\today-misc-batch-b\isabelnet-com-blog-isabelnet-com-blog-011-1.png | manual_review=true
+  - Description: Smoothed U.S. Recession Probabilities
+  - Use: recession; tickers=-
+- 6. WTI Oil Prices in Real Terms | source=Blog – ISABELNET | local=projects\autopark\runtime\assets\2026-05-02\today-misc-batch-b\isabelnet-com-blog-isabelnet-com-blog-013-1.png | manual_review=true
+  - Description: WTI Oil Prices in Real Terms
+  - Use: oil; tickers=WTI
+
+## Economic Calendar
+
+- Source: https://ko.tradingeconomics.com/calendar
+- Events collected: 0
+- 0502 기준 중요도 2 이상 이벤트는 수집 결과 0개였습니다. 방송에서는 “주요 지표 공백/주말성 캘린더” 확인용으로만 유용합니다.
+
+## Source Summary Table
+
+| Source | Count | Selected | High/Medium Useful | Main Content | Usefulness Read |
+|---|---:|---:|---:|---|---|
+| Financial News & Top Stories — Market Analysis — TradingView | 12 | 0 | 12 | 실적 신호 12 | 중상: 반복 사용 가능한 보조재, avg score 6.9 |
+| Yahoo Finance - Stock Market Live, Quotes, Business & Finance News | 11 | 0 | 6 | 단신/화제 8, 에너지/지정학 4, 실적 신호 3 | 중상: 반복 사용 가능한 보조재, avg score 6.3 |
+| International Business, World News & Global Stock Market Analysis | 10 | 1 | 10 | 실적 신호 5, AI/인프라 4, 에너지/지정학 2 | 높음: 최종 스토리 근거 포함, avg score 8.2 |
+| BizToc | 9 | 0 | 3 | AI/인프라 4, 에너지/지정학 4, 단신/화제 4 | 중상: 반복 사용 가능한 보조재, avg score 4.8 |
+| (13) The Kobeissi Letter (@KobeissiLetter) / X | 7 | 2 | 7 | 금리/매크로 2, 단신/화제 2, 실적 신호 2 | 높음: 최종 스토리 근거 포함, avg score 13.9 |
+| (16) Liz Ann Sonders (@LizAnnSonders) / X | 7 | 0 | 7 | 에너지/지정학 1, 금리/매크로 1 | 중상: 반복 사용 가능한 보조재, avg score 10.1 |
+| (16) Wall St Engine (@wallstengine) / X | 7 | 1 | 7 | AI/인프라 5, 단신/화제 1 | 높음: 최종 스토리 근거 포함, avg score 13.0 |
+| CNBC (@CNBC) / X | 7 | 0 | 7 | 실적 신호 1, 금리/매크로 1, AI/인프라 1 | 중상: 반복 사용 가능한 보조재, avg score 10.1 |
+| Reuters (@Reuters) / X | 7 | 0 | 7 | 단신/화제 2, AI/인프라 1 | 중상: 반복 사용 가능한 보조재, avg score 9.3 |
+| (16) Bespoke (@bespokeinvest) / X | 6 | 0 | 6 | 단신/화제 1 | 중상: 반복 사용 가능한 보조재, avg score 10.0 |
+| Blog – ISABELNET | 6 | 1 | 6 | 에너지/지정학 1, 금리/매크로 1, 실적 신호 1 | 높음: 최종 스토리 근거 포함, avg score 10.2 |
+| Bloomberg (@business) / X | 6 | 0 | 6 | AI/인프라 3 | 중상: 반복 사용 가능한 보조재, avg score 10.5 |
+| (2) Charlie Bilello (@charliebilello) / Twitter | 4 | 1 | 4 | 실적 신호 2, AI/인프라 1, 금리/매크로 1 | 높음: 최종 스토리 근거 포함, avg score 12.0 |
+| 실적발표 스케줄 | 4 | 0 | 4 | 실적 신호 3 | 중상: 반복 사용 가능한 보조재, avg score 7.8 |
+| FactSet Insight - Commentary and research from our desk to yours | 2 | 0 | 2 | 실적 신호 1, 금리/매크로 1, AI/인프라 1 | 중: 일부 후보만 선별 가치, avg score 7.5 |
+| (16) StockMarket.News (@_Investinq) / X | 1 | 1 | 1 | AI/인프라 1, 금리/매크로 1 | 높음: 최종 스토리 근거 포함, avg score 16.0 |
+
+## Collection Quality Notes
+
+- 같은 거시 테마가 여러 소스에서 반복되는 경우는 스토리라인 후보로 강합니다. 0502는 지정학/유가, 위험선호, AI 인프라가 이런 조건을 만족했습니다.
+- 단일 출처 X 포스트는 속보성은 좋지만 검증 층이 얇습니다. 방송 메인으로 쓰려면 기사/차트/가격 데이터와 묶는 편이 좋습니다.
+- Finviz 캡처는 방송 화면 근거로 좋지만 원문 서사보다 화면 증거 성격이 강합니다. 티커 드릴다운과 연결해 “왜 이 종목을 오늘 볼지”로 쓰는 편이 낫습니다.
+- 경제 캘린더는 이벤트가 0개인 날도 의미가 있습니다. 이 경우 “오늘은 지표보다 뉴스/실적/위험선호 주도”라는 판단 근거로 쓰면 됩니다.
+- 다음 개선은 후보별 `primary_use`, `verify_needed`, `broadcast_slot`, `keep/drop reason`을 기계적으로 저장하는 쪽이 좋아 보입니다. 지금은 사람이 문서를 읽으며 판단해야 하는 정보가 여러 JSON에 흩어져 있습니다.

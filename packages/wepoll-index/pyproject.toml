@@ -1,0 +1,13 @@
+[project]
+name = "wepoll-index"
+version = "0.1.0"
+description = "Portable Wepoll index computation CLI"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+wepoll-index = "wepoll_index.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
