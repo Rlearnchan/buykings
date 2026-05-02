@@ -1,4 +1,30 @@
 services:
+  autopark-browser:
+    build:
+      context: .
+      dockerfile: Dockerfile.autopark
+    image: buykings-autopark:local
+    container_name: buykings-autopark-browser
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+      AUTOPARK_CHROME_PATH: ${AUTOPARK_CHROME_PATH:-/ms-playwright/chromium-1217/chrome-linux64/chrome}
+      AUTOPARK_BROWSER_HOST: 0.0.0.0
+      AUTOPARK_BROWSER_PORT: 9222
+      AUTOPARK_BROWSER_HEADLESS: ${AUTOPARK_BROWSER_HEADLESS:-1}
+      AUTOPARK_BROWSER_PROFILE_DIR: /state/browser-profile
+    volumes:
+      - ./.server-state/autopark-browser:/state
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9222/json/version >/dev/null"]
+      interval: 1m
+      timeout: 30s
+      retries: 3
+      start_period: 15s
+    command:
+      - bash
+      - ops/docker/autopark_browser.sh
+
   autopark-runner:
     build:
       context: .
@@ -11,6 +37,7 @@ services:
     environment:
       TZ: Asia/Seoul
       AUTOPARK_CDP_ENDPOINT: ${AUTOPARK_DOCKER_CDP_ENDPOINT:-http://host.docker.internal:9222}
+      AUTOPARK_USE_CDP: ${AUTOPARK_USE_CDP:-0}
       AUTOPARK_CHROME_PATH: ${AUTOPARK_CHROME_PATH:-/ms-playwright/chromium-1217/chrome-linux64/chrome}
       AUTOPARK_STATE_ROOT: /state
       AUTOPARK_SKIP_CHROME_LAUNCH: "1"
@@ -41,6 +68,7 @@ services:
     environment:
       TZ: Asia/Seoul
       AUTOPARK_CDP_ENDPOINT: ${AUTOPARK_DOCKER_CDP_ENDPOINT:-http://host.docker.internal:9222}
+      AUTOPARK_USE_CDP: ${AUTOPARK_USE_CDP:-0}
       AUTOPARK_CHROME_PATH: ${AUTOPARK_CHROME_PATH:-/ms-playwright/chromium-1217/chrome-linux64/chrome}
       AUTOPARK_STATE_ROOT: /state
       AUTOPARK_SKIP_CHROME_LAUNCH: "1"
@@ -59,3 +87,69 @@ services:
     command:
       - bash
       - ops/docker/autopark_loop.sh
+
+  autopark-publisher:
+    build:
+      context: .
+      dockerfile: Dockerfile.autopark
+    image: buykings-autopark:local
+    container_name: buykings-autopark-publisher
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: Asia/Seoul
+      AUTOPARK_CDP_ENDPOINT: ${AUTOPARK_DOCKER_CDP_ENDPOINT:-http://127.0.0.1:9222}
+      AUTOPARK_USE_CDP: ${AUTOPARK_USE_CDP:-1}
+      AUTOPARK_CHROME_PATH: ${AUTOPARK_CHROME_PATH:-/ms-playwright/chromium-1217/chrome-linux64/chrome}
+      AUTOPARK_STATE_ROOT: /state
+      AUTOPARK_SKIP_CHROME_LAUNCH: "1"
+      AUTOPARK_SKIP_PUBLISH: "0"
+      AUTOPARK_PUBLISH_POLICY: ${AUTOPARK_PUBLISH_POLICY:-gate}
+      AUTOPARK_SKIP_DATAWRAPPER_EXPORT: ${AUTOPARK_SKIP_DATAWRAPPER_EXPORT:-0}
+      AUTOPARK_RUN_TIMES: ${AUTOPARK_RUN_TIMES:-06:00}
+      AUTOPARK_RETRY_TIMES: ${AUTOPARK_RETRY_TIMES:-06:20}
+      AUTOPARK_STEP_TIMEOUT: ${AUTOPARK_STEP_TIMEOUT:-120}
+    depends_on:
+      autopark-browser:
+        condition: service_healthy
+    network_mode: "service:autopark-browser"
+    volumes:
+      - ./projects/autopark/data:/app/projects/autopark/data
+      - ./projects/autopark/runtime:/app/projects/autopark/runtime
+      - ./projects/autopark/prepared:/app/projects/autopark/prepared
+      - ./projects/autopark/exports:/app/projects/autopark/exports
+      - ./.server-state/autopark:/state
+    command:
+      - bash
+      - ops/docker/autopark_scheduler.sh
+
+  autopark-retrospective:
+    build:
+      context: .
+      dockerfile: Dockerfile.autopark
+    image: buykings-autopark:local
+    container_name: buykings-autopark-retrospective
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: Asia/Seoul
+      AUTOPARK_STATE_ROOT: /state
+      AUTOPARK_RETRO_RUN_TIMES: ${AUTOPARK_RETRO_RUN_TIMES:-10:30}
+      AUTOPARK_RETRO_RETRY_TIMES: ${AUTOPARK_RETRO_RETRY_TIMES:-}
+      AUTOPARK_RETRO_ATTEMPTS: ${AUTOPARK_RETRO_ATTEMPTS:-6}
+      AUTOPARK_RETRO_SLEEP_MINUTES: ${AUTOPARK_RETRO_SLEEP_MINUTES:-60}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./projects/autopark/data:/app/projects/autopark/data
+      - ./projects/autopark/runtime:/app/projects/autopark/runtime
+      - ./projects/autopark/prepared:/app/projects/autopark/prepared
+      - ./projects/autopark/exports:/app/projects/autopark/exports
+      - ./.server-state/autopark-retrospective:/state
+    command:
+      - bash
+      - ops/docker/autopark_retrospective_scheduler.sh

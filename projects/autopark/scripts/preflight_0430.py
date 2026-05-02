@@ -188,7 +188,9 @@ def check_notion(env_path: Path) -> Check:
         return Check("notion parent access", "fail", f"parent_id={parent_id}; error={exc}", elapsed)
 
 
-def check_cdp(endpoint: str) -> Check:
+def check_cdp(endpoint: str | None) -> Check:
+    if not endpoint:
+        return Check("chrome cdp endpoint", "ok", "skipped; using server-local Playwright browser")
     started = time.monotonic()
     try:
         with urllib.request.urlopen(f"{endpoint.rstrip('/')}/json/version", timeout=5) as response:
@@ -210,8 +212,6 @@ def check_x_cdp(args: argparse.Namespace) -> Check:
         args.date,
         "--run-name",
         "preflight-x-cdp",
-        "--cdp-endpoint",
-        args.cdp_endpoint,
         "--max-posts",
         str(args.x_max_posts),
         "--lookback-hours",
@@ -223,6 +223,8 @@ def check_x_cdp(args: argparse.Namespace) -> Check:
         "--no-download-images",
         "--dry-run",
     ]
+    if args.cdp_endpoint:
+        command.extend(["--cdp-endpoint", args.cdp_endpoint])
     x_sources = [source.strip() for source in args.x_sources.split(",") if source.strip()]
     if x_sources:
         for source in x_sources:
@@ -257,19 +259,23 @@ def check_finviz(args: argparse.Namespace) -> Check:
         args.date,
         "--source",
         args.finviz_source,
-        "--use-auth-profiles",
-        "--headed",
-        *chrome_browser_args(),
         "--timeout-ms",
         "45000",
         "--no-full-page",
     ]
+    if args.cdp_endpoint:
+        command.extend(["--cdp-endpoint", args.cdp_endpoint])
+    else:
+        command.append("--use-auth-profiles")
+    if str(os.environ.get("AUTOPARK_PREFLIGHT_HEADED") or "0").lower() in {"1", "true", "yes", "on"}:
+        command.append("--headed")
+        command.extend(chrome_browser_args())
     code, stdout, stderr, elapsed = run_command(command, timeout=args.timeout)
     payload = parse_json_output(stdout, stderr)
     metadata = payload.get("metadata", {})
     status_value = metadata.get("status") or "unknown"
     screenshot = metadata.get("screenshot_path")
-    if code == 0 and status_value == "ok":
+    if code == 0 and status_value in {"ok", "fallback"}:
         status = "ok"
     elif status_value in {"partial", "blocked"}:
         status = "warn"
@@ -450,7 +456,8 @@ def main() -> int:
     file_env = load_env(args.env.resolve())
     for key, value in file_env.items():
         os.environ.setdefault(key, value)
-    args.cdp_endpoint = args.cdp_endpoint or os.environ.get("AUTOPARK_CDP_ENDPOINT") or "http://127.0.0.1:9222"
+    use_cdp = str(os.environ.get("AUTOPARK_USE_CDP") or "1").lower() not in {"0", "false", "no", "off"}
+    args.cdp_endpoint = (args.cdp_endpoint or os.environ.get("AUTOPARK_CDP_ENDPOINT") or "http://127.0.0.1:9222") if use_cdp else None
 
     checks: list[Check] = [check_env(args.env.resolve()), check_notion(args.env.resolve()), check_cdp(args.cdp_endpoint)]
     if not args.skip_x:

@@ -13,6 +13,7 @@ from pathlib import Path
 from editorial_policy import enrich_candidate_row, enrich_storyline
 from select_storylines_v2 import PROCESSED_DIR, RUNTIME_NOTION_DIR, compact_text, gather_materials, load_json, x_items
 
+PROJECT_ROOT = PROCESSED_DIR.parents[1]
 REPO_ROOT = PROCESSED_DIR.parents[3]
 MONTH_LOOKUP = {
     "jan": 1,
@@ -242,6 +243,114 @@ def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> 
         row.update(enrich_candidate_row(material, row, themes))
         rows.append(row)
     return sorted(rows, key=lambda row: (-row["score"], row["title"]))
+
+
+def static_chart_rows(date: str) -> list[dict]:
+    specs = [
+        {
+            "id": "fallback-us10y",
+            "title": "US 10Y yield chart sets the rates frame for Monday prep",
+            "summary": "Use the 10-year Treasury chart as the first check on whether risk assets are trading against rates or with rates.",
+            "source": "Yahoo Finance",
+            "url": "https://finance.yahoo.com/quote/%5ETNX",
+            "visual": "us10y.png",
+            "themes": {"rates_macro": ["treasury", "yield", "rate"]},
+            "score": 18,
+        },
+        {
+            "id": "fallback-oil",
+            "title": "WTI and Brent charts show whether energy risk is moving markets",
+            "summary": "Use crude oil charts to separate a broad risk move from a specific inflation or geopolitical impulse.",
+            "source": "Yahoo Finance",
+            "url": "https://finance.yahoo.com/quote/CL%3DF",
+            "visual": "crude-oil-wti.png",
+            "themes": {"energy_geopolitics": ["oil", "wti", "brent"]},
+            "score": 17,
+        },
+        {
+            "id": "fallback-dollar",
+            "title": "DXY and USD/KRW charts anchor the dollar and Korea-open angle",
+            "summary": "Use dollar-index and won-dollar moves to judge whether the US setup carries into the Korea open.",
+            "source": "Yahoo Finance",
+            "url": "https://finance.yahoo.com/quote/DX-Y.NYB",
+            "visual": "dollar-index.png",
+            "themes": {"rates_macro": ["dollar", "dxy"], "market_positioning": ["risk appetite"]},
+            "score": 16,
+        },
+        {
+            "id": "fallback-bitcoin",
+            "title": "Bitcoin chart checks whether speculative risk appetite is confirming equities",
+            "summary": "Use Bitcoin as a fast risk-appetite cross-check before treating equity strength as durable.",
+            "source": "CoinGecko",
+            "url": "https://www.coingecko.com/en/coins/bitcoin",
+            "visual": "bitcoin.png",
+            "themes": {"market_positioning": ["risk appetite"]},
+            "score": 14,
+        },
+        {
+            "id": "fallback-economic-calendar",
+            "title": "Economic calendar defines the macro event risk for Monday",
+            "summary": "Use the calendar image to mark the events that could change rates, dollar, and index futures during the session.",
+            "source": "Trading Economics",
+            "url": "https://www.tradingeconomics.com/calendar",
+            "visual": "economic-calendar-us.png",
+            "themes": {"rates_macro": ["fed", "inflation", "jobs"]},
+            "score": 15,
+        },
+        {
+            "id": "fallback-earnings",
+            "title": "Feature earnings tickers test whether AI and consumer themes still have support",
+            "summary": "Use GOOGL, MSFT, META, AMZN, V, PI, UBER, and EXPE as Monday prep names for theme validation.",
+            "source": "Autopark earnings drilldown",
+            "url": "",
+            "visual": "",
+            "themes": {"earnings_signal": ["earnings", "guidance"], "ai_infra": ["ai", "cloud"]},
+            "score": 15,
+            "tickers": ["GOOGL", "MSFT", "META", "AMZN", "V", "PI", "UBER", "EXPE"],
+        },
+    ]
+    rows = []
+    current_dir = PROJECT_ROOT / "exports" / "current"
+    for spec in specs:
+        visual_path = current_dir / spec["visual"] if spec.get("visual") else None
+        material = {
+            "id": spec["id"],
+            "title": spec["title"],
+            "summary": spec["summary"],
+            "source": spec["source"],
+            "url": spec["url"],
+            "type": "fallback_static_chart",
+            "published_at": date,
+            "visual_local_path": str(visual_path) if visual_path and visual_path.exists() else "",
+            "tickers": spec.get("tickers") or [],
+        }
+        themes = spec["themes"]
+        row = {
+            "id": spec["id"],
+            "title": spec["title"],
+            "source": spec["source"],
+            "url": spec["url"],
+            "type": "fallback_static_chart",
+            "published_at": date,
+            "summary": spec["summary"],
+            "score": spec["score"],
+            "source_weight": 5,
+            "recency_days": 0,
+            "recency_bucket": "fallback",
+            "recency_penalty": 0,
+            "themes": [
+                {"theme": theme, "label": THEME_LABELS.get(theme, theme), "hits": hits}
+                for theme, hits in sorted(themes.items())
+            ],
+            "theme_keys": sorted(themes),
+            "visual_local_path": material["visual_local_path"],
+            "tickers": material["tickers"],
+            "radar_question": radar_question(themes),
+            "suggested_slot": suggested_slot(themes),
+        }
+        row.update(enrich_candidate_row(material, row, themes))
+        rows.append(row)
+    return rows
 
 
 def radar_question(themes: dict[str, list[str]]) -> str:
@@ -911,6 +1020,10 @@ def main() -> int:
     args = parser.parse_args()
 
     rows = build_rows(args.date, args.limit_news, args.limit_x, args.limit_visuals)
+    if len(rows) < 3:
+        seen_ids = {row.get("id") for row in rows}
+        rows.extend(row for row in static_chart_rows(args.date) if row.get("id") not in seen_ids)
+        rows = sorted(rows, key=lambda row: (-row["score"], row["title"]))
     processed_dir = PROCESSED_DIR / args.date
     notion_dir = RUNTIME_NOTION_DIR / args.date
     processed_dir.mkdir(parents=True, exist_ok=True)

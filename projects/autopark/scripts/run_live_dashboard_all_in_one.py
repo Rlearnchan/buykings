@@ -162,6 +162,7 @@ def launch_chrome_cdp(args: argparse.Namespace, env: dict[str, str], results: li
     profile_dir.mkdir(parents=True, exist_ok=True)
     command = [
         default_chrome_path(),
+        f"--remote-debugging-address={env.get('AUTOPARK_CDP_REMOTE_ADDRESS', '127.0.0.1')}",
         f"--remote-debugging-port={port}",
         f"--user-data-dir={profile_dir}",
         "--profile-directory=Default",
@@ -441,6 +442,14 @@ def make_step(name: str, status: str, summary: str, artifacts: list[str] | None 
     return StepResult(name, status, now, now, 0.0, [], None, summary, artifacts or [])
 
 
+def cdp_option(endpoint: str | None) -> list[str]:
+    return ["--cdp-endpoint", endpoint] if endpoint else []
+
+
+def auth_profile_option(endpoint: str | None) -> list[str]:
+    return [] if endpoint else ["--use-auth-profiles"]
+
+
 def resolve_probability_sources(args: argparse.Namespace, env: dict[str, str]) -> tuple[list[str], str]:
     sources = list(CME_PROBABILITY_SOURCES)
     policy = (args.polymarket_policy or env.get("AUTOPARK_POLYMARKET_POLICY") or "issue").lower()
@@ -595,7 +604,8 @@ def main() -> int:
     for key, value in file_env.items():
         os.environ.setdefault(key, value)
     run_env = {**os.environ, **file_env}
-    args.cdp_endpoint = args.cdp_endpoint or run_env.get("AUTOPARK_CDP_ENDPOINT") or "http://127.0.0.1:9222"
+    use_cdp = str(run_env.get("AUTOPARK_USE_CDP") or "1").lower() not in {"0", "false", "no", "off"}
+    args.cdp_endpoint = (args.cdp_endpoint or run_env.get("AUTOPARK_CDP_ENDPOINT") or "http://127.0.0.1:9222") if use_cdp else None
     operation = resolve_operation(args.date, calendar_path=args.broadcast_calendar, requested_mode=args.operation_mode)
     calendar_publish_policy = str(operation.get("publish_policy") or "gate").lower()
     if not operation.get("expected_broadcast") and args.publish_policy is None:
@@ -648,9 +658,7 @@ def main() -> int:
                 "projects/autopark/scripts/preflight_0430.py",
                 "--date",
                 args.date,
-                "--cdp-endpoint",
-                args.cdp_endpoint,
-            ],
+            ] + cdp_option(args.cdp_endpoint),
             [
                 node,
                 "projects/autopark/scripts/collect_x_timeline.mjs",
@@ -660,9 +668,7 @@ def main() -> int:
                 "x-timeline",
                 "--source-profile",
                 args.x_profile,
-                "--cdp-endpoint",
-                args.cdp_endpoint,
-            ],
+            ] + cdp_option(args.cdp_endpoint),
             [
                 node,
                 "projects/autopark/scripts/collect_x_timeline.mjs",
@@ -672,9 +678,7 @@ def main() -> int:
                 "earnings-calendar-x",
                 "--source",
                 "fixed-earnings-calendar",
-                "--cdp-endpoint",
-                args.cdp_endpoint,
-            ],
+            ] + cdp_option(args.cdp_endpoint),
             *([] if args.skip_finviz else [
                 [
                     node,
@@ -683,9 +687,7 @@ def main() -> int:
                     args.date,
                     "--source",
                     source,
-                    "--cdp-endpoint",
-                    args.cdp_endpoint,
-                ]
+                ] + cdp_option(args.cdp_endpoint) + auth_profile_option(args.cdp_endpoint)
                 for source in [*FINVIZ_SOURCES, "cnn-fear-greed"]
             ]),
             *[
@@ -696,9 +698,7 @@ def main() -> int:
                     args.date,
                     "--source",
                     source,
-                    "--cdp-endpoint",
-                    args.cdp_endpoint,
-                ]
+                ] + cdp_option(args.cdp_endpoint) + auth_profile_option(args.cdp_endpoint)
                 for source in ([] if args.skip_fed_probabilities else probability_sources)
             ],
             *([] if args.skip_finviz else [[
@@ -708,9 +708,7 @@ def main() -> int:
                 args.date,
                 "--tickers",
                 "XLE,CVX,XOM,GOOGL,MSFT,META,AMZN,V,PI,UBER",
-                "--cdp-endpoint",
-                args.cdp_endpoint,
-            ]]),
+            ] + cdp_option(args.cdp_endpoint)]),
         ]
         forbidden_browser_args = {"--profile", "--headed", "--browser-channel"}
         browser_arg_violations = sorted(
@@ -774,13 +772,11 @@ def main() -> int:
             "projects/autopark/scripts/preflight_0430.py",
             "--date",
             args.date,
-            "--cdp-endpoint",
-            args.cdp_endpoint,
             "--collected-at",
             collected_at,
             "--timeout",
             "120",
-        ],
+        ] + cdp_option(args.cdp_endpoint),
         "preflight",
         180,
         allow_fail=True,
@@ -818,15 +814,13 @@ def main() -> int:
             "x-timeline",
             "--source-profile",
             args.x_profile,
-            "--cdp-endpoint",
-            args.cdp_endpoint,
             "--max-posts",
             str(effective_x_max_posts),
             "--lookback-hours",
             x_lookback,
             "--scrolls",
             "4" if int(x_lookback) > 24 else "2",
-        ],
+        ] + cdp_option(args.cdp_endpoint),
         "collect x timeline",
         args.timeout,
         allow_fail=True,
@@ -843,8 +837,6 @@ def main() -> int:
             "earnings-calendar-x",
             "--source",
             "fixed-earnings-calendar",
-            "--cdp-endpoint",
-            args.cdp_endpoint,
             "--max-posts",
             "4",
             "--lookback-hours",
@@ -853,7 +845,7 @@ def main() -> int:
             "3",
             "--min-text-length",
             "10",
-        ],
+        ] + cdp_option(args.cdp_endpoint),
         "collect earnings calendar x",
         args.timeout,
         allow_fail=True,
@@ -900,9 +892,7 @@ def main() -> int:
                     args.date,
                     "--source",
                     source,
-                    "--cdp-endpoint",
-                    args.cdp_endpoint,
-                ],
+                ] + cdp_option(args.cdp_endpoint) + auth_profile_option(args.cdp_endpoint),
                 f"capture {source}",
                 args.timeout,
                 allow_fail=True,
@@ -916,9 +906,7 @@ def main() -> int:
                 args.date,
                 "--source",
                 "cnn-fear-greed",
-                "--cdp-endpoint",
-                args.cdp_endpoint,
-            ],
+            ] + cdp_option(args.cdp_endpoint) + auth_profile_option(args.cdp_endpoint),
             "capture cnn-fear-greed",
             args.timeout,
             allow_fail=True,
@@ -937,11 +925,9 @@ def main() -> int:
                     args.date,
                     "--source",
                     source,
-                    "--cdp-endpoint",
-                    args.cdp_endpoint,
                     "--timeout-ms",
                     "45000",
-                ],
+                ] + cdp_option(args.cdp_endpoint) + auth_profile_option(args.cdp_endpoint),
                 f"capture {source}",
                 args.timeout,
                 allow_fail=True,
@@ -1119,9 +1105,7 @@ def main() -> int:
                 args.date,
                 "--tickers",
                 "XLE,CVX,XOM,GOOGL,MSFT,META,AMZN,V,PI,UBER",
-                "--cdp-endpoint",
-                args.cdp_endpoint,
-            ],
+            ] + cdp_option(args.cdp_endpoint),
             "capture finviz feature stocks",
             max(args.timeout, 180),
             allow_fail=True,

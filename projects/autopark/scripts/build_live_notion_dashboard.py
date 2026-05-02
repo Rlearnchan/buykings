@@ -66,6 +66,52 @@ def clean(value: str | None, limit: int | None = None) -> str:
     return text
 
 
+def clean_complete(value: str | None, limit: int | None = None) -> str:
+    text = clean(value)
+    if not limit or len(text) <= limit:
+        return text.rstrip("…").rstrip()
+    clipped = text[:limit].rstrip()
+    sentence_end = max(clipped.rfind(mark) for mark in [".", "?", "!", "다.", "요.", "함.", "음."])
+    if sentence_end >= max(40, limit // 2):
+        return clipped[: sentence_end + 1].rstrip()
+    return clipped.rstrip("…").rstrip()
+
+
+def compact_status(value: str | None, default: str = "medium") -> str:
+    text = clean(value or default)
+    for marker in ["—", "-", ":", "·"]:
+        if marker in text:
+            head = clean(text.split(marker, 1)[0])
+            if head:
+                return head
+    return clean(text, 32)
+
+
+def public_editorial_text(value: str | None, limit: int | None = None) -> str:
+    text = clean(value)
+    text = re.sub(r"^자동 보강:\s*", "", text)
+    text = text.replace(
+        "sentiment 단독 스토리라인이 되지 않도록 같은 테마의 fact/data/analysis 후보를 추가했습니다.",
+        "소셜 근거만 남지 않도록 같은 주제의 기사·분석 후보를 함께 붙였습니다.",
+    )
+    text = re.sub(r"\s*/\s*auto_added_fact_data_analysis_support\b", "", text)
+    text = text.replace("auto_added_fact_data_analysis_support", "")
+    text = re.sub(r"^retrospective_learning:\s*", "", text)
+    text = text.replace("causal anchor", "핵심 근거")
+    return clean(text, limit)
+
+
+def signal_label(value: str | None) -> str:
+    text = clean(value or "watch").lower()
+    if text.startswith("signal"):
+        return "신호"
+    if text.startswith("noise"):
+        return "소음"
+    if text.startswith("watch"):
+        return "점검"
+    return clean(value or "점검", 24)
+
+
 def link(label: str, url: str) -> str:
     return f"[{label}]({url})" if url.startswith("http") else label
 
@@ -1013,7 +1059,6 @@ def render_storyline(lines: list[str], index: int, storyline: dict, radar_by_id:
 def valid_editorial_brief(brief: dict) -> bool:
     return bool(
         brief
-        and not brief.get("fallback")
         and isinstance(brief.get("storylines"), list)
         and len(brief.get("storylines") or []) >= 3
         and brief.get("daily_thesis")
@@ -1171,33 +1216,109 @@ def slide_order_title(value: str, radar_by_id: dict) -> str:
     return text
 
 
+def evidence_kind_label(value: str | None) -> str:
+    role = clean(value or "").lower()
+    return {
+        "fact": "팩트",
+        "data": "데이터",
+        "analysis": "분석",
+        "sentiment": "시장 반응",
+        "visual": "시각자료",
+        "market_reaction": "시장 반응",
+    }.get(role, "맥락")
+
+
+def visual_role_label(value: str | None) -> str:
+    role = clean(value or "").lower()
+    if "fact" in role:
+        return "팩트 장표"
+    if "analysis" in role:
+        return "분석 장표"
+    if "data" in role or "chart" in role:
+        return "차트"
+    if "x_post" in role or "screenshot" in role:
+        return "캡처"
+    if "visual" in role:
+        return "시각자료"
+    return "장표"
+
+
+def evidence_source_label(evidence: dict, radar_by_id: dict) -> str:
+    row = radar_by_id.get(evidence.get("item_id") or "") or {}
+    source = evidence.get("source") or row.get("source") or row.get("type") or ""
+    url = evidence.get("url") or row.get("url") or ""
+    return source_label(source, url)
+
+
+def evidence_reference_values(evidence: dict) -> set[str]:
+    values = set()
+    for key in ["item_id", "evidence_id", "id", "url"]:
+        value = clean(str(evidence.get(key) or ""))
+        if value:
+            values.add(value)
+            values.add(short_reference_id(value))
+    return values
+
+
+def asset_reference_values(asset: dict) -> set[str]:
+    values = set()
+    for key in ["asset_id", "evidence_id", "item_id", "url"]:
+        value = clean(str(asset.get(key) or ""))
+        if not value:
+            continue
+        values.add(value)
+        values.add(short_reference_id(value))
+        if ":" in value:
+            tail = value.split(":", 1)[1]
+            if tail.startswith("http"):
+                values.add(tail)
+                values.add(short_reference_id(tail))
+    return values
+
+
+def slide_asset_reference_values(brief: dict) -> set[str]:
+    values: set[str] = set()
+    for asset in flatten_ppt_assets(brief):
+        if not asset.get("use_as_slide"):
+            continue
+        values.update(asset_reference_values(asset))
+    return {value for value in values if value}
+
+
 def render_editorial_storyline(lines: list[str], index: int, storyline: dict, radar_by_id: dict) -> None:
     title = clean(storyline.get("title"), 90)
     evidence_to_use = storyline.get("evidence_to_use") or []
     evidence_to_drop = storyline.get("evidence_to_drop") or []
-    slide_order = [slide_order_title(item, radar_by_id) for item in (storyline.get("slide_plan") or storyline.get("slide_order") or []) if clean(item)]
+    slide_order = [
+        slide_order_title(item, radar_by_id)
+        for item in (storyline.get("slide_plan") or storyline.get("slide_order") or [])
+        if clean(item)
+        and "auto_added_fact_data_analysis_support" not in clean(item)
+        and "자동 보강" not in clean(item)
+        and "causal anchor" not in clean(item).lower()
+    ]
     ppt_assets = storyline.get("ppt_asset_queue") or []
     lines.extend(
         [
             f"## {index}. {title}",
             "",
-            f"추천도: `{stars_text(storyline.get('recommendation_stars'))}` {clean(storyline.get('rating_reason'), 90)}".rstrip(),
+            f"추천도: `{stars_text(storyline.get('recommendation_stars'))}` {clean_complete(storyline.get('rating_reason'), 180)}".rstrip(),
             "",
-            f"- 첫 꼭지 판단: {clean(storyline.get('lead_candidate_reason') or ('보조 꼭지 후보' if index > 1 else ''), 220)}",
-            f"- 신호/소음: `{clean(storyline.get('signal_or_noise') or 'watch', 40)}`",
-            f"- 원인 판단: {clean(storyline.get('market_causality') or '근거 조합 확인 필요', 180)}",
-            f"- 기대/선반영: 기대 `{clean(storyline.get('expectation_gap') or 'check_if_relevant', 70)}` · 선반영 `{clean(storyline.get('prepricing_risk') or 'check_if_relevant', 70)}`",
-            f"- 첫 5분 적합도/한국장 관련성: `{clean(storyline.get('first_5min_fit') or 'medium', 40)}` / `{clean(storyline.get('korea_open_relevance') or 'medium', 40)}`",
+            f"- 첫 꼭지 판단: {public_editorial_text(storyline.get('lead_candidate_reason') or ('보조 꼭지 후보' if index > 1 else ''), 220)}",
+            f"- 신호/소음: `{signal_label(storyline.get('signal_or_noise'))}`",
+            f"- 원인 판단: {public_editorial_text(storyline.get('market_causality') or '근거 조합 확인 필요', 180)}",
+            f"- 기대/선반영: 기대 `{public_editorial_text(storyline.get('expectation_gap') or 'check_if_relevant', 110)}` · 선반영 `{public_editorial_text(storyline.get('prepricing_risk') or 'check_if_relevant', 110)}`",
+            f"- 첫 5분 적합도/한국장 관련성: `{compact_status(storyline.get('first_5min_fit'), 'medium')}` / `{compact_status(storyline.get('korea_open_relevance'), 'medium')}`",
             "",
-            f"> {clean(storyline.get('hook'), 220)}",
+            f"> {public_editorial_text(storyline.get('hook'), 220)}",
             "",
             "### 왜 지금",
             "",
-            clean(storyline.get("why_now"), 320),
+            public_editorial_text(storyline.get("why_now"), 320),
             "",
             "### 핵심 주장",
             "",
-            clean(storyline.get("core_argument"), 320),
+            public_editorial_text(storyline.get("core_argument"), 320),
             "",
             "### 쓸 자료",
             "",
@@ -1206,27 +1327,29 @@ def render_editorial_storyline(lines: list[str], index: int, storyline: dict, ra
     if evidence_to_use:
         for item in evidence_to_use[:5]:
             title = evidence_title(item, radar_by_id)
-            reason = clean(item.get("reason"), 180)
-            role = clean(f"{item.get('source_role') or '-'} / {item.get('evidence_role') or '-'}", 80)
-            evidence_id = short_reference_id(item.get("evidence_id") or item.get("item_id") or "")
-            lines.append(f"- `{title}` ({role}, id `{evidence_id}`): {reason}")
+            reason = public_editorial_text(item.get("reason"), 180)
+            source = evidence_source_label(item, radar_by_id)
+            kind = evidence_kind_label(item.get("evidence_role"))
+            lines.append(f"- `{title}`: {reason} (출처: {source}, 성격: {kind})")
     else:
         lines.append("- 핵심 근거가 부족합니다. 방송 전 수동 확인이 필요합니다.")
     if evidence_to_drop:
         lines.extend(["", "### 버릴 자료", ""])
         for item in evidence_to_drop[:3]:
             title = evidence_title(item, radar_by_id)
-            reason = clean(item.get("reason"), 160)
+            reason = public_editorial_text(item.get("reason"), 160)
             drop_code = clean(item.get("drop_code") or storyline.get("drop_code") or "support_only", 60)
             lines.append(f"- `{title}` / `{drop_code}`: {reason}")
     if ppt_assets:
+        slide_assets = [asset for asset in ppt_assets if asset.get("use_as_slide")]
         lines.extend(["", "### PPT 캡처/장표 후보", ""])
-        for asset in ppt_assets[:5]:
-            slide_flag = "slide" if asset.get("use_as_slide") else "talk"
+        for asset in slide_assets[:5]:
             caption = clean(asset.get("caption"), 120)
-            why = clean(asset.get("why_this_visual"), 160)
-            caveat = clean(asset.get("risks_or_caveats"), 120)
-            lines.append(f"- `{slide_flag}` {caption}: {why} / 주의: {caveat}")
+            why = public_editorial_text(asset.get("why_this_visual"), 160)
+            caveat = public_editorial_text(asset.get("risks_or_caveats"), 120)
+            lines.append(f"- {caption}: {why} / 주의: {caveat}")
+        if not slide_assets:
+            lines.append("- 이 꼭지는 말로만 처리하는 편이 낫습니다.")
     lines.extend(["", "### 구성", ""])
     if slide_order:
         for item in slide_order[:5]:
@@ -1238,19 +1361,19 @@ def render_editorial_storyline(lines: list[str], index: int, storyline: dict, ra
             "",
             "### 방송 멘트 초안",
             "",
-            clean(storyline.get("talk_track"), 420),
+            public_editorial_text(storyline.get("talk_track"), 420),
             "",
             "### 반론/주의점",
             "",
-            clean(storyline.get("counterpoint"), 260),
+            public_editorial_text(storyline.get("counterpoint"), 260),
             "",
             "### 판단이 바뀌는 조건",
             "",
-            clean(storyline.get("what_would_change_my_mind"), 240),
+            public_editorial_text(storyline.get("what_would_change_my_mind"), 240),
             "",
             "### 클로징 한 줄",
             "",
-            clean(storyline.get("closing_line"), 220),
+            public_editorial_text(storyline.get("closing_line"), 220),
             "",
         ]
     )
@@ -1261,7 +1384,7 @@ def editorial_summary_bullets(brief: dict) -> list[str]:
     if not summary:
         return []
     parts = [part.strip() for part in re.split(r"(?<=[.!?。])\s+|(?<=다\.)\s+", summary) if part.strip()]
-    return parts[:3] if parts else [summary]
+    return [clean_complete(part, 180) for part in (parts[:3] if parts else [summary])]
 
 
 def flatten_ppt_assets(brief: dict) -> list[dict]:
@@ -1278,11 +1401,24 @@ def flatten_ppt_assets(brief: dict) -> list[dict]:
 
 
 def flatten_talk_only(brief: dict) -> list[dict]:
+    slide_refs = slide_asset_reference_values(brief)
     rows = list(brief.get("talk_only_queue") or [])
-    seen = {item.get("item_id") for item in rows if item.get("item_id")}
+    filtered_rows = []
+    seen = set()
+    for item in rows:
+        refs = evidence_reference_values(item)
+        if refs & slide_refs:
+            continue
+        key = item.get("item_id") or item.get("evidence_id")
+        if key:
+            seen.add(key)
+        filtered_rows.append(item)
+    rows = filtered_rows
     for story in brief.get("storylines") or []:
         for evidence in story.get("evidence_to_use") or []:
             if evidence.get("evidence_role") != "sentiment":
+                continue
+            if evidence_reference_values(evidence) & slide_refs:
                 continue
             if evidence.get("item_id") in seen:
                 continue
@@ -1304,17 +1440,16 @@ def flatten_drop_items(brief: dict) -> list[dict]:
 
 
 def render_ppt_asset_queue(lines: list[str], brief: dict) -> None:
-    assets = flatten_ppt_assets(brief)
+    assets = [asset for asset in flatten_ppt_assets(brief) if asset.get("use_as_slide")]
     if not assets:
         lines.append("- 장표 후보 없음. 기존 시장 지도와 실적/특징주 섹션을 수동 확인하세요.")
         return
     for asset in assets[:12]:
-        flag = "slide" if asset.get("use_as_slide") else "talk"
         caption = clean(asset.get("caption"), 100)
-        role = clean(asset.get("visual_asset_role"), 60)
-        why = clean(asset.get("why_this_visual"), 140)
-        caveat = clean(asset.get("risks_or_caveats"), 110)
-        lines.append(f"- `{flag}` `{role}` {caption}: {why} / 주의: {caveat}")
+        role = visual_role_label(asset.get("visual_asset_role"))
+        why = public_editorial_text(asset.get("why_this_visual"), 140)
+        caveat = public_editorial_text(asset.get("risks_or_caveats"), 110)
+        lines.append(f"- `{role}` {caption}: {why} / 주의: {caveat}")
 
 
 def render_talk_only_queue(lines: list[str], brief: dict, radar_by_id: dict) -> None:
@@ -1324,8 +1459,8 @@ def render_talk_only_queue(lines: list[str], brief: dict, radar_by_id: dict) -> 
         return
     for item in rows[:10]:
         title = evidence_title(item, radar_by_id)
-        role = clean(item.get("evidence_role") or "context", 40)
-        reason = clean(item.get("reason"), 140)
+        role = evidence_kind_label(item.get("evidence_role") or "context")
+        reason = public_editorial_text(item.get("reason"), 140)
         lines.append(f"- `{title}` / `{role}`: {reason}")
 
 
@@ -1337,7 +1472,7 @@ def render_drop_queue(lines: list[str], brief: dict, radar_by_id: dict) -> None:
     for item in rows[:10]:
         title = evidence_title(item, radar_by_id)
         drop_code = clean(item.get("drop_code") or "support_only", 50)
-        reason = clean(item.get("reason"), 140)
+        reason = public_editorial_text(item.get("reason"), 140)
         lines.append(f"- `{title}` / `{drop_code}`: {reason}")
 
 
@@ -1466,7 +1601,11 @@ def render_dashboard(target_date: str) -> str:
     }
     use_editorial = valid_editorial_brief(editorial_brief)
     display_storylines = editorial_brief.get("storylines", []) if use_editorial else filtered_storylines(radar_storylines or storylines, radar_by_id)
-    today_axis = clean(editorial_brief.get("daily_thesis"), 140) if use_editorial else infer_today_axis(display_storylines, radar_candidates)
+    today_axis = (
+        clean_complete(editorial_brief.get("one_line_market_frame") or editorial_brief.get("daily_thesis"), 220)
+        if use_editorial
+        else infer_today_axis(display_storylines, radar_candidates)
+    )
     market_map_summary = clean(editorial_brief.get("market_map_summary"), 220) if use_editorial else "지수, 히트맵, 금리, 유가, 달러, 원달러, 비트코인 순서로 시장 반응을 먼저 확인합니다."
     lead_story = display_storylines[0] if display_storylines else {}
 
@@ -1485,12 +1624,11 @@ def render_dashboard(target_date: str) -> str:
         "",
         "# 🗞️ 주요 뉴스 요약",
         "",
-        f"- 오늘의 대립축: {today_axis}",
     ]
     summary_bullets = editorial_summary_bullets(editorial_brief) if use_editorial else selection.get("dashboard_summary_bullets", [])
     if summary_bullets:
         for bullet in summary_bullets[:3]:
-            lines.append(f"- {clean(bullet, 110)}")
+            lines.append(f"- {clean_complete(bullet, 180)}")
     elif radar_storylines:
         for storyline in radar_storylines[1:3]:
             lines.append(f"- {clean(storyline.get('one_liner'), 110)}")
@@ -1511,8 +1649,8 @@ def render_dashboard(target_date: str) -> str:
         lines.extend(
             [
                 f"- `{clean(lead_story.get('title'), 100)}`",
-                f"- 이유: {clean(lead_story.get('lead_candidate_reason') or lead_story.get('why_selected') or lead_story.get('why_now'), 220)}",
-                f"- 첫 5분 적합도: `{clean(lead_story.get('first_5min_fit') or 'medium', 50)}` / PPT 후보 수: `{len(lead_story.get('ppt_asset_queue') or [])}`",
+                f"- 이유: {clean_complete(lead_story.get('lead_candidate_reason') or lead_story.get('why_selected') or lead_story.get('why_now'), 240)}",
+                f"- 첫 5분 적합도: `{compact_status(lead_story.get('first_5min_fit'), 'medium')}` / PPT 후보 수: `{len([asset for asset in (lead_story.get('ppt_asset_queue') or []) if asset.get('use_as_slide')])}`",
             ]
         )
     else:
@@ -1819,7 +1957,7 @@ def render_dashboard(target_date: str) -> str:
         watchpoints = editorial_brief.get("retrospective_watchpoints") or []
         if watchpoints:
             for item in watchpoints[:8]:
-                lines.append(f"- {clean(item, 160)}")
+                lines.append(f"- {public_editorial_text(item, 160)}")
         else:
             lines.append("- 리드 스토리라인이 실제 첫 꼭지로 쓰였는지 기록.")
             lines.append("- PPT 캡처 후보 중 실제 장표화된 자료와 말로만 처리된 자료를 구분.")

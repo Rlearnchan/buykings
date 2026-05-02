@@ -1,0 +1,106 @@
+services:
+  wepoll-fetcher:
+    build:
+      context: .
+      dockerfile: Dockerfile.wepoll
+    image: buykings-wepoll:local
+    container_name: buykings-wepoll-fetcher
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Seoul
+      WEPOLL_FETCHER_HOST: 0.0.0.0
+      WEPOLL_FETCHER_PORT: 8777
+      WEPOLL_FETCHER_USER_DATA_DIR: /state/fetcher-profile
+      WEPOLL_FETCHER_HEADED: ${WEPOLL_FETCHER_HEADED:-0}
+      WEPOLL_ALLOW_MANUAL_LOGIN: ${WEPOLL_ALLOW_MANUAL_LOGIN:-0}
+    ports:
+      - "${WEPOLL_HOST_PORT:-8777}:8777"
+    volumes:
+      - ./.server-state/wepoll:/state
+      - ./runtime/downloads/wepoll:/app/runtime/downloads/wepoll
+      - ./runtime/logs/wepoll-fetcher:/app/runtime/logs/wepoll-fetcher
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8777/health >/dev/null"]
+      interval: 1m
+      timeout: 45s
+      retries: 3
+      start_period: 30s
+    command:
+      - bash
+      - ops/docker/wepoll_fetcher.sh
+
+  wepoll-daily:
+    build:
+      context: .
+      dockerfile: Dockerfile.wepoll
+    image: buykings-wepoll:local
+    container_name: buykings-wepoll-daily
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: Asia/Seoul
+      WEPOLL_FETCHER_URL: ${WEPOLL_FETCHER_URL:-http://host.docker.internal:8777}
+      WEPOLL_FETCHER_OUTPUT_DIR: ${WEPOLL_FETCHER_OUTPUT_DIR:-C:\Users\User1\Documents\code\buykings\runtime\downloads\wepoll}
+      WEPOLL_DOWNLOAD_DIR: /app/runtime/downloads/wepoll
+      WEPOLL_MANIFEST_DIR: /app/runtime/logs/wepoll-fetcher
+      WEPOLL_PANIC_ROOT: /app/vendor/wepoll-panic
+      WEPOLL_SECOND_PASS_BACKEND: ${WEPOLL_SECOND_PASS_BACKEND:-openai}
+      WEPOLL_SECOND_PASS_MODEL: ${WEPOLL_SECOND_PASS_MODEL:-gpt-5-mini}
+      OLLAMA_HOST: ${WEPOLL_DOCKER_OLLAMA_HOST:-http://host.docker.internal:11434}
+      WEPOLL_SKIP_PUBLISH: ${WEPOLL_SKIP_PUBLISH:-0}
+      WEPOLL_SKIP_SQLITE_SYNC: ${WEPOLL_SKIP_SQLITE_SYNC:-0}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./runtime/downloads/wepoll:/app/runtime/downloads/wepoll
+      - ./runtime/logs/wepoll-fetcher:/app/runtime/logs/wepoll-fetcher
+      - ./tmp:/app/tmp
+      - ./db:/app/db
+      - ./projects/wepoll-panic/state:/app/projects/wepoll-panic/state
+      - ./projects/wepoll-panic/prepared:/app/projects/wepoll-panic/prepared
+      - ./projects/wepoll-panic/charts:/app/projects/wepoll-panic/charts
+      - ./vendor/wepoll-panic:/app/vendor/wepoll-panic:ro
+    command:
+      - bash
+      - ops/docker/wepoll_daily.sh
+
+  wepoll-daily-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile.wepoll
+    image: buykings-wepoll:local
+    container_name: buykings-wepoll-daily-scheduler
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      TZ: Asia/Seoul
+      WEPOLL_FETCHER_URL: ${WEPOLL_FETCHER_URL:-http://host.docker.internal:8777}
+      WEPOLL_FETCHER_OUTPUT_DIR: ${WEPOLL_FETCHER_OUTPUT_DIR:-C:\Users\User1\Documents\code\buykings\runtime\downloads\wepoll}
+      WEPOLL_DOWNLOAD_DIR: /app/runtime/downloads/wepoll
+      WEPOLL_MANIFEST_DIR: /app/runtime/logs/wepoll-fetcher
+      WEPOLL_PANIC_ROOT: /app/vendor/wepoll-panic
+      WEPOLL_SECOND_PASS_BACKEND: ${WEPOLL_SECOND_PASS_BACKEND:-openai}
+      WEPOLL_SECOND_PASS_MODEL: ${WEPOLL_SECOND_PASS_MODEL:-gpt-5-mini}
+      OLLAMA_HOST: ${WEPOLL_DOCKER_OLLAMA_HOST:-http://host.docker.internal:11434}
+      WEPOLL_SKIP_PUBLISH: ${WEPOLL_SKIP_PUBLISH:-0}
+      WEPOLL_SKIP_SQLITE_SYNC: ${WEPOLL_SKIP_SQLITE_SYNC:-0}
+      WEPOLL_RUN_TIMES: ${WEPOLL_RUN_TIMES:-00:10}
+      WEPOLL_RETRY_TIMES: ${WEPOLL_RETRY_TIMES:-00:30}
+      WEPOLL_RETRY_ALWAYS: ${WEPOLL_RETRY_ALWAYS:-0}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./runtime/downloads/wepoll:/app/runtime/downloads/wepoll
+      - ./runtime/logs/wepoll-fetcher:/app/runtime/logs/wepoll-fetcher
+      - ./tmp:/app/tmp
+      - ./db:/app/db
+      - ./projects/wepoll-panic/state:/app/projects/wepoll-panic/state
+      - ./projects/wepoll-panic/prepared:/app/projects/wepoll-panic/prepared
+      - ./projects/wepoll-panic/charts:/app/projects/wepoll-panic/charts
+      - ./vendor/wepoll-panic:/app/vendor/wepoll-panic:ro
+    command:
+      - bash
+      - ops/docker/wepoll_scheduler.sh
