@@ -1,0 +1,51 @@
+{
+  "daily_thesis": "실적 기대와 금리 부담이 오늘 시장의 첫 질문이다.",
+  "editorial_summary": "지수 반응을 먼저 보고, 실적 기대 대비 결과와 금리 부담을 분리한다.",
+  "storylines": [
+    {
+      "title": "실적은 기대를 이겼나",
+      "recommendation_stars": 3,
+      "rating_reason": "첫 꼭지 후보",
+      "hook": "실적 숫자보다 기대 대비 결과가 중요하다.",
+      "why_now": "개장 전 실적 반응과 지수 흐름이 같은 방향으로 잡혔다.",
+      "core_argument": "실적 서프라이즈가 이미 높아진 기대를 다시 정당화하는지 봐야 한다.",
+      "evidence_to_use": [
+        {"item_id": "fact-1", "title": "Reuters earnings wrap", "reason": "실적 fact anchor"}
+      ],
+      "evidence_to_drop": [],
+      "slide_order": ["지수 흐름", "실적 카드"],
+      "talk_track": "먼저 지수와 히트맵을 보고, 이어서 실적 기대와 실제 반응을 비교한다.",
+      "counterpoint": "이미 가격에 반영됐을 수 있다."
+    },
+    {
+      "title": "금리는 시장의 제약인가",
+      "recommendation_stars": 2,
+      "rating_reason": "보조 꼭지",
+      "hook": "10년물 금리가 할인율을 다시 건드리는지 본다.",
+      "why_now": "FedWatch와 금리 차트가 같이 필요하다.",
+      "core_argument": "정책 기대가 주식 밸류에이션을 제한할 수 있다.",
+      "evidence_to_use": [
+        {"item_id": "chart-1", "title": "10Y chart", "reason": "시장 반응 자료"}
+      ],
+      "evidence_to_drop": [],
+      "slide_order": ["10년물 금리"],
+      "talk_track": "금리 차트는 원인이 아니라 제약 조건으로 설명한다.",
+      "counterpoint": "주식이 금리 부담을 무시할 수도 있다."
+    },
+    {
+      "title": "X 반응은 분위기만 본다",
+      "recommendation_stars": 1,
+      "rating_reason": "환기",
+      "hook": "소셜 반응은 사실 근거가 아니라 분위기다.",
+      "why_now": "시청자가 관심을 보이는 소재다.",
+      "core_argument": "말로만 짧게 처리한다.",
+      "evidence_to_use": [
+        {"item_id": "x-1", "title": "X post", "reason": "sentiment only"}
+      ],
+      "evidence_to_drop": [],
+      "slide_order": [],
+      "talk_track": "이건 fact가 아니라 분위기로만 짚고 넘어간다.",
+      "counterpoint": "검증된 출처가 아니면 확정하면 안 된다."
+    }
+  ]
+}

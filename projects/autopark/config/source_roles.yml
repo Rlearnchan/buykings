@@ -1,0 +1,50 @@
+version: 1
+description: "Autopark source and evidence role policy for morning broadcast editing."
+
+roles:
+  fact_anchor:
+    use: "Confirm concrete claims, events, company actions, policy moves, and reported facts."
+    allowed_evidence_roles: ["fact", "analysis"]
+    examples: ["Reuters", "AP", "SEC filing", "company release"]
+  speed_anchor:
+    use: "Fast market news that can flag what to check, but should usually be paired with fact/data evidence."
+    allowed_evidence_roles: ["fact", "analysis", "context"]
+    examples: ["CNBC", "MarketWatch", "Yahoo Finance"]
+  data_anchor:
+    use: "Market, macro, earnings, or calendar data."
+    allowed_evidence_roles: ["data", "market_reaction"]
+    examples: ["Trading Economics", "CME FedWatch", "Datawrapper market chart"]
+  analysis_anchor:
+    use: "Interpretation from institutional or specialist sources."
+    allowed_evidence_roles: ["analysis"]
+    examples: ["Bloomberg analysis", "WSJ", "Financial Times", "FactSet"]
+  market_reaction:
+    use: "Shows how markets are reacting, not why the reaction happened."
+    allowed_evidence_roles: ["market_reaction", "visual"]
+    examples: ["Finviz heatmap", "index futures", "sector chart"]
+  sentiment_probe:
+    use: "Shows attention, mood, controversy, or retail/pro commentary."
+    allowed_evidence_roles: ["sentiment"]
+    forbidden_evidence_roles: ["fact"]
+    examples: ["X", "Reddit", "community post"]
+  visual_anchor:
+    use: "Slide-ready capture or graphic that explains a market state."
+    allowed_evidence_roles: ["visual", "market_reaction"]
+    examples: ["chart screenshot", "article screenshot", "earnings calendar"]
+  company_primary:
+    use: "Company's own disclosure or IR material."
+    allowed_evidence_roles: ["fact", "data"]
+    examples: ["press release", "earnings release", "10-Q"]
+  official_policy:
+    use: "Government, central bank, regulator, or official policy source."
+    allowed_evidence_roles: ["fact", "data", "policy"]
+    examples: ["Federal Reserve", "BLS", "Treasury", "White House"]
+  weak_or_unverified:
+    use: "Unverified, low-context, or unsupported material. Use only as backup or drop."
+    allowed_evidence_roles: ["context"]
+    forbidden_evidence_roles: ["fact", "data", "analysis"]
+
+hard_rules:
+  - "X, Reddit, and community reactions are sentiment evidence only."
+  - "Charts and heatmaps show market reaction; they do not prove causality by themselves."
+  - "A lead storyline must cite at least one fact/data/analysis item and at least one slide-capable or talk-capable item."

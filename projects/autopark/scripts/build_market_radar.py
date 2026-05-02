@@ -10,6 +10,7 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from editorial_policy import enrich_candidate_row, enrich_storyline
 from select_storylines_v2 import PROCESSED_DIR, RUNTIME_NOTION_DIR, compact_text, gather_materials, load_json, x_items
 
 REPO_ROOT = PROCESSED_DIR.parents[3]
@@ -215,31 +216,31 @@ def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> 
         if score < 7 and not themes:
             continue
         title = material.get("title") or material.get("headline") or material.get("summary") or key
-        rows.append(
-            {
-                "id": material.get("id") or key,
-                "title": clean(title, 140),
-                "source": material.get("source") or material.get("source_name") or material.get("source_id") or material.get("type") or "",
-                "url": material.get("url") or "",
-                "type": material.get("type") or "candidate",
-                "published_at": material.get("published_at") or "",
-                "summary": clean(material.get("summary") or title, 420),
-                "score": score,
-                "source_weight": weight,
-                "recency_days": recency_days,
-                "recency_bucket": recency_bucket,
-                "recency_penalty": recency_penalty,
-                "themes": [
-                    {"theme": theme, "label": THEME_LABELS.get(theme, theme), "hits": hits}
-                    for theme, hits in sorted(themes.items())
-                ],
-                "theme_keys": sorted(themes),
-                "visual_local_path": visual_path(material),
-                "tickers": material.get("tickers") or [],
-                "radar_question": radar_question(themes),
-                "suggested_slot": suggested_slot(themes),
-            }
-        )
+        row = {
+            "id": material.get("id") or key,
+            "title": clean(title, 140),
+            "source": material.get("source") or material.get("source_name") or material.get("source_id") or material.get("type") or "",
+            "url": material.get("url") or "",
+            "type": material.get("type") or "candidate",
+            "published_at": material.get("published_at") or "",
+            "summary": clean(material.get("summary") or title, 420),
+            "score": score,
+            "source_weight": weight,
+            "recency_days": recency_days,
+            "recency_bucket": recency_bucket,
+            "recency_penalty": recency_penalty,
+            "themes": [
+                {"theme": theme, "label": THEME_LABELS.get(theme, theme), "hits": hits}
+                for theme, hits in sorted(themes.items())
+            ],
+            "theme_keys": sorted(themes),
+            "visual_local_path": visual_path(material),
+            "tickers": material.get("tickers") or [],
+            "radar_question": radar_question(themes),
+            "suggested_slot": suggested_slot(themes),
+        }
+        row.update(enrich_candidate_row(material, row, themes))
+        rows.append(row)
     return sorted(rows, key=lambda row: (-row["score"], row["title"]))
 
 
@@ -857,6 +858,7 @@ def build_storylines(rows: list[dict], date: str | None = None) -> list[dict]:
             dynamic_why(picked, keys, repeated),
             dynamic_angle(picked, keys),
         )
+        storyline = enrich_storyline(storyline, picked, len(storylines) + 1)
         storyline["theme_keys"] = list(keys)
         storyline["selection_method"] = "dynamic_cluster"
         storyline["cluster_score"] = cluster["score"]
@@ -883,6 +885,7 @@ def build_storylines(rows: list[dict], date: str | None = None) -> list[dict]:
                 "상위 클러스터가 부족해 단일 고득점 후보를 예비 스토리로 올렸습니다.",
                 dynamic_angle([row], keys),
             )
+            storyline = enrich_storyline(storyline, [row], len(storylines) + 1)
             storyline["theme_keys"] = list(keys)
             storyline["selection_method"] = "single_high_score_fallback"
             storyline["cluster_score"] = row.get("score", 0)

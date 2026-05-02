@@ -1,0 +1,32 @@
+version: 1
+description: "Visual asset types and required instance fields for PPT queue generation."
+
+required_instance_fields:
+  - asset_id
+  - source
+  - source_role
+  - visual_asset_role
+  - storyline_id
+  - slide_priority
+  - use_as_slide
+  - use_as_talk_only
+  - caption
+  - why_this_visual
+  - risks_or_caveats
+
+asset_types:
+  index_chart: {source_role: market_reaction, visual_asset_role: market_map, default_slide_priority: 1}
+  sector_heatmap: {source_role: market_reaction, visual_asset_role: breadth_map, default_slide_priority: 1}
+  rates_chart: {source_role: data_anchor, visual_asset_role: macro_constraint, default_slide_priority: 1}
+  oil_chart: {source_role: data_anchor, visual_asset_role: risk_input, default_slide_priority: 2}
+  fx_chart: {source_role: data_anchor, visual_asset_role: risk_input, default_slide_priority: 2}
+  crypto_chart: {source_role: data_anchor, visual_asset_role: risk_appetite, default_slide_priority: 3}
+  earnings_calendar: {source_role: data_anchor, visual_asset_role: schedule_map, default_slide_priority: 1}
+  earnings_card: {source_role: data_anchor, visual_asset_role: earnings_case, default_slide_priority: 2}
+  company_chart: {source_role: market_reaction, visual_asset_role: company_reaction, default_slide_priority: 2}
+  fomc_statement: {source_role: official_policy, visual_asset_role: policy_text, default_slide_priority: 1}
+  fedwatch_chart: {source_role: data_anchor, visual_asset_role: policy_expectation, default_slide_priority: 1}
+  article_screenshot: {source_role: fact_anchor, visual_asset_role: source_quote, default_slide_priority: 3}
+  x_post_screenshot: {source_role: sentiment_probe, visual_asset_role: sentiment_color, default_slide_priority: 4}
+  educational_slide: {source_role: analysis_anchor, visual_asset_role: explainer, default_slide_priority: 3}
+  meme_or_fun_slide: {source_role: sentiment_probe, visual_asset_role: light_segment, default_slide_priority: 5}

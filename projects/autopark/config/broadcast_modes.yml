@@ -1,0 +1,32 @@
+version: 1
+description: "Broadcast mode defaults for Autopark editorial selection."
+
+modes:
+  normal:
+    storyline_count: [3, 5]
+    lead_requirement: "Best market explanation with first-5-minute clarity and PPT support."
+    max_slide_assets: 10
+  earnings_heavy:
+    storyline_count: [3, 5]
+    lead_requirement: "Expectation gap and market reaction around earnings must be explicit."
+    required_assets: ["earnings_calendar", "earnings_card", "company_chart"]
+  fed_day:
+    storyline_count: [3, 4]
+    lead_requirement: "Policy expectation, rates reaction, and equity implication must be separated."
+    required_assets: ["rates_chart", "fedwatch_chart", "fomc_statement"]
+  macro_shock:
+    storyline_count: [2, 4]
+    lead_requirement: "Market map first; avoid overfitting one headline to broad price moves."
+    required_assets: ["index_chart", "sector_heatmap", "rates_chart", "oil_chart", "fx_chart"]
+  guest_early:
+    storyline_count: [2, 3]
+    lead_requirement: "Short, high-clarity first segment with fewer slides."
+    max_slide_assets: 6
+  no_guest_long_host:
+    storyline_count: [4, 5]
+    lead_requirement: "More supporting segments allowed, but each must still have slide/talk/drop decisions."
+    max_slide_assets: 14
+  holiday_korea_market_open:
+    storyline_count: [3, 4]
+    lead_requirement: "Korea-open relevance and Asia follow-through are weighted higher."
+    required_assets: ["index_chart", "fx_chart", "crypto_chart"]

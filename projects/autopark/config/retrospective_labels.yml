@@ -1,0 +1,19 @@
+version: 1
+description: "Broadcast retrospective labels for comparing dashboard, transcript, and PPT outline."
+
+labels:
+  - used_as_lead
+  - used_later
+  - mentioned_only
+  - used_as_slide
+  - used_as_talk_only
+  - not_used_too_complex
+  - not_used_low_visual_value
+  - not_used_already_known
+  - not_used_weak_market_reaction
+  - missed_source_gap
+  - missed_weighting_error
+  - false_positive_sentiment_only
+  - false_positive_visual_only
+  - strong_broadcast_fit
+  - weak_broadcast_fit
