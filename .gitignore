@@ -3,6 +3,7 @@
 .venv/
 .venv-stale-*/
 node_modules/
+.codex-worktrees/
 __pycache__/
 *.pyc
 *.zip

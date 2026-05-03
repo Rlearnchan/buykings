@@ -13,6 +13,11 @@ runtime/profiles/*
 exports/current/*
 exports/archive/*
 
+docs/reference/broadcast-samples/*
+docs/reference/book-notes/*
+!docs/reference/broadcast-samples/README.md
+!docs/reference/book-notes/README.md
+
 !data/inbox/.gitkeep
 !data/raw/.gitkeep
 !data/processed/.gitkeep
