@@ -782,8 +782,9 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
         if bad_index_images:
             issue(findings, "format", "high", "COMPACT-050 주요 지수 흐름 이미지 품질 실패", "Finviz 주요 지수 이미지가 상단 DOW/NASDAQ/S&P500 차트 형태로 보이지 않습니다.", "Cloudflare 화면이나 테이블 영역 crop이 아닌 상단 지수 캔들차트 2장을 다시 캡처하세요.")
         fedwatch_block = market_block_by_title.get("FedWatch", "")
-        if market_titles.count("FedWatch") != 1 or image_count(fedwatch_block) < 2:
-            issue(findings, "format", "high", "COMPACT-031 FedWatch 단기/장기 누락", f"시장 카드: {market_titles}", "FedWatch 소제목 아래에 단기/장기 금리 확률 이미지를 순서대로 렌더하세요.")
+        fedwatch_blank = missing_image_marker(fedwatch_block)
+        if market_titles.count("FedWatch") != 1 or (image_count(fedwatch_block) < 2 and not fedwatch_blank):
+            issue(findings, "format", "high", "COMPACT-031 FedWatch 단기/장기 누락", f"시장 카드: {market_titles}", "FedWatch 수집 실패 시 과거 이미지를 쓰지 말고 이미지 없음으로 렌더하세요.")
         economy_block = market_block_by_title.get("오늘의 경제지표", "")
         if market_titles.count("오늘의 경제지표") != 1 or image_count(economy_block) < 1:
             issue(findings, "format", "high", "COMPACT-053 오늘의 경제지표 누락", f"시장 카드: {market_titles}", "FedWatch 바로 뒤에 오늘의 경제지표 표 이미지를 렌더하세요.")

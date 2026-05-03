@@ -3615,31 +3615,33 @@ def build_compact_collection_cards(
                 }
             )
 
+    fedwatch_rows = fedwatch_probability_rows(target_date)
     fedwatch_images: list[str] = []
-    for source_id, filename in [
-        ("fedwatch-conditional-probabilities-short-term", "fedwatch-conditional-probabilities-short-term.png"),
-        ("fedwatch-conditional-probabilities-long-term", "fedwatch-conditional-probabilities-long-term.png"),
-    ]:
-        images = screenshots_for(target_date, f"*{source_id}*.png")[:1]
-        if not images:
-            png = EXPORTS_DIR / filename
-            images = [str(png)] if png.exists() else []
-        fedwatch_images.extend(crop_bottom_whitespace(image, target_date) for image in images[:1])
-    if fedwatch_images:
-        collection_cards.append(
-            {
-                "section": "market_now",
-                "asset_key": "fedwatch",
-                "label": "FedWatch",
-                "title": "FedWatch",
-                "source": "CME FedWatch",
-                "url": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
-                "item_id": "fedwatch",
-                "evidence_id": "fedwatch",
-                "images": fedwatch_images,
-                "image_labels": ["FedWatch 단기 금리 확률", "FedWatch 장기 금리 확률"],
-            }
-        )
+    if fedwatch_rows:
+        for source_id, filename in [
+            ("fedwatch-conditional-probabilities-short-term", "fedwatch-conditional-probabilities-short-term.png"),
+            ("fedwatch-conditional-probabilities-long-term", "fedwatch-conditional-probabilities-long-term.png"),
+        ]:
+            images = screenshots_for(target_date, f"*{source_id}*.png")[:1]
+            if not images:
+                png = EXPORTS_DIR / filename
+                images = [str(png)] if png.exists() else []
+            fedwatch_images.extend(crop_bottom_whitespace(image, target_date) for image in images[:1])
+    collection_cards.append(
+        {
+            "section": "market_now",
+            "asset_key": "fedwatch",
+            "label": "FedWatch",
+            "title": "FedWatch",
+            "source": "CME FedWatch",
+            "url": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
+            "item_id": "fedwatch",
+            "evidence_id": "fedwatch",
+            "images": fedwatch_images,
+            "image_labels": ["FedWatch 단기 금리 확률", "FedWatch 장기 금리 확률"],
+            "missing_image": not fedwatch_images,
+        }
+    )
 
     calendar_images = [
         str(path)
