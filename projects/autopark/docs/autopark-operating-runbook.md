@@ -12,6 +12,17 @@
 
 Codex 자동화는 매일 05:05에 아침 대시보드 runner를 깨우고, 매일 10:30에 방송 후 회고 runner를 깨운다. 둘 다 먼저 방송 캘린더를 확인하므로 0503 같은 비방송일은 회고가 실패가 아니라 `skipped_expected_no_broadcast`로 끝나는 것이 정상이다.
 
+## Hybrid API Policy
+
+Autopark v0 uses two OpenAI judgment calls, with strict separation between discovery and public evidence.
+
+- `Pre-flight Market Agenda`: runs before collection. `web_search` may be on by default, but it is discovery only. It creates agenda priors and collection targets, not public facts.
+- Fixed collection remains the authoritative source ledger in v0. Pre-flight `collection_targets` are hints; they are not yet dynamically injected into the news/X/capture scripts.
+- `Market Focus Brief`: runs after `market-radar` and uses the sanitized local packet. `web_search` is off by default.
+- Public evidence is local evidence only. A story needs a local `item_id`/`evidence_id`/`source_id` before it can become `lead`, `supporting_story`, or `talk_only`.
+- Web-only or preflight-only discoveries stay in `source_gap` until local evidence exists.
+- The dashboard may show small status labels such as `Pre-flight Agenda: 정상` and `Market Focus Brief: fallback 사용`, but preflight raw output and long judgment rationale belong in audit/debug.
+
 ### 1. 05:00 Preflight
 
 확인할 것:

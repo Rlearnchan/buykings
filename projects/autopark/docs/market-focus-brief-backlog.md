@@ -25,6 +25,17 @@ Fallback rules:
 - Market Focus failure must keep the market-radar fallback and mark `Market Focus Brief: fallback 사용` in the top host view.
 - `fallback_code` should distinguish `model_not_available`, `auth_failed`, `rate_limited`, and generic API/parser errors where possible.
 
+v0 implementation boundary:
+
+- Pre-flight agenda items are ranking priors and collection hints only.
+- The all-in-one runner executes Pre-flight before fixed collection, but v0 does not yet inject `collection_targets` dynamically into the news, X, or capture scripts.
+- Dynamic collection injection is a follow-up: map rank 1-3 `collection_targets` into bounded news queries, X sentiment queries, official-source checks, and optional chart/capture jobs, then record which targets were collected.
+
+Stacking note:
+
+- PR #4 is stacked on PR #3. Keep it draft until PR #3 lands.
+- After PR #3 merges to `main`, rebase/retarget PR #4 onto `main`, rerun the full test suite and 0503 smoke render, then mark ready for review.
+
 ## v0.1 sanitized local packet
 
 Design a sanitized packet mode for production OpenAI calls so the model can rank local evidence without receiving raw source material.
