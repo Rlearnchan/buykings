@@ -720,7 +720,7 @@ def compact_candidate(
     summary_source = item.get("summary") or item.get("selection_reason")
     if allow_text_fallback and not summary_source:
         summary_source = item.get("text")
-    micro_summary_bullets = [compact_text(value, 90) for value in (item.get("micro_summary_bullets") or [])[:3]]
+    micro_content = compact_text(item.get("micro_content") or "", 90)
     if minimal:
         return {
             "id": str(item.get("id") or ""),
@@ -734,9 +734,7 @@ def compact_candidate(
             "score": item.get("score") or item.get("final_score") or 0,
             "theme_keys": (item.get("theme_keys") or item.get("market_hooks") or [])[:5],
             "summary": sanitize_prompt_text(summary_source, summary_limit),
-            "micro_summary_bullets": [sanitize_prompt_text(value, 90) for value in micro_summary_bullets],
-            "ppt_use_hint": sanitize_prompt_text(item.get("ppt_use_hint") or "", 90),
-            "caution": sanitize_prompt_text(item.get("caution") or "", 90),
+            "micro_content": sanitize_prompt_text(micro_content, 90),
             "asset_status": "visual_available" if item.get("visual_local_path") else "no_local_visual",
         }
     row = {
@@ -762,15 +760,7 @@ def compact_candidate(
         "drop_risk": item.get("drop_risk") or "",
         "talk_vs_slide": talk_vs_slide,
         "summary": sanitize_prompt_text(summary_source, summary_limit) if not include_url else compact_text(summary_source, summary_limit),
-        "micro_summary_bullets": [sanitize_prompt_text(value, 90) for value in micro_summary_bullets]
-        if not include_url
-        else micro_summary_bullets,
-        "ppt_use_hint": sanitize_prompt_text(item.get("ppt_use_hint") or "", 90)
-        if not include_url
-        else compact_text(item.get("ppt_use_hint") or "", 90),
-        "caution": sanitize_prompt_text(item.get("caution") or "", 90)
-        if not include_url
-        else compact_text(item.get("caution") or "", 90),
+        "micro_content": sanitize_prompt_text(micro_content, 90) if not include_url else micro_content,
         "asset_status": "visual_available" if item.get("visual_local_path") else "no_local_visual",
     }
     if include_url:
@@ -838,13 +828,10 @@ def attach_evidence_microcopy(rows: list[dict], microcopy: dict) -> list[dict]:
         item_id = str(item.get("item_id") or item.get("id") or "")
         copy = lookup.get(item_id)
         if copy:
-            item["micro_summary_bullets"] = [
-                compact_text(value, 90)
-                for value in copy.get("summary_bullets") or []
-                if compact_text(value, 90)
-            ][:3]
-            item["ppt_use_hint"] = compact_text(copy.get("ppt_use_hint") or "", 90)
-            item["caution"] = compact_text(copy.get("caution") or "", 90)
+            item["micro_content"] = compact_text(
+                copy.get("content") or " ".join((copy.get("summary_bullets") or [])[:1]),
+                90,
+            )
         enriched.append(item)
     return enriched
 
@@ -1190,7 +1177,7 @@ Rules:
 - Use only the provided candidates and evidence IDs.
 - Do not invent facts, prices, dates, or claims outside the evidence.
 - Treat market_focus_brief as the upstream ranking prior for the lead and storyline order, not as standalone evidence.
-- Treat candidates[].micro_summary_bullets as evidence-level reading aids; they do not rank, select, or prove causality by themselves.
+- Treat candidates[].micro_content as one-line material descriptions; they do not rank, select, or prove causality by themselves.
 - If market_focus_brief marks an issue as source_gap or lacks local evidence_ids/source_ids, do not promote it as a public storyline.
 - When market_focus_brief conflicts with candidate evidence, evidence quality wins; explain the downgrade in evidence_to_drop or retrospective_watchpoints.
 - Select 3 to 5 storylines. Do not pad to 5 if only 3 are strong.

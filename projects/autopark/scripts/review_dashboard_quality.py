@@ -143,21 +143,17 @@ def review_evidence_microcopy_contract(target_date: str) -> list[Finding]:
         if not isinstance(item, dict):
             issue(findings, "integrity", "high", "Invalid evidence microcopy row", f"Row {index} is not an object.", "Keep items as JSON objects.")
             continue
-        bullets = item.get("summary_bullets") or []
-        if not 1 <= len(bullets) <= 3:
+        content = normalize(str(item.get("content") or " ".join((item.get("summary_bullets") or [])[:1]) or ""))
+        if not content:
             issue(
                 findings,
                 "integrity",
                 "high",
-                "Invalid evidence summary bullet count",
-                f"`{item.get('item_id') or index}` has {len(bullets)} summary bullets.",
-                "Each evidence microcopy item needs 1 to 3 bullets.",
+                "Evidence microcopy content missing",
+                f"`{item.get('item_id') or index}` has no one-line content.",
+                "Each evidence microcopy item needs exactly one content line.",
             )
-        for field, value in [
-            *[(f"summary_bullets[{bullet_index}]", bullet) for bullet_index, bullet in enumerate(bullets, start=1)],
-            ("ppt_use_hint", item.get("ppt_use_hint") or ""),
-            ("caution", item.get("caution") or ""),
-        ]:
+        for field, value in [("content", content)]:
             text = normalize(str(value or ""))
             if len(text) > 90:
                 issue(
@@ -735,8 +731,8 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
                 issue(findings, "format", "high", "COMPACT-037 미디어 카드 내용 누락", title, "각 미디어 포커스 카드에는 내용 블록을 렌더하세요.")
             content_part = block.split("- 내용:", 1)[1] if "- 내용:" in block else ""
             bullets = re.findall(r"^\s{2}-\s+(.+)$", content_part, flags=re.M)
-            if not bullets or len(bullets) >= 4:
-                issue(findings, "format", "high", "COMPACT-038 미디어 내용 bullet 수 위반", f"{title}: {len(bullets)}개", "내용 bullet은 1~3개만 렌더하세요.")
+            if len(bullets) != 1:
+                issue(findings, "format", "high", "COMPACT-038 미디어 내용 bullet 수 위반", f"{title}: {len(bullets)}개", "내용 bullet은 1개만 렌더하세요.")
             long_bullets = [bullet for bullet in bullets if len(bullet) > 90 or compact_raw_source_like(bullet)]
             if long_bullets:
                 issue(findings, "format", "high", "COMPACT-039 미디어 내용 bullet 위반", f"{title}: " + ", ".join(long_bullets[:2]), "내용 bullet은 90자 이하 public 문장으로 렌더하세요.")

@@ -36,7 +36,7 @@ FORBIDDEN_TOKENS = [
     "http://",
     "https://",
 ]
-GENERATED_FIELDS = ["summary_bullets", "ppt_use_hint", "caution"]
+GENERATED_FIELDS = ["content"]
 
 
 EVIDENCE_MICROCOPY_RESPONSE_SCHEMA: dict[str, Any] = {
@@ -49,19 +49,12 @@ EVIDENCE_MICROCOPY_RESPONSE_SCHEMA: dict[str, Any] = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["item_id", "source_label", "title", "summary_bullets", "ppt_use_hint", "caution"],
+                "required": ["item_id", "source_label", "title", "content"],
                 "properties": {
                     "item_id": {"type": "string"},
                     "source_label": {"type": "string"},
                     "title": {"type": "string"},
-                    "summary_bullets": {
-                        "type": "array",
-                        "minItems": 1,
-                        "maxItems": 3,
-                        "items": {"type": "string"},
-                    },
-                    "ppt_use_hint": {"type": "string"},
-                    "caution": {"type": "string"},
+                    "content": {"type": "string"},
                 },
             },
         }
@@ -209,36 +202,20 @@ def chunked(items: list[dict], size: int) -> list[list[dict]]:
     return [items[index : index + size] for index in range(0, len(items), size)]
 
 
-def fallback_bullets(item: dict) -> list[str]:
+def fallback_content(item: dict) -> str:
     title = title_of(item)
-    source = source_label_of(item)
     summary = summary_of(item)
-    theme_blob = " ".join(theme_keys_of(item)).lower()
-    if any(token in theme_blob or token in f"{title} {summary}".lower() for token in ["oil", "energy", "wti", "brent", "iran"]):
-        why = "유가와 에너지주 반응을 나눠 보며 인플레 부담이 커졌는지 확인하는 자료입니다."
-        use = "PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다."
-    elif any(token in theme_blob or token in f"{title} {summary}".lower() for token in ["fed", "rate", "yield", "inflation", "dollar"]):
-        why = "금리·달러·물가 기대가 전날 시장의 위험선호를 어떻게 제한했는지 보는 자료입니다."
-        use = "첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다."
-    elif any(token in theme_blob or token in f"{title} {summary}".lower() for token in ["ai", "cloud", "semiconductor", "earnings"]):
-        why = "AI·실적 기대가 기술주와 한국 반도체 연결고리에 이어지는지 보는 자료입니다."
-        use = "PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다."
-    else:
-        why = "전날 시장에서 주목된 소재가 실제 가격 반응과 연결되는지 확인하는 자료입니다."
-        use = "방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다."
-    first = f"{source} 자료는 {summary or title}"
-    return [sanitize_line(first, MAX_LINE_CHARS) or sanitize_line(title, MAX_LINE_CHARS), why, use][:3]
+    if summary and summary != title:
+        return sanitize_line(summary, MAX_LINE_CHARS) or sanitize_line(title, MAX_LINE_CHARS)
+    return sanitize_line(title, MAX_LINE_CHARS) or "자료의 핵심 내용을 한 줄로 정리했습니다."
 
 
 def deterministic_item(item: dict, reason: str = "deterministic") -> dict:
-    bullets = [line for line in fallback_bullets(item) if line]
     return {
         "item_id": item_id_of(item),
         "source_label": sanitize_line(source_label_of(item), 80) or "Autopark",
         "title": sanitize_line(title_of(item), 90) or item_id_of(item),
-        "summary_bullets": bullets[:3] or ["자료의 핵심과 시장 반응을 함께 확인합니다."],
-        "ppt_use_hint": sanitize_line(bullets[-1] if bullets else "PPT 보조 자료로 사용합니다.", 90),
-        "caution": "원문만으로 가격 반응이나 인과관계를 단정하지 않습니다.",
+        "content": fallback_content(item),
         "fallback": True,
         "fallback_reason": reason,
     }
@@ -252,27 +229,24 @@ def validate_item(output: dict, source_item: dict) -> tuple[dict, list[str]]:
         errors.append("item_id_mismatch")
     source_label = sanitize_line(output.get("source_label") or source_label_of(source_item), 80)
     title = sanitize_line(output.get("title") or title_of(source_item), 90)
-    bullets = [sanitize_line(value, MAX_LINE_CHARS) for value in (output.get("summary_bullets") or []) if sanitize_line(value, MAX_LINE_CHARS)]
-    bullets = list(dict.fromkeys(bullets))[:3]
-    if not 1 <= len(bullets) <= 3:
-        errors.append("invalid_summary_bullet_count")
-    ppt_use_hint = sanitize_line(output.get("ppt_use_hint") or "", MAX_LINE_CHARS)
-    caution = sanitize_line(output.get("caution") or "", MAX_LINE_CHARS)
-    text_blob = " ".join([source_label, title, *bullets, ppt_use_hint, caution])
+    content = sanitize_line(
+        output.get("content")
+        or " ".join(str(value) for value in (output.get("summary_bullets") or [])[:1]),
+        MAX_LINE_CHARS,
+    )
+    if not content:
+        errors.append("missing_content")
+    text_blob = " ".join([source_label, title, content])
     if forbidden_hit(text_blob):
         errors.append("forbidden_token")
     if raw_body_like(text_blob):
         errors.append("raw_body_like")
-    if not ppt_use_hint:
-        ppt_use_hint = sanitize_line(bullets[-1] if bullets else "PPT 보조 자료로 사용합니다.", MAX_LINE_CHARS)
     return (
         {
             "item_id": expected_id,
             "source_label": source_label or source_label_of(source_item),
             "title": title or title_of(source_item),
-            "summary_bullets": bullets,
-            "ppt_use_hint": ppt_use_hint,
-            "caution": caution,
+            "content": content,
         },
         errors,
     )
@@ -293,18 +267,14 @@ def build_prompt(target_date: str, items: list[dict]) -> str:
     return f"""You write evidence-level Korean microcopy for Autopark.
 
 Task:
-- Summarize each provided market-radar item so a Korean morning-market host can judge it in 10 seconds.
-- For each item, write 1 to 3 Korean bullets, each <= 90 characters:
-  1. what this material says,
-  2. why it matters for today's market or the first 5 minutes,
-  3. how to use it in PPT or host narration.
-- Also provide a short ppt_use_hint and caution, each <= 90 characters.
+- For each item, write exactly one Korean content sentence, <= 90 characters.
+- The sentence should say only what the news/material says.
+- Do not add interpretation, implications, PPT usage, cautions, or phrases like "자료입니다".
 
 Strict rules:
 - Do not change item_id, item order, ranking, selection, storyline, or material labels.
 - Do not invent facts, prices, dates, market reactions, or causal links not supported by the item.
-- X/social items are sentiment only unless the item itself says otherwise.
-- Charts show reaction, not causality, unless paired with fact/data/analysis evidence.
+- Preserve uncertainty in the source when it is a claim, opinion, or social post.
 - Do not output URLs, raw HTML, full article text, credentials, signed URLs, or internal role/hash tokens.
 - Return JSON matching the schema only.
 

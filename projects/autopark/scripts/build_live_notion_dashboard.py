@@ -616,9 +616,8 @@ def render_fedwatch_heatmap(target_date: str, headers: list[str], rows: list[lis
 
 
 def summarize_material_text(row: dict, limit: int = 220) -> str:
-    micro_lines = [clean(value, 90) for value in (row.get("micro_summary_bullets") or []) if clean(value, 90)]
-    if micro_lines:
-        return public_complete_text(" ".join(micro_lines[:3]), limit)
+    if row.get("micro_content"):
+        return public_complete_text(row.get("micro_content"), limit)
     text = clean(row.get("summary") or row.get("text") or row.get("headline") or row.get("title"))
     if not text:
         return ""
@@ -3079,10 +3078,9 @@ def build_microcopy_context(
                 continue
             item_id = item.get("item_id") or item.get("evidence_id") or ""
             row = radar_by_id.get(item_id) or {}
-            micro_lines = [clean(value, 90) for value in (row.get("micro_summary_bullets") or []) if clean(value, 90)]
             evidence_summary.append(
                 clean(
-                    " / ".join(micro_lines)
+                    row.get("micro_content")
                     or row.get("summary")
                     or row.get("radar_question")
                     or row.get("market_reaction")
@@ -3120,15 +3118,13 @@ def build_microcopy_context(
             "title": clean(card.get("title") or card.get("headline") or card.get("label"), 120),
             "source": clean(card.get("source") or card.get("source_label"), 80),
             "summary": clean(
-                " / ".join(value for value in (card.get("micro_summary_bullets") or []) if value)
+                card.get("micro_content")
                 or card.get("summary")
                 or card.get("source_gap")
                 or card.get("content")
                 or card.get("title"),
                 360,
             ),
-            "ppt_use_hint": clean(card.get("ppt_use_hint") or "", 90),
-            "caution": clean(card.get("caution") or "", 90),
             "source_gap": clean(card.get("source_gap"), 240),
         }
         for card in media_cards
@@ -3717,13 +3713,11 @@ def attach_evidence_microcopy(rows: list[dict], payload: dict) -> list[dict]:
         item_id = clean(item.get("item_id") or item.get("id"))
         copy = lookup.get(item_id)
         if copy:
-            item["micro_summary_bullets"] = [
-                compact_public_text(value, 90, "")
-                for value in copy.get("summary_bullets") or []
-                if compact_public_text(value, 90, "")
-            ][:3]
-            item["ppt_use_hint"] = compact_public_text(copy.get("ppt_use_hint") or "", 90, "")
-            item["caution"] = compact_public_text(copy.get("caution") or "", 90, "")
+            item["micro_content"] = compact_public_text(
+                copy.get("content") or " ".join((copy.get("summary_bullets") or [])[:1]),
+                90,
+                "",
+            )
         enriched.append(item)
     return enriched
 

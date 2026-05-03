@@ -90,8 +90,8 @@ class EvidenceMicrocopyContractTest(unittest.TestCase):
         self.assertEqual("deterministic_missing_api_key", payload["source"])
         self.assertEqual(2, payload["item_count"])
         self.assertEqual(2, payload["fallback_count"])
-        self.assertTrue(all(1 <= len(item["summary_bullets"]) <= 3 for item in payload["items"]))
-        self.assertTrue(all(len(line) <= 90 for item in payload["items"] for line in item["summary_bullets"]))
+        self.assertTrue(all(item["content"] for item in payload["items"]))
+        self.assertTrue(all(len(item["content"]) <= 90 for item in payload["items"]))
 
     def test_invalid_output_falls_back_for_that_item_only(self) -> None:
         source_item = {"id": "oil-1", "title": "Oil", "source": "Reuters", "summary": "Oil summary"}
@@ -100,14 +100,12 @@ class EvidenceMicrocopyContractTest(unittest.TestCase):
                 "item_id": "wrong-id",
                 "source_label": "Reuters",
                 "title": "Oil",
-                "summary_bullets": [],
-                "ppt_use_hint": "source_role leaked",
-                "caution": "",
+                "content": "",
             },
             source_item,
         )
         self.assertIn("item_id_mismatch", errors)
-        self.assertIn("invalid_summary_bullet_count", errors)
+        self.assertIn("missing_content", errors)
         self.assertEqual("oil-1", valid["item_id"])
 
     def test_url_item_ids_validate_without_cleaning_away_key(self) -> None:
@@ -122,9 +120,7 @@ class EvidenceMicrocopyContractTest(unittest.TestCase):
                 "item_id": "https://x.com/example/status/1",
                 "source_label": "X",
                 "title": "Synthetic social post",
-                "summary_bullets": ["소셜 게시물의 핵심을 짧게 확인하는 자료입니다."],
-                "ppt_use_hint": "말로 짚는 보조 자료로 씁니다.",
-                "caution": "소셜 자료만으로 사실을 단정하지 않습니다.",
+                "content": "소셜 게시물의 핵심을 짧게 확인했습니다.",
             },
             source_item,
         )
@@ -142,19 +138,17 @@ class EvidenceMicrocopyContractTest(unittest.TestCase):
                         "item_id": "oil-1",
                         "source_label": "Reuters",
                         "title": "Oil",
-                        "summary_bullets": ["유가 리스크와 가격 반응을 함께 확인하는 자료입니다."],
-                        "ppt_use_hint": "WTI·브렌트 차트 뒤에 붙입니다.",
-                        "caution": "기사만으로 인과관계를 단정하지 않습니다.",
+                        "content": "유가 리스크와 가격 반응을 함께 확인했습니다.",
                     }
                 ],
             },
         )
         focus_payload = market_focus.build_input_payload(DATE, 5, 0, 0)
         focus_candidate = focus_payload["market_radar"]["candidates"][0]
-        self.assertEqual(["유가 리스크와 가격 반응을 함께 확인하는 자료입니다."], focus_candidate["micro_summary_bullets"])
+        self.assertEqual("유가 리스크와 가격 반응을 함께 확인했습니다.", focus_candidate["micro_content"])
         editorial_payload = editorial.build_input_payload(DATE, 5)
         editorial_candidate = next(item for item in editorial_payload["candidates"] if item["id"] == "oil-1")
-        self.assertEqual(["유가 리스크와 가격 반응을 함께 확인하는 자료입니다."], editorial_candidate["micro_summary_bullets"])
+        self.assertEqual("유가 리스크와 가격 반응을 함께 확인했습니다.", editorial_candidate["micro_content"])
 
     def test_quality_gate_reviews_evidence_microcopy_artifact(self) -> None:
         self._write_json(
@@ -167,9 +161,7 @@ class EvidenceMicrocopyContractTest(unittest.TestCase):
                         "item_id": "oil-1",
                         "source_label": "Reuters",
                         "title": "Oil",
-                        "summary_bullets": ["x" * 91],
-                        "ppt_use_hint": "PPT",
-                        "caution": "",
+                        "content": "x" * 91,
                     }
                 ],
             },

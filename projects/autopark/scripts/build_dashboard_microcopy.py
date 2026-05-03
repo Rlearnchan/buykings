@@ -68,7 +68,7 @@ MICROCOPY_SCHEMA: dict[str, Any] = {
                 "required": ["card_key", "content_bullets"],
                 "properties": {
                     "card_key": {"type": "string"},
-                    "content_bullets": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "string"}},
+                    "content_bullets": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"type": "string"}},
                 },
             },
         },
@@ -348,6 +348,7 @@ def card_fallbacks(card: dict[str, Any]) -> list[str]:
 
 def deterministic_card(card: dict[str, Any]) -> dict[str, Any]:
     seeds = [
+        card.get("micro_content"),
         card.get("summary"),
         card.get("content"),
         card.get("source_gap"),
@@ -360,16 +361,10 @@ def deterministic_card(card: dict[str, Any]) -> dict[str, Any]:
         seeds,
         limit=90,
         minimum=1,
-        maximum=3,
+        maximum=1,
         fallbacks=fallbacks,
     )
-    for fallback in fallbacks:
-        if len(bullets) >= 3:
-            break
-        line = sanitize_line(fallback, 90)
-        if line and line not in bullets:
-            bullets.append(line)
-    return {"card_key": clean(card.get("card_key")), "content_bullets": bullets[:3]}
+    return {"card_key": clean(card.get("card_key")), "content_bullets": bullets[:1]}
 
 
 def deterministic_microcopy(context: dict[str, Any], *, model: str | None = None, reason: str = "deterministic") -> dict[str, Any]:
@@ -433,7 +428,7 @@ def validate_card(item: dict[str, Any], expected: dict[str, dict[str, Any]]) -> 
     card_key = clean(item.get("card_key"))
     if card_key not in expected:
         return None
-    bullets = valid_lines(item.get("content_bullets"), minimum=1, maximum=3, limit=90)
+    bullets = valid_lines(item.get("content_bullets"), minimum=1, maximum=1, limit=90)
     if bullets is None:
         return None
     return {"card_key": card_key, "content_bullets": bullets}
@@ -510,7 +505,8 @@ def build_prompt(context: dict[str, Any]) -> str:
             "- Korean, concise, presenter-friendly.",
             "- quote_lines: 1-3 lines, each <=90 Korean characters.",
             "- host_relevance_bullets: 2-3 bullets, each <=90 Korean characters.",
-            "- content_bullets: 1-3 bullets, each <=90 Korean characters.",
+            "- content_bullets: exactly 1 bullet, <=90 Korean characters.",
+            "- For media focus content, state only what the material says; do not add interpretation, usage, or caution.",
             "- Never include URLs, source_role, evidence_role, item_id, evidence_id, asset_id, or MF hashes.",
             "- Storyline relevance must explain yesterday's market attention, why it fits the first 5 minutes, and the Korea/PPT/personal-investor connection.",
             "Return strict JSON only.",
