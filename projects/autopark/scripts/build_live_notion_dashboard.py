@@ -1144,9 +1144,9 @@ def relevant_finviz_summary(row: dict) -> str:
 def render_feature_stock(lines: list[str], row: dict) -> None:
     ticker = (row.get("ticker") or "-").upper()
     lines.extend([f"### {company_heading(ticker)}", ""])
-    lines.extend([f"> {feature_stock_focus(row)}", ""])
+    lines.append(f"- 내용: {feature_stock_focus(row)}")
     news = finviz_news_line(row)
-    lines.append(f"출처: {link('Finviz', row.get('url') or '')}")
+    lines.append(f"- 출처: {link('Finviz', row.get('url') or '')}")
     if news.get("headline"):
         prefix = f"{news.get('time')}: " if news.get("time") else ""
         lines.append(f"- Finviz 한 줄 뉴스: {link(clean(prefix + news.get('headline'), 150), news.get('url') or row.get('url') or '')}")
@@ -3196,6 +3196,17 @@ def compact_feature_line(finviz_features: dict, earnings_drilldown: dict) -> str
     return "실적 일정과 특징주 반응은 자료 수집 섹션에서 확인한다."
 
 
+def compact_story_quote_line(lines: list[str], fallback: str) -> str:
+    parts = [clean(line) for line in lines if clean(line)]
+    if not parts:
+        parts = [fallback]
+    joined = " ".join(part for part in parts[:3] if part).strip()
+    text = clean(remove_host_forbidden(joined or fallback), 180)
+    if not text or english_word_run_too_long(text):
+        text = compact_public_text(fallback, 180, fallback)
+    return text
+
+
 def render_compact_publish_host(
     lines: list[str],
     created_at: str,
@@ -3241,6 +3252,7 @@ def render_compact_publish_host(
             compact_public_text(line, 90, public_story_hook(story))
             for line in (story_copy.get("quote_lines") or [public_story_hook(story)])
         ][:3]
+        quote_line = compact_story_quote_line(quote_lines, public_story_hook(story))
         why_bullets = [
             compact_public_text(line, 90, "첫 5분 방송에서 시장 반응과 한국장 연결점을 확인한다.")
             for line in (story_copy.get("host_relevance_bullets") or [])
@@ -3263,8 +3275,7 @@ def render_compact_publish_host(
                 f"추천도: `{compact_stars_text(story.get('recommendation_stars'))}`",
             ]
         )
-        for quote in quote_lines:
-            lines.append(f"> {quote}")
+        lines.append(f"> {quote_line}")
         lines.extend(["", "**왜 중요한가**"])
         for bullet in why_bullets[:3]:
             lines.append(f"- {bullet}")
@@ -3608,23 +3619,7 @@ def build_compact_collection_cards(
             }
         )
 
-    for row in (finviz_features.get("items") or [])[:6]:
-        ticker = clean(row.get("ticker"), 12).upper()
-        collection_cards.append(
-            {
-                "section": "media_focus",
-                "story_rank": 0,
-                "slide_rank": 100 + len(collection_cards),
-                "label": f"{ticker} 일간 차트" if ticker else "특징주 일간 차트",
-                "title": row.get("title") or ticker,
-                "source": "Finviz",
-                "url": row.get("url") or "",
-                "item_id": ticker,
-                "evidence_id": ticker,
-                "image": row.get("screenshot_path") or "",
-                "summary": relevant_finviz_summary(row) or row.get("title") or ticker,
-            }
-        )
+    _ = finviz_features
     events = economic.get("events") or []
     if events:
         collection_cards.append(
@@ -3733,6 +3728,42 @@ def render_compact_collection_section(lines: list[str], market_cards: list[dict]
         render_media_focus_card(lines, card, set(), int(card.get("media_number_index") or 0), card_copy.get(card.get("card_key")))
 
 
+def render_compact_feature_section(lines: list[str], target_date: str, finviz_features: dict) -> None:
+    lines.append("## 3. 실적/특징주")
+    earnings_image = screenshot_for(target_date, "*earnings-calendar*.jpg", "*earnings-calendar*.png")
+    if earnings_image:
+        earnings_captured = capture_meta(target_date, "earnings-calendar-x")
+        if earnings_captured.endswith("`-`"):
+            file_time = captured_from_file(earnings_image)
+            earnings_captured = f"수집 시점: `{file_time}`" if file_time else earnings_captured
+        lines.extend(
+            [
+                "### 실적 캘린더",
+                "",
+                "- 출처: [Earnings Whispers](https://x.com/eWhispers)",
+                f"- {earnings_captured}",
+                "",
+                notion_image("실적 캘린더", earnings_image),
+                "",
+            ]
+        )
+    else:
+        lines.extend(
+            [
+                "### 실적 캘린더",
+                "",
+                "- 출처: [Earnings Whispers](https://x.com/eWhispers)",
+                "- 수집 시점: `-`",
+                "- 내용: 실적 캘린더 이미지를 찾지 못했습니다.",
+                "",
+            ]
+        )
+
+    feature_rows = [row for row in finviz_features.get("items", []) if row.get("status") == "ok"]
+    for row in feature_rows[:6]:
+        render_feature_stock(lines, row)
+
+
 def render_compact_publish_dashboard(target_date: str) -> str:
     processed = PROCESSED_DIR / target_date
     live_pack = load_json(processed / "live-experiment-pack.json")
@@ -3826,6 +3857,7 @@ def render_compact_publish_dashboard(target_date: str) -> str:
         microcopy,
     )
     render_compact_collection_section(lines, market_cards, media_cards, microcopy)
+    render_compact_feature_section(lines, target_date, finviz_features)
     return "\n".join(lines).rstrip() + "\n"
 
 

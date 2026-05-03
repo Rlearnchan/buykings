@@ -70,6 +70,8 @@ class CompactPublishRendererContractTest(unittest.TestCase):
             "*fedwatch*short*.png": "fedwatch-short.png",
             "*fedwatch*long*.png": "fedwatch-long.png",
             "*fear*greed*.png": "fear-greed.png",
+            "*earnings-calendar*.jpg": "earnings-calendar.jpg",
+            "*earnings-calendar*.png": "earnings-calendar.png",
         }
         hits = []
         for name in names:
@@ -123,7 +125,19 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self._write_json("today-misc-batch-b-candidates.json", {"captured_at": "2026-05-03T09:25:00+09:00", "candidates": []})
         self._write_json("x-timeline-posts.json", {"captured_at": "2026-05-03T09:35:00+09:00", "posts": []})
         self._write_json("earnings-ticker-drilldown.json", {"items": []})
-        self._write_json("finviz-feature-stocks.json", {"items": [{"ticker": "MSFT", "url": "https://finviz.com/quote.ashx?t=MSFT"}]})
+        self._write_json(
+            "finviz-feature-stocks.json",
+            {
+                "items": [
+                    {
+                        "ticker": "MSFT",
+                        "status": "ok",
+                        "url": "https://finviz.com/quote.ashx?t=MSFT",
+                        "screenshot_path": str(self.runtime_root / "msft.png"),
+                    }
+                ]
+            },
+        )
         self._write_json("economic-calendar.json", {"events": [{"event": "ISM 서비스업"}]})
         self._write_json(
             "market-radar.json",
@@ -268,9 +282,8 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         for block in story_blocks:
             self.assertEqual(1, len(re.findall(r"^추천도:\s+`(?:★★★|★★☆|★☆☆)`$", block, flags=re.M)))
             quotes = re.findall(r"^>\s+(.+)$", block, flags=re.M)
-            self.assertGreaterEqual(len(quotes), 1)
-            self.assertLessEqual(len(quotes), 3)
-            self.assertTrue(all(len(quote) <= 90 for quote in quotes))
+            self.assertEqual(1, len(quotes))
+            self.assertTrue(all(len(quote) <= 180 for quote in quotes))
             self.assertEqual(1, block.count("**왜 중요한가**"))
             why_body = block.split("**왜 중요한가**", 1)[1].split("**슬라이드 구성:**", 1)[0]
             why_bullets = re.findall(r"^-\s+(.+)$", why_body, flags=re.M)
@@ -301,7 +314,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         collection = quality.compact_collection_area(markdown)
         for forbidden in ["source_role", "evidence_role", "item_id", "evidence_id", "MF-", "원문 제목"]:
             self.assertNotIn(forbidden, markdown)
-        self.assertEqual(["1. 시장은 지금", "2. 미디어 포커스"], quality.compact_collection_sections(collection))
+        self.assertEqual(["1. 시장은 지금", "2. 미디어 포커스", "3. 실적/특징주"], quality.compact_collection_sections(collection))
         labels = quality.compact_collection_labels(collection)
         self.assertLess(labels.index("주요 지수 흐름"), labels.index("10년물 국채금리"))
         self.assertNotIn("주요 지수 흐름 2", labels)
@@ -335,6 +348,12 @@ class CompactPublishRendererContractTest(unittest.TestCase):
             self.assertLessEqual(len(bullets), 3)
             self.assertTrue(all(len(bullet) <= 90 for bullet in bullets))
         self.assertIn("https://example.com/rates-story", collection)
+        feature_body = quality.compact_collection_section_body(collection, "3. 실적/특징주")
+        feature_blocks = quality.compact_card_blocks(feature_body)
+        self.assertEqual("실적 캘린더", quality.card_title(feature_blocks[0]))
+        self.assertEqual(1, quality.image_count(feature_blocks[0]))
+        self.assertIn("### 마이크로소프트 (MSFT)", feature_body)
+        self.assertIsNone(re.search(r"^###\s+(?:\d+\.|[①②③④⑤⑥⑦⑧⑨⑩])\s+마이크로소프트", feature_body, flags=re.M))
 
         findings = quality.review_compact_publish_contract(markdown)
         self.assertEqual([], [finding.title for finding in findings])

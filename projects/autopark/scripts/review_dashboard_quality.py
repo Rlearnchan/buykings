@@ -525,6 +525,50 @@ def has_markdown_table(text: str) -> bool:
     return bool(re.search(r"^\|.+\|\s*$", text, flags=re.M))
 
 
+def markdown_image_targets(text: str) -> list[str]:
+    return re.findall(r"!\[[^\]]*\]\(([^)]+)\)", text or "")
+
+
+def finviz_index_chart_image_ok(image_path: str) -> bool | None:
+    if "finviz-index-futures" not in image_path:
+        return None
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+    path = Path(image_path)
+    if not path.is_absolute():
+        path = PROJECT_ROOT.parents[1] / path
+    try:
+        image = Image.open(path).convert("RGB")
+    except OSError:
+        return None
+    width, height = image.size
+    if width < 650 or height < 180:
+        return False
+    left = image.crop((0, 0, min(width, 390), min(height, 190)))
+    title_band = left.crop((25, 18, min(left.width, 170), min(left.height, 58)))
+    chart_body = left.crop((35, 45, min(left.width, 340), min(left.height, 175)))
+    title_pixels = 0
+    grid_pixels = 0
+    market_pixels = 0
+    title_data = title_band.load()
+    for y in range(title_band.height):
+        for x in range(title_band.width):
+            red, green, blue = title_data[x, y]
+            if max(red, green, blue) < 245 and max(red, green, blue) - min(red, green, blue) < 35:
+                title_pixels += 1
+    chart_data = chart_body.load()
+    for y in range(chart_body.height):
+        for x in range(chart_body.width):
+            red, green, blue = chart_data[x, y]
+            if 175 <= red <= 235 and 175 <= green <= 235 and 175 <= blue <= 235 and max(red, green, blue) - min(red, green, blue) < 28:
+                grid_pixels += 1
+            if (green > red + 35 and green > blue + 20) or (red > green + 35 and red > blue + 20):
+                market_pixels += 1
+    return title_pixels >= 80 and grid_pixels >= 250 and market_pixels >= 120
+
+
 def compact_english_word_run_too_long(text: str) -> bool:
     return len(re.findall(r"\b[A-Za-z][A-Za-z0-9&'’.-]*\b", text or "")) >= 5
 
@@ -636,11 +680,11 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
         if len(re.findall(r"^추천도:\s+`(?:★★★|★★☆|★☆☆)`$", block, flags=re.M)) != 1:
             issue(findings, "format", "high", "COMPACT-011 추천도 형식 불일치", f"{index}번 스토리라인 추천도 형식이 다릅니다.", "추천도는 ★★★/★★☆/★☆☆ 중 하나만 사용하세요.")
         quotes = [match.group(1).strip() for match in re.finditer(r"^>\s+(.+)$", block, flags=re.M)]
-        if not quotes or len(quotes) > 3:
-            issue(findings, "format", "high", "COMPACT-012 quote 줄 수 위반", f"{index}번 스토리라인 quote 수: {len(quotes)}", "quote는 1~3줄만 렌더하세요.")
-        quote_bad = [line for line in quotes if len(line) > 90 or compact_raw_source_like(line) or any(token in line for token in COMPACT_HOST_FORBIDDEN)]
+        if len(quotes) != 1:
+            issue(findings, "format", "high", "COMPACT-012 quote 줄 수 위반", f"{index}번 스토리라인 quote 수: {len(quotes)}", "quote는 한 줄 인용문 하나만 렌더하세요.")
+        quote_bad = [line for line in quotes if len(line) > 180 or compact_raw_source_like(line) or any(token in line for token in COMPACT_HOST_FORBIDDEN)]
         if quote_bad:
-            issue(findings, "format", "high", "COMPACT-017 quote public 문장 위반", f"{index}번 quote가 90자를 넘거나 금지 토큰을 포함합니다.", "quote는 90자 이하 public 문장만 사용하세요.")
+            issue(findings, "format", "high", "COMPACT-017 quote public 문장 위반", f"{index}번 quote가 180자를 넘거나 금지 토큰을 포함합니다.", "quote는 180자 이하 public 문장만 사용하세요.")
         if block.count("**왜 중요한가**") != 1:
             issue(findings, "format", "high", "COMPACT-040 왜 중요한가 누락", f"{index}번 스토리라인에 왜 중요한가 블록이 없습니다.", "각 스토리라인에 **왜 중요한가**와 2~3개 bullet을 렌더하세요.")
         why_body = block.split("**왜 중요한가**", 1)[1].split("**슬라이드 구성:**", 1)[0] if "**왜 중요한가**" in block else ""
@@ -671,9 +715,9 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
     collection = compact_collection_area(markdown)
     if collection:
         sections = compact_collection_sections(collection)
-        expected_sections = ["1. 시장은 지금", "2. 미디어 포커스"]
+        expected_sections = ["1. 시장은 지금", "2. 미디어 포커스", "3. 실적/특징주"]
         if sections != expected_sections:
-            issue(findings, "format", "high", "COMPACT-022 자료 수집 section 불일치", f"자료 수집 sections: {sections}", "자료 수집 하위 heading은 ## 1. 시장은 지금, ## 2. 미디어 포커스만 허용합니다.")
+            issue(findings, "format", "high", "COMPACT-022 자료 수집 section 불일치", f"자료 수집 sections: {sections}", "자료 수집 하위 heading은 ## 1. 시장은 지금, ## 2. 미디어 포커스, ## 3. 실적/특징주만 허용합니다.")
         labels = compact_collection_labels(collection)
         label_positions = {label: index for index, label in enumerate(labels)}
         for earlier, later in [
@@ -701,6 +745,7 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
             issue(findings, "format", "high", "COMPACT-028 자료 카드 필드 위반", "자료 수집 카드에 금지 필드가 렌더됐습니다.", "자료 카드에는 출처/수집 시점/요약/원문/이미지만 렌더하세요.")
         market_body = compact_collection_section_body(collection, "1. 시장은 지금")
         media_body = compact_collection_section_body(collection, "2. 미디어 포커스")
+        feature_body = compact_collection_section_body(collection, "3. 실적/특징주")
         market_blocks = compact_card_blocks(market_body)
         market_titles = [card_title(block) for block in market_blocks]
         market_block_by_title = {card_title(block): block for block in market_blocks}
@@ -711,6 +756,13 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
             issue(findings, "format", "high", "COMPACT-044 시장 필수 카드 누락", ", ".join(missing_market_cards), "시장 지도 고정 카드 전체를 같은 순서로 렌더하세요.")
         if market_titles.count("주요 지수 흐름") != 1 or image_count(market_block_by_title.get("주요 지수 흐름", "")) < 2:
             issue(findings, "format", "high", "COMPACT-030 주요 지수 흐름 2장 누락", f"시장 카드: {market_titles[:6]}", "Finviz index futures 캡처는 주요 지수 흐름 한 카드 안에 2장 렌더하세요.")
+        index_quality = [
+            finviz_index_chart_image_ok(target)
+            for target in markdown_image_targets(market_block_by_title.get("주요 지수 흐름", ""))
+        ]
+        bad_index_images = [result for result in index_quality if result is False]
+        if bad_index_images:
+            issue(findings, "format", "high", "COMPACT-050 주요 지수 흐름 이미지 품질 실패", "Finviz 주요 지수 이미지가 상단 DOW/NASDAQ/S&P500 차트 형태로 보이지 않습니다.", "Cloudflare 화면이나 테이블 영역 crop이 아닌 상단 지수 캔들차트 2장을 다시 캡처하세요.")
         for fed_label in ["FedWatch 단기 금리 확률", "FedWatch 장기 금리 확률"]:
             if market_titles.count(fed_label) != 1 or image_count(market_block_by_title.get(fed_label, "")) < 1:
                 issue(findings, "format", "high", "COMPACT-031 FedWatch 단기/장기 누락", f"시장 카드: {market_titles}", "FedWatch 단기/장기 금리 확률을 각각 한 카드씩 렌더하세요.")
@@ -736,6 +788,17 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
             long_bullets = [bullet for bullet in bullets if len(bullet) > 90 or compact_raw_source_like(bullet)]
             if long_bullets:
                 issue(findings, "format", "high", "COMPACT-039 미디어 내용 bullet 위반", f"{title}: " + ", ".join(long_bullets[:2]), "내용 bullet은 90자 이하 public 문장으로 렌더하세요.")
+        if "3. 실적/특징주" not in sections:
+            issue(findings, "format", "high", "COMPACT-046 실적/특징주 누락", "## 3. 실적/특징주 section이 없습니다.", "특징주와 실적 캘린더는 미디어 포커스가 아니라 3번 섹션에 렌더하세요.")
+        feature_blocks = compact_card_blocks(feature_body)
+        feature_titles = [card_title(block) for block in feature_blocks]
+        if feature_titles[:1] != ["실적 캘린더"]:
+            issue(findings, "format", "high", "COMPACT-047 실적 캘린더 첫 카드 누락", f"실적/특징주 첫 카드: {feature_titles[:1]}", "실적/특징주 섹션의 첫 자료는 ### 실적 캘린더 이미지 카드여야 합니다.")
+        if feature_blocks and image_count(feature_blocks[0]) < 1:
+            issue(findings, "format", "high", "COMPACT-048 실적 캘린더 이미지 누락", "실적 캘린더 카드에 이미지가 없습니다.", "Earnings Whispers 실적 캘린더 캡처를 첫 카드 이미지로 렌더하세요.")
+        numbered_feature_titles = [title for title in feature_titles[1:] if re.match(r"^(?:\\d+\\.|[①②③④⑤⑥⑦⑧⑨⑩])\\s+", title)]
+        if numbered_feature_titles:
+            issue(findings, "format", "high", "COMPACT-049 특징주 기업명 번호 노출", ", ".join(numbered_feature_titles[:4]), "실적/특징주 하위 기업명 앞에는 순번을 붙이지 마세요.")
 
     for banned in COMPACT_BANNED_SECTIONS:
         if banned in markdown:

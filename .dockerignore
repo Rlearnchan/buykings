@@ -1,4 +1,5 @@
 .git
+.codex-worktrees/
 .venv
 .venv-stale-*
 node_modules

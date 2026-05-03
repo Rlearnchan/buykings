@@ -49,5 +49,9 @@ else
   args+=("--publish-policy" "${AUTOPARK_PUBLISH_POLICY:-gate}")
 fi
 
+if [[ -n "${AUTOPARK_PUBLISH_TITLE:-}" ]]; then
+  args+=("--publish-title" "${AUTOPARK_PUBLISH_TITLE}")
+fi
+
 echo "Autopark container run: date=${run_date} use_cdp=${AUTOPARK_USE_CDP:-1} cdp=${AUTOPARK_CDP_ENDPOINT:-unset} publish_skipped=${AUTOPARK_SKIP_PUBLISH:-1}"
 python3 "${args[@]}"
