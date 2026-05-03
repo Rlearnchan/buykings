@@ -3307,8 +3307,8 @@ FIXED_ASSET_ORDER = {
     "usd-krw": 7,
     "bitcoin": 8,
     "cnn-fear-greed": 9,
-    "fedwatch-conditional-probabilities-short-term": 10,
-    "fedwatch-conditional-probabilities-long-term": 11,
+    "fedwatch": 10,
+    "economic-calendar": 11,
 }
 
 CIRCLED_NUMBERS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱", "⑲", "⑳"]
@@ -3428,8 +3428,10 @@ def render_market_material_card(lines: list[str], card: dict, rendered_keys: set
     image = clean(card.get("image") or card.get("visual_local_path") or card.get("local_path"))
     if image:
         images.append(image)
-    for image_path in images:
-        lines.extend(["", notion_image(label, image_path)])
+    image_labels = [clean(item) for item in (card.get("image_labels") or [])]
+    for idx, image_path in enumerate(images):
+        image_label = image_labels[idx] if idx < len(image_labels) and image_labels[idx] else label
+        lines.extend(["", notion_image(image_label, image_path)])
     if card.get("missing_image") and not images:
         lines.append("- 이미지 없음")
     return True
@@ -3610,29 +3612,57 @@ def build_compact_collection_cards(
                 }
             )
 
-    for source_id, filename, label in [
-        ("fedwatch-conditional-probabilities-short-term", "fedwatch-conditional-probabilities-short-term.png", "FedWatch 단기 금리 확률"),
-        ("fedwatch-conditional-probabilities-long-term", "fedwatch-conditional-probabilities-long-term.png", "FedWatch 장기 금리 확률"),
+    fedwatch_images: list[str] = []
+    for source_id, filename in [
+        ("fedwatch-conditional-probabilities-short-term", "fedwatch-conditional-probabilities-short-term.png"),
+        ("fedwatch-conditional-probabilities-long-term", "fedwatch-conditional-probabilities-long-term.png"),
     ]:
         images = screenshots_for(target_date, f"*{source_id}*.png")[:1]
         if not images:
             png = EXPORTS_DIR / filename
             images = [str(png)] if png.exists() else []
-        for image in images[:1]:
-            collection_cards.append(
-                {
-                    "section": "market_now",
-                    "asset_key": source_id,
-                    "label": label,
-                    "title": label,
-                    "source": "CME FedWatch",
-                    "url": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
-                    "item_id": source_id,
-                    "evidence_id": source_id,
-                    "image": crop_bottom_whitespace(image, target_date),
-                    "allow_duplicate_url": True,
-                }
-            )
+        fedwatch_images.extend(crop_bottom_whitespace(image, target_date) for image in images[:1])
+    if fedwatch_images:
+        collection_cards.append(
+            {
+                "section": "market_now",
+                "asset_key": "fedwatch",
+                "label": "FedWatch",
+                "title": "FedWatch",
+                "source": "CME FedWatch",
+                "url": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
+                "item_id": "fedwatch",
+                "evidence_id": "fedwatch",
+                "images": fedwatch_images,
+                "image_labels": ["FedWatch 단기 금리 확률", "FedWatch 장기 금리 확률"],
+            }
+        )
+
+    calendar_images = [
+        str(path)
+        for path in [EXPORTS_DIR / "economic-calendar-us.png", EXPORTS_DIR / "economic-calendar-global.png"]
+        if path.exists()
+    ]
+    if not calendar_images:
+        calendar_png = EXPORTS_DIR / "economic-calendar.png"
+        if calendar_png.exists():
+            calendar_images = [str(calendar_png)]
+    if calendar_images:
+        calendar_image_labels = ["오늘의 미국 경제지표", "오늘의 글로벌 경제지표"] if len(calendar_images) > 1 else ["오늘의 경제지표"]
+        collection_cards.append(
+            {
+                "section": "market_now",
+                "asset_key": "economic-calendar",
+                "label": "오늘의 경제지표",
+                "title": "오늘의 경제지표",
+                "source": "Trading Economics",
+                "url": "https://ko.tradingeconomics.com/calendar",
+                "item_id": "economic-calendar",
+                "evidence_id": "economic-calendar",
+                "images": calendar_images,
+                "image_labels": calendar_image_labels,
+            }
+        )
     focus_by_id: dict[str, dict] = {}
     for focus in market_focus.get("what_market_is_watching") or []:
         for item_id in market_focus_ids(focus):
@@ -3780,28 +3810,6 @@ def render_compact_feature_section(lines: list[str], target_date: str, finviz_fe
     feature_rows = [row for row in finviz_features.get("items", []) if row.get("status") == "ok"]
     for row in feature_rows[:6]:
         render_feature_stock(lines, row)
-    us_calendar_png = EXPORTS_DIR / "economic-calendar-us.png"
-    global_calendar_png = EXPORTS_DIR / "economic-calendar-global.png"
-    calendar_png = EXPORTS_DIR / "economic-calendar.png"
-    calendar_images = [path for path in [us_calendar_png, global_calendar_png] if path.exists()]
-    if not calendar_images and calendar_png.exists():
-        calendar_images = [calendar_png]
-    if calendar_images:
-        captured = captured_from_file(calendar_images[0])
-        lines.extend(
-            [
-                "### 실적·경제일정 표",
-                "",
-                "- 출처: [Trading Economics](https://ko.tradingeconomics.com/calendar)",
-                f"- 수집 시점: `{captured or '-'}`",
-                "",
-            ]
-        )
-        for image in calendar_images:
-            label = "오늘의 미국 경제 일정" if image.name.endswith("-us.png") else "오늘의 글로벌 경제 일정"
-            if image.name == "economic-calendar.png":
-                label = "오늘의 경제 일정"
-            lines.extend([notion_image(label, image), ""])
 
 
 def render_compact_publish_dashboard(target_date: str) -> str:

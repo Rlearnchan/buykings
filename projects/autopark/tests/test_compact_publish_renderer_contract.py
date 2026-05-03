@@ -31,6 +31,8 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         (self.processed / DATE).mkdir(parents=True)
         self.exports.mkdir(parents=True)
         self.prompts.mkdir(parents=True)
+        (self.exports / "economic-calendar-us.png").write_text("fake", encoding="utf-8")
+        (self.exports / "economic-calendar-global.png").write_text("fake", encoding="utf-8")
         self._dashboard_paths = {
             "PROCESSED_DIR": dashboard.PROCESSED_DIR,
             "EXPORTS_DIR": dashboard.EXPORTS_DIR,
@@ -320,9 +322,11 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertLess(labels.index("S&P500 히트맵"), labels.index("WTI 가격 차트"))
         self.assertLess(labels.index("WTI 가격 차트"), labels.index("브렌트 가격 차트"))
         self.assertIn("원/달러 환율 차트", labels)
-        self.assertIn("FedWatch 단기 금리 확률", labels)
-        self.assertIn("FedWatch 장기 금리 확률", labels)
-        self.assertNotIn("FedWatch 금리 확률", labels)
+        self.assertIn("FedWatch", labels)
+        self.assertIn("오늘의 경제지표", labels)
+        self.assertNotIn("FedWatch 단기 금리 확률", labels)
+        self.assertNotIn("FedWatch 장기 금리 확률", labels)
+        self.assertEqual(labels.index("FedWatch") + 1, labels.index("오늘의 경제지표"))
         self.assertNotIn("10년물 금리 차트", labels)
         self.assertEqual(len(labels), len(set(labels)))
         bare_labels = [quality.strip_public_label_marker(label) for label in labels]
@@ -333,8 +337,8 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertNotIn("원문 제목:", market_body)
         market_blocks = {quality.card_title(block): block for block in quality.compact_card_blocks(market_body)}
         self.assertEqual(2, quality.image_count(market_blocks["주요 지수 흐름"]))
-        self.assertEqual(1, quality.image_count(market_blocks["FedWatch 단기 금리 확률"]))
-        self.assertEqual(1, quality.image_count(market_blocks["FedWatch 장기 금리 확률"]))
+        self.assertEqual(2, quality.image_count(market_blocks["FedWatch"]))
+        self.assertEqual(2, quality.image_count(market_blocks["오늘의 경제지표"]))
         media_body = quality.compact_collection_section_body(collection, "2. 미디어 포커스")
         media_blocks = quality.compact_card_blocks(media_body)
         self.assertNotIn("- 출처: Autopark", media_body)
@@ -424,12 +428,14 @@ class CompactPublishRendererContractTest(unittest.TestCase):
                 "- 출처: [finviz](https://finviz.com/)",
                 "![주요 지수 흐름](a.png)",
                 "![주요 지수 흐름](b.png)",
-                "### FedWatch 금리 확률",
+                "### FedWatch",
                 "- 출처: [CME](https://example.com/)",
-                "![FedWatch 금리 확률](short.png)",
-                "### FedWatch 장기 금리 확률",
-                "- 출처: [CME](https://example.com/)",
+                "![FedWatch 단기 금리 확률](short.png)",
                 "![FedWatch 장기 금리 확률](long.png)",
+                "### 오늘의 경제지표",
+                "- 출처: [Trading Economics](https://example.com/calendar)",
+                "![오늘의 미국 경제지표](us.png)",
+                "![오늘의 글로벌 경제지표](global.png)",
                 "## 2. 미디어 포커스",
                 "### ① WTI·브렌트 가격 차트",
                 "- 출처: [IsabelNet](https://example.com/oil)",
@@ -444,10 +450,10 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertEqual(3, len(market_cards))
         self.assertEqual("주요 지수 흐름", market_cards[0]["label"])
         self.assertEqual(2, market_cards[0]["image_count"])
-        self.assertEqual("FedWatch 금리 확률", market_cards[1]["label"])
-        self.assertEqual(1, market_cards[1]["image_count"])
-        self.assertEqual("FedWatch 장기 금리 확률", market_cards[2]["label"])
-        self.assertEqual(1, market_cards[2]["image_count"])
+        self.assertEqual("FedWatch", market_cards[1]["label"])
+        self.assertEqual(2, market_cards[1]["image_count"])
+        self.assertEqual("오늘의 경제지표", market_cards[2]["label"])
+        self.assertEqual(2, market_cards[2]["image_count"])
         self.assertEqual(1, len(media_cards))
         self.assertTrue(media_cards[0]["has_content"])
         self.assertEqual(0, forbidden["source_role"])

@@ -433,8 +433,8 @@ COMPACT_MARKET_NOW_LABEL_ORDER = [
     "원/달러 환율 차트",
     "비트코인 가격 차트",
     "CNN Fear & Greed",
-    "FedWatch 단기 금리 확률",
-    "FedWatch 장기 금리 확률",
+    "FedWatch",
+    "오늘의 경제지표",
 ]
 
 
@@ -770,9 +770,15 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
         bad_index_images = [result for result in index_quality if result is False]
         if bad_index_images:
             issue(findings, "format", "high", "COMPACT-050 주요 지수 흐름 이미지 품질 실패", "Finviz 주요 지수 이미지가 상단 DOW/NASDAQ/S&P500 차트 형태로 보이지 않습니다.", "Cloudflare 화면이나 테이블 영역 crop이 아닌 상단 지수 캔들차트 2장을 다시 캡처하세요.")
-        for fed_label in ["FedWatch 단기 금리 확률", "FedWatch 장기 금리 확률"]:
-            if market_titles.count(fed_label) != 1 or image_count(market_block_by_title.get(fed_label, "")) < 1:
-                issue(findings, "format", "high", "COMPACT-031 FedWatch 단기/장기 누락", f"시장 카드: {market_titles}", "FedWatch 단기/장기 금리 확률을 각각 한 카드씩 렌더하세요.")
+        fedwatch_block = market_block_by_title.get("FedWatch", "")
+        if market_titles.count("FedWatch") != 1 or image_count(fedwatch_block) < 2:
+            issue(findings, "format", "high", "COMPACT-031 FedWatch 단기/장기 누락", f"시장 카드: {market_titles}", "FedWatch 소제목 아래에 단기/장기 금리 확률 이미지를 순서대로 렌더하세요.")
+        economy_block = market_block_by_title.get("오늘의 경제지표", "")
+        if market_titles.count("오늘의 경제지표") != 1 or image_count(economy_block) < 1:
+            issue(findings, "format", "high", "COMPACT-053 오늘의 경제지표 누락", f"시장 카드: {market_titles}", "FedWatch 바로 뒤에 오늘의 경제지표 표 이미지를 렌더하세요.")
+        elif "FedWatch" in market_titles and "오늘의 경제지표" in market_titles:
+            if market_titles.index("오늘의 경제지표") != market_titles.index("FedWatch") + 1 or market_titles.index("오늘의 경제지표") != len(market_titles) - 1:
+                issue(findings, "format", "high", "COMPACT-054 FedWatch/경제지표 순서 위반", f"시장 카드: {market_titles}", "오늘의 경제지표는 FedWatch 바로 뒤, 시장 섹션 최하단에 렌더하세요.")
         if re.search(r"^-\s+(?:요약|원문 제목|기준 시점):", market_body, flags=re.M):
             issue(findings, "format", "high", "COMPACT-032 시장 카드 설명 필드 위반", "시장 차트 카드에 요약/원문 제목/기준 시점 필드가 있습니다.", "시장 차트에는 출처/수집 시점/이미지만 렌더하세요.")
         if "원/달러 환율 차트" not in market_titles and "원/달러" in markdown:
