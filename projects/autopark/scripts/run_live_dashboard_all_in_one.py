@@ -224,6 +224,13 @@ def now_kst() -> datetime:
     return datetime.now(KST)
 
 
+def flag_enabled(env: dict[str, str], key: str, default: bool = True) -> bool:
+    value = env.get(key)
+    if value is None:
+        return default
+    return str(value).strip().lower() not in {"0", "false", "no", "off"}
+
+
 def compact_command(command: list[str]) -> str:
     return " ".join(command)
 
@@ -338,6 +345,13 @@ def summarize_payload(payload: dict, stderr: str = "") -> str:
         return f"events={len(payload.get('events') or [])}"
     if payload.get("fallback") is not None and payload.get("storyline_count") is not None:
         summary = f"fallback={payload.get('fallback')}; storylines={payload.get('storyline_count')}"
+        if payload.get("fallback_reason"):
+            summary += f"; reason={str(payload.get('fallback_reason'))[:120]}"
+        return summary
+    if payload.get("fallback") is not None and payload.get("agenda_count") is not None:
+        summary = f"fallback={payload.get('fallback')}; agenda={payload.get('agenda_count')}"
+        if payload.get("fallback_code"):
+            summary += f"; code={payload.get('fallback_code')}"
         if payload.get("fallback_reason"):
             summary += f"; reason={str(payload.get('fallback_reason'))[:120]}"
         return summary
@@ -598,6 +612,12 @@ def main() -> int:
     parser.add_argument("--polymarket-policy", choices=["issue", "always", "never"], default=None)
     parser.add_argument("--polymarket-source", default=None)
     parser.add_argument("--skip-datawrapper-export", action="store_true")
+    parser.add_argument("--preflight-with-web", action="store_true")
+    parser.add_argument("--skip-preflight-agenda", action="store_true")
+    parser.add_argument("--preflight-response-fixture", type=Path, default=None)
+    parser.add_argument("--market-focus-response-fixture", type=Path, default=None)
+    parser.add_argument("--synthetic-preflight-smoke", action="store_true")
+    parser.add_argument("--synthetic-market-focus-smoke", action="store_true")
     parser.add_argument("--market-focus-with-web", action="store_true")
     parser.add_argument("--skip-market-focus-brief", action="store_true")
     parser.add_argument("--skip-publish", action="store_true")
@@ -632,6 +652,8 @@ def main() -> int:
     run_env["AUTOPARK_OPERATION_MODE"] = str(operation.get("mode") or "daily_broadcast")
     run_env["AUTOPARK_EXPECTED_BROADCAST"] = "1" if operation.get("expected_broadcast") else "0"
     run_env["AUTOPARK_OPERATION_NOTE"] = str(operation.get("note") or "")
+    preflight_enabled = flag_enabled(run_env, "AUTOPARK_PREFLIGHT_ENABLED", True) and not args.skip_preflight_agenda
+    market_focus_with_web = args.market_focus_with_web or flag_enabled(run_env, "AUTOPARK_MARKET_FOCUS_WITH_WEB_DEFAULT", False)
 
     py = resolve_python()
     node = resolve_node()
@@ -642,6 +664,7 @@ def main() -> int:
     notion_url: str | None = None
     publish_payload: dict = {}
     review_payload: dict = {}
+    preflight_payload: dict = {}
     market_focus_payload: dict = {}
     editorial_payload: dict = {}
 
@@ -649,6 +672,7 @@ def main() -> int:
         planned = [
             "launch chrome cdp",
             "preflight",
+            "build market preflight agenda",
             "collect news batch a/b",
             "collect x",
             "build visual cards",
@@ -665,6 +689,8 @@ def main() -> int:
         ]
         if args.skip_market_focus_brief:
             planned = [step for step in planned if step != "build market focus brief"]
+        if not preflight_enabled:
+            planned = [step for step in planned if step != "build market preflight agenda"]
         browser_commands = [
             [
                 py,
@@ -753,6 +779,9 @@ def main() -> int:
                         "x_max_posts": effective_x_max_posts,
                     },
                     "editorial": {
+                        "preflight_enabled": preflight_enabled,
+                        "preflight_step": "build market preflight agenda" if preflight_enabled else "skipped by flag/env",
+                        "preflight_output": str(PROJECT_ROOT / "data" / "processed" / args.date / "market-preflight-agenda.json"),
                         "market_focus_enabled": not args.skip_market_focus_brief,
                         "market_focus_policy": "all-in-one runs by default; use --skip-market-focus-brief only for emergency/debug reruns",
                         "market_focus_step": "build market focus brief" if not args.skip_market_focus_brief else "skipped by flag",
@@ -798,6 +827,51 @@ def main() -> int:
         180,
         allow_fail=True,
     )
+    append_step(results, result)
+
+    if not preflight_enabled:
+        now = now_kst().isoformat(timespec="seconds")
+        reason = (
+            "--skip-preflight-agenda was set; fixed collection continues without agenda prior."
+            if args.skip_preflight_agenda
+            else "AUTOPARK_PREFLIGHT_ENABLED disabled the preflight agenda stage; fixed collection continues."
+        )
+        fallback_code = "preflight_skipped_by_flag" if args.skip_preflight_agenda else "preflight_disabled_by_env"
+        preflight_payload = {
+            "ok": True,
+            "skipped": True,
+            "fallback": True,
+            "fallback_code": fallback_code,
+            "fallback_reason": reason,
+            "output": str(PROJECT_ROOT / "data" / "processed" / args.date / "market-preflight-agenda.json"),
+        }
+        result = StepResult(
+            "build market preflight agenda",
+            "warn",
+            now,
+            now,
+            0.0,
+            [],
+            None,
+            reason,
+            [],
+        )
+    else:
+        preflight_command = [py, "projects/autopark/scripts/build_market_preflight_agenda.py", "--date", args.date]
+        if args.preflight_with_web:
+            preflight_command.append("--with-web")
+        if args.preflight_response_fixture:
+            preflight_command.extend(["--response-fixture", str(args.preflight_response_fixture)])
+        if args.synthetic_preflight_smoke:
+            preflight_command.append("--synthetic-smoke")
+        preflight_command.extend(["--prompt-output", f"projects/autopark/runtime/openai-prompts/{args.date}-market-preflight-prompt.json"])
+        result, preflight_payload = run(
+            preflight_command,
+            "build market preflight agenda",
+            180,
+            allow_fail=True,
+            env=run_env,
+        )
     append_step(results, result)
 
     for batch_name, extra in [
@@ -1119,8 +1193,13 @@ def main() -> int:
         )
     else:
         market_focus_command = [py, "projects/autopark/scripts/build_market_focus_brief.py", "--date", args.date]
-        if args.market_focus_with_web:
+        if market_focus_with_web:
             market_focus_command.append("--with-web")
+        if args.market_focus_response_fixture:
+            market_focus_command.extend(["--response-fixture", str(args.market_focus_response_fixture)])
+        if args.synthetic_market_focus_smoke:
+            market_focus_command.append("--synthetic-smoke")
+        market_focus_command.extend(["--prompt-output", f"projects/autopark/runtime/openai-prompts/{args.date}-market-focus-prompt.json"])
         result, market_focus_payload = run(
             market_focus_command,
             "build market focus brief",
@@ -1251,6 +1330,18 @@ def main() -> int:
         "notion_url": notion_url,
         "publish_policy": publish_policy,
         "operation": operation,
+        "preflight_agenda": {
+            "enabled": preflight_enabled,
+            "skipped": bool(preflight_payload.get("skipped")),
+            "fallback": bool(preflight_payload.get("fallback")),
+            "fallback_code": preflight_payload.get("fallback_code"),
+            "fallback_reason": preflight_payload.get("fallback_reason"),
+            "model": preflight_payload.get("model"),
+            "with_web": bool(preflight_payload.get("with_web")),
+            "agenda_count": preflight_payload.get("agenda_count"),
+            "output": preflight_payload.get("output"),
+            "markdown_output": preflight_payload.get("markdown_output"),
+        },
         "market_focus": {
             "enabled": not args.skip_market_focus_brief,
             "skipped": bool(market_focus_payload.get("skipped")),

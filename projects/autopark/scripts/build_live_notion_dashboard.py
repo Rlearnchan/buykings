@@ -1178,7 +1178,7 @@ def storyline_refs(storyline: dict, radar_by_id: dict, ledger: list[dict]) -> li
         if title in seen:
             continue
         seen.add(title)
-        refs.append(title)
+        refs.append(media_asset_ref_for_item(item_id, radar_by_id))
     return refs
 
 
@@ -1213,38 +1213,17 @@ def render_storyline(lines: list[str], index: int, storyline: dict, radar_by_id:
             f"## {index}. {title}",
             "",
             f"추천도: `{recommendation}` {recommendation_label}".rstrip(),
-            "",
-            f"> {clean(storyline.get('one_liner'), 150)}",
-            "",
-            "### 선정 이유",
-            "",
-            f"- {public_selection_reason(storyline.get('why_selected'), title)}",
         ]
     )
-    if refs:
-        lines.append(f"- 참고 자료: {' → '.join(f'`{ref}`' for ref in refs[:4])}")
     lines.extend(["", "### 슬라이드 구성", ""])
-    if storyline.get("angle"):
-        lines.append(f"- {clean(storyline.get('angle'), 150)}")
-    elif refs:
-        lines.append(f"- {refs[0]}를 시작점으로 오늘 시장이 보는 질문을 제시")
-    if len(refs) >= 2:
-        lines.append(f"- 이어서 `{refs[1]}` 자료로 시장 반응 또는 보조 근거 연결")
-    if len(refs) >= 3:
-        lines.append(f"- 마지막으로 `{refs[2]}` 자료를 통해 시각자료와 특징주 정리")
-    lines.extend(["", "### 방송 멘트 초안", ""])
-    if "유가" in title:
-        lines.append("- 오늘 시장은 유가와 지정학 이슈를 무시하는 것처럼 보이지만, 실제로는 AI 기대가 그 충격을 덮고 있는지 확인해야 합니다.")
-        lines.append("- 첫 장은 리스크를 던지고, 다음 장에서 투자자들의 위험선호가 얼마나 강한지 보여주면 흐름이 자연스럽습니다.")
-    elif "강세장" in title or "과열" in title:
-        lines.append("- 두 번째 꼭지는 시장이 비싼 줄 알면서도 왜 계속 사는지 묻는 흐름으로 잡습니다.")
-        lines.append("- 포지셔닝, 콜옵션, 밸류에이션 경고를 이어 붙이면 강세장의 연료와 과열 신호를 동시에 보여줄 수 있습니다.")
-    elif "실적" in title:
-        lines.append("- AI 기대가 계속 시장을 지탱하려면 결국 실적과 클라우드 성장, CapEx 숫자로 확인돼야 합니다.")
-        lines.append("- 캘린더 이미지는 일정 확인용으로만 두고, 실제 방송에서는 알파벳과 빅테크 차트로 기대가 가격에 반영되는지 확인합니다.")
+    for item in storyline_slide_flow(storyline):
+        lines.append(f"- {item}")
+    lines.extend(["", "### 자료 태그", ""])
+    if refs:
+        for ref in refs[:4]:
+            lines.append(f"- {ref}")
     else:
-        lines.append("- AI 이야기는 이제 기대감이 아니라 매출, CapEx, 생산성으로 증명되는 단계인지가 핵심입니다.")
-        lines.append("- 구글 TPU, AI 노동 자동화, 기업인의 AI 발언을 묶으면 ‘성장에 꽂힌 시장’이라는 꼭지로 독립 배치할 수 있습니다.")
+        lines.append("- `MF-source-gap` / `source_gap`")
     lines.append("")
 
 
@@ -1265,6 +1244,21 @@ def valid_market_focus_brief(brief: dict) -> bool:
         and brief.get("what_market_is_watching")
         and isinstance(brief.get("suggested_broadcast_order"), list)
     )
+
+
+def valid_preflight_agenda(agenda: dict) -> bool:
+    return bool(
+        agenda
+        and agenda.get("preflight_summary")
+        and isinstance(agenda.get("agenda_items"), list)
+        and agenda.get("agenda_items")
+    )
+
+
+def preflight_status_label(agenda: dict | None) -> str:
+    if not valid_preflight_agenda(agenda or {}):
+        return "미생성"
+    return "fallback 사용" if (agenda or {}).get("fallback") else "정상"
 
 
 def market_focus_for_host(brief: dict) -> dict:
@@ -1354,12 +1348,13 @@ def storyline_slide_flow(storyline: dict) -> list[str]:
     return ["시장은 지금", "핵심 질문", "가격 반응", "다음 확인 포인트"]
 
 
-def compact_market_focus_host_view(lines: list[str], market_focus: dict) -> None:
+def compact_market_focus_host_view(lines: list[str], market_focus: dict, preflight_agenda: dict | None = None) -> None:
     status = "fallback 사용" if market_focus.get("fallback") else "정상"
     summary = public_complete_text(market_focus.get("market_focus_summary"), 80)
     order_items = market_focus.get("suggested_broadcast_order") or []
     lines.extend(["# 진행자용 1페이지 요약", ""])
     lines.extend(["## 주요 뉴스 요약", ""])
+    lines.append(f"- Pre-flight Agenda: {preflight_status_label(preflight_agenda)}")
     lines.append(f"- Market Focus Brief: {status}")
     if summary:
         lines.append(f"- 핵심: {summary}")
@@ -2169,7 +2164,7 @@ def render_compact_host_view(
 ) -> None:
     market_focus = market_focus_for_host(brief.get("market_focus_brief") or {})
     if market_focus:
-        compact_market_focus_host_view(lines, market_focus)
+        compact_market_focus_host_view(lines, market_focus, brief.get("market_preflight_agenda") or {})
         return
 
     lead = storylines[0] if storylines else {}
@@ -2224,7 +2219,6 @@ def render_compact_host_view(
 
 def render_host_storyline(lines: list[str], index: int, storyline: dict, radar_by_id: dict) -> None:
     title = story_display_title(storyline)
-    quote = story_quote_text(storyline)
     slide_titles = storyline_slide_flow(storyline)
     media_refs = [
         media_asset_ref_for_evidence(item, radar_by_id)
@@ -2236,35 +2230,28 @@ def render_host_storyline(lines: list[str], index: int, storyline: dict, radar_b
             f"### {index}. {title}",
             "",
             f"추천도: `{stars_text(storyline.get('recommendation_stars'))}`",
-            "",
-            f"> {quote}",
-            "",
-            "#### 선정 이유",
-            "",
         ]
     )
-    reason = first_sentences(sanitize_story_public_text(storyline, storyline.get("lead_candidate_reason") or storyline.get("why_now"), 220), 2, 180)
-    lines.append(f"- {reason}")
-    lines.append(f"- 신호 판단: {signal_label(storyline.get('signal_or_noise'))}")
     lines.extend(["", "#### 슬라이드 구성", ""])
     if slide_titles:
         for item in slide_titles:
             lines.append(f"- {item}")
     else:
-        lines.append("- 훅 → 시장 지도 → 핵심 근거 → 반론/주의점")
+        lines.append("- 시장은 지금")
+        lines.append("- 핵심 질문")
+        lines.append("- 가격 반응")
+        lines.append("- 다음 확인 포인트")
     lines.extend(["", "#### 자료 태그", ""])
     if media_refs:
         for item in media_refs:
             lines.append(f"- {item}")
     else:
-        lines.append("- 방송 전 fact/data/analysis 근거를 추가 확인")
+        lines.append("- `MF-source-gap` / `source_gap`")
     if check_items:
         lines.extend(["", "#### 확인 필요", ""])
         for item in check_items:
             lines.append(f"- {item}")
-    short_hook = story_short_talk(storyline)
-    research_note = sanitize_story_public_text(storyline, storyline.get("talk_track") or storyline.get("core_argument"), 320)
-    lines.extend(["", "#### 짧은 말문", "", short_hook or quote, "", "#### 리서치 설명", "", research_note, ""])
+    lines.append("")
 
 
 def render_ppt_asset_queue(lines: list[str], brief: dict, target_date: str | None = None, radar_by_id: dict | None = None) -> None:
@@ -2418,6 +2405,38 @@ def render_market_focus_media(
     return rendered
 
 
+def render_market_preflight_audit(lines: list[str], preflight_agenda: dict | None) -> None:
+    if not valid_preflight_agenda(preflight_agenda or {}):
+        return
+    preflight_agenda = preflight_agenda or {}
+    status = preflight_status_label(preflight_agenda)
+    lines.extend(
+        [
+            "## Market Pre-flight Agenda Audit",
+            "",
+            f"- status: `{status}`",
+            f"- model: `{clean(preflight_agenda.get('model') or 'unknown', 80)}`",
+            f"- with_web: `{bool(preflight_agenda.get('with_web'))}`",
+        ]
+    )
+    if preflight_agenda.get("fallback_code"):
+        lines.append(f"- fallback_code: `{clean(preflight_agenda.get('fallback_code'), 80)}`")
+    summary = clean(preflight_agenda.get("preflight_summary"), 180)
+    if summary:
+        lines.append(f"- preflight_summary: {summary}")
+    for item in (preflight_agenda.get("agenda_items") or [])[:5]:
+        if not isinstance(item, dict):
+            continue
+        lines.append(
+            f"- rank `{item.get('rank')}` `{clean(item.get('agenda_id'), 80)}`: "
+            f"{clean(item.get('market_question'), 180)}"
+        )
+    gaps = [clean(item, 160) for item in preflight_agenda.get("source_gaps_to_watch") or [] if clean(item)]
+    if gaps:
+        lines.append("- source_gaps_to_watch: " + " / ".join(gaps[:5]))
+    lines.append("")
+
+
 def render_market_focus_audit(lines: list[str], market_focus: dict | None) -> None:
     if not valid_market_focus_brief(market_focus or {}):
         return
@@ -2494,12 +2513,14 @@ def render_audit_log(
     radar_by_id: dict,
     target_date: str | None = None,
     market_focus: dict | None = None,
+    preflight_agenda: dict | None = None,
 ) -> None:
     lines.extend(["# 검증 로그/회고용", "", "이 섹션은 진행자용 상단 화면이 아니라 품질검수와 방송 후 회고를 위한 내부 장부입니다.", ""])
     if target_date:
         status_table = source_status_table(target_date)
         if status_table:
             lines.extend(["## 수집 현황 표", "", *status_table, ""])
+    render_market_preflight_audit(lines, preflight_agenda)
     render_market_focus_audit(lines, market_focus)
     for index, story in enumerate(brief.get("storylines") or [], start=1):
         story_id = clean(story.get("storyline_id") or f"storyline-{index}", 80)
@@ -2656,6 +2677,7 @@ def render_dashboard(target_date: str) -> str:
     batch_b = load_json(processed / "today-misc-batch-b-candidates.json")
     side_dish = load_json(processed / "side-dish-candidates.json")
     market_radar = load_json(processed / "market-radar.json")
+    market_preflight = load_json(processed / "market-preflight-agenda.json")
     market_focus = load_json(processed / "market-focus-brief.json")
     editorial_brief = load_json(processed / "editorial-brief.json")
     x_timeline = load_json(processed / "x-timeline-posts.json")
@@ -2709,6 +2731,8 @@ def render_dashboard(target_date: str) -> str:
         "",
     ]
     host_brief = editorial_brief if use_editorial else {"editorial_summary": "\n".join(selection.get("dashboard_summary_bullets", []))}
+    if valid_preflight_agenda(market_preflight):
+        host_brief = {**host_brief, "market_preflight_agenda": market_preflight}
     if use_market_focus:
         host_brief = {**host_brief, "market_focus_brief": market_focus}
     summary_bullets = compact_news_bullets(host_brief, selection.get("dashboard_summary_bullets", []), display_storylines)
@@ -3037,7 +3061,7 @@ def render_dashboard(target_date: str) -> str:
         lines.append("- editorial brief fallback 또는 누락 상태입니다. 실제 방송 사용 여부를 수동 기록하세요.")
     if use_editorial:
         lines.extend([""])
-        render_audit_log(lines, editorial_brief, radar_by_id, target_date, market_focus)
+        render_audit_log(lines, editorial_brief, radar_by_id, target_date, market_focus, market_preflight)
     return "\n".join(lines).rstrip() + "\n"
 
 

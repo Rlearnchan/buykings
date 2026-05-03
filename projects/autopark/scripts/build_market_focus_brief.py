@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -32,6 +33,7 @@ DEFAULT_REASONING_EFFORT = "medium"
 
 BROADCAST_USES = {"lead", "supporting_story", "talk_only", "drop"}
 PUBLIC_USES = {"lead", "supporting_story", "talk_only"}
+LOCAL_ALIAS_KEY = "_local_evidence_aliases"
 
 
 class OpenAIAPIError(RuntimeError):
@@ -208,6 +210,15 @@ def compact_text(value: object, limit: int = 420) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
+def sanitized_text(value: object, limit: int = 420) -> str:
+    text = compact_text(value, limit * 2)
+    text = re.sub(r"https?\s*:\s*/\s*/\s*\S+", "[link]", text, flags=re.I)
+    text = re.sub(r"\bwww\.\S+", "[link]", text, flags=re.I)
+    text = re.sub(r"[A-Za-z]:\\[^\s]+", "[path]", text)
+    text = re.sub(r"(?:runtime|exports)[\\/][^\s]+", "[path]", text, flags=re.I)
+    return compact_text(text, limit)
+
+
 def unique_strings(values: list[object] | tuple[object, ...] | set[object]) -> list[str]:
     seen: set[str] = set()
     rows: list[str] = []
@@ -218,6 +229,20 @@ def unique_strings(values: list[object] | tuple[object, ...] | set[object]) -> l
         rows.append(text)
         seen.add(text)
     return rows
+
+
+def evidence_alias(value: object) -> str:
+    digest = hashlib.sha1(str(value or "").encode("utf-8")).hexdigest()[:10]
+    return f"ev_{digest}"
+
+
+def alias_for(value: object, aliases: dict[str, str]) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    alias = evidence_alias(text)
+    aliases.setdefault(alias, text)
+    return alias
 
 
 def title_of(item: dict) -> str:
@@ -474,12 +499,186 @@ def collect_screenshot_assets(target_date: str, limit: int) -> list[dict]:
     return rows
 
 
+def sanitize_candidate(item: dict, aliases: dict[str, str]) -> dict:
+    raw_id = item.get("id") or item.get("item_id") or item.get("url") or title_of(item)
+    item_alias = alias_for(raw_id, aliases)
+    return {
+        "id": item_alias,
+        "item_id": item_alias,
+        "source_id": sanitized_text(source_of(item), 80),
+        "source_role": sanitized_text(item.get("source_role") or "", 60),
+        "evidence_role": sanitized_text(item.get("evidence_role") or "", 60),
+        "title": sanitized_text(title_of(item), 100),
+        "compact_summary": sanitized_text(item.get("summary") or item.get("description") or "", 320),
+        "theme_keys": item.get("theme_keys") or item.get("market_hooks") or [],
+        "market_reaction": sanitized_text(item.get("market_reaction") or "", 180),
+        "signal_or_noise": sanitized_text(item.get("signal_or_noise") or "", 80),
+        "expectation_gap": sanitized_text(item.get("expectation_gap") or "", 120),
+        "prepricing_risk": sanitized_text(item.get("prepricing_risk") or "", 120),
+        "korea_open_relevance": sanitized_text(item.get("korea_open_relevance") or "", 120),
+        "radar_question": sanitized_text(item.get("radar_question") or "", 180),
+        "asset_status": "capture_candidate" if item.get("visual_local_path") or item.get("image_refs") else "no_capture",
+    }
+
+
+def sanitize_storyline(story: dict, aliases: dict[str, str]) -> dict:
+    selected = [alias_for(item_id, aliases) for item_id in story.get("selected_item_ids") or []]
+    refs = []
+    for ref in (story.get("material_refs") or [])[:6]:
+        if not isinstance(ref, dict):
+            continue
+        raw_id = ref.get("id") or ref.get("item_id") or ref.get("url") or ref.get("title")
+        refs.append(
+            {
+                "id": alias_for(raw_id, aliases),
+                "title": sanitized_text(ref.get("title"), 100),
+                "source": sanitized_text(ref.get("source"), 80),
+            }
+        )
+    return {
+        "storyline_id": story.get("storyline_id") or "",
+        "rank": story.get("rank") or 0,
+        "title": sanitized_text(story.get("title"), 140),
+        "one_liner": sanitized_text(story.get("one_liner") or story.get("hook") or "", 220),
+        "why_selected": sanitized_text(story.get("why_selected") or story.get("lead_candidate_reason") or "", 260),
+        "angle": sanitized_text(story.get("angle") or story.get("core_argument") or "", 260),
+        "recommendation_stars": story.get("recommendation_stars") or 1,
+        "theme_keys": story.get("theme_keys") or [],
+        "selected_item_ids": [item for item in selected if item],
+        "material_refs": refs,
+    }
+
+
+def sanitize_raw_source(source: dict, aliases: dict[str, str]) -> dict:
+    sample_rows = []
+    for item in source.get("sample_items") or []:
+        if not isinstance(item, dict):
+            continue
+        raw_id = item.get("id") or item.get("url") or item.get("title")
+        sample_rows.append(
+            {
+                "id": alias_for(raw_id, aliases),
+                "title": sanitized_text(item.get("title") or item.get("headline") or "", 100),
+                "summary": sanitized_text(item.get("summary") or item.get("description") or item.get("text") or "", 180),
+            }
+        )
+    return {
+        "source_id": sanitized_text(source.get("source_id"), 100),
+        "source_name": sanitized_text(source.get("source_name"), 100),
+        "kind": sanitized_text(source.get("kind"), 80),
+        "status": sanitized_text(source.get("status"), 80),
+        "item_count": source.get("item_count") or len(sample_rows),
+        "sample_items": sample_rows[:8],
+    }
+
+
+def sanitize_chart(chart: dict) -> dict:
+    return {
+        "chart_id": compact_text(chart.get("chart_id"), 80),
+        "title": compact_text(chart.get("title"), 140),
+        "takeaway": compact_text(chart.get("takeaway"), 200),
+        "latest_value": compact_text(chart.get("latest_value"), 80),
+        "asset_status": "available",
+    }
+
+
+def sanitize_asset(asset: dict) -> dict:
+    return {
+        "asset_id": compact_text(asset.get("asset_id"), 100),
+        "kind": compact_text(asset.get("kind"), 80),
+        "asset_status": "available",
+    }
+
+
+def compact_preflight_agenda(agenda: dict) -> dict:
+    if not agenda or not isinstance(agenda.get("agenda_items"), list):
+        return {}
+    return {
+        "date": agenda.get("date") or agenda.get("target_date") or "",
+        "fallback": bool(agenda.get("fallback")),
+        "fallback_code": agenda.get("fallback_code") or "",
+        "preflight_summary": compact_text(agenda.get("preflight_summary"), 100),
+        "agenda_items": [
+            {
+                "rank": item.get("rank") or index,
+                "agenda_id": compact_text(item.get("agenda_id"), 80),
+                "market_question": compact_text(item.get("market_question"), 180),
+                "why_to_check": compact_text(item.get("why_to_check"), 220),
+                "expected_broadcast_use": compact_text(item.get("expected_broadcast_use"), 60),
+                "collection_targets": [
+                    {
+                        "target_type": compact_text(target.get("target_type"), 60),
+                        "query_or_asset": compact_text(target.get("query_or_asset"), 140),
+                        "preferred_sources": unique_strings(target.get("preferred_sources") or [])[:6],
+                        "reason": compact_text(target.get("reason"), 160),
+                    }
+                    for target in (item.get("collection_targets") or [])[:8]
+                    if isinstance(target, dict)
+                ],
+                "must_verify_with_local_evidence": bool(item.get("must_verify_with_local_evidence")) is True,
+                "public_safe": False,
+            }
+            for index, item in enumerate((agenda.get("agenda_items") or [])[:6], start=1)
+            if isinstance(item, dict)
+        ],
+        "collection_priorities": agenda.get("collection_priorities") or {},
+        "source_gaps_to_watch": unique_strings(agenda.get("source_gaps_to_watch") or [])[:8],
+    }
+
+
+def sanitize_local_packet(payload: dict) -> dict:
+    aliases: dict[str, str] = {}
+    radar = payload.get("market_radar") or {}
+    sanitized = {
+        "date": payload.get("date"),
+        "packet_mode": "sanitized_local",
+        "policy": {
+            **(payload.get("policy") or {}),
+            "sanitized_local_packet": True,
+            "raw_urls_excluded": True,
+            "screenshot_paths_excluded": True,
+            "full_article_and_social_text_excluded": True,
+            "preflight_is_hypothesis_only": True,
+        },
+        "market_preflight_agenda": compact_preflight_agenda(payload.get("market_preflight_agenda") or {}),
+        "market_radar": {
+            "candidate_count": radar.get("candidate_count") or len(radar.get("candidates") or []),
+            "storylines": [sanitize_storyline(story, aliases) for story in (radar.get("storylines") or [])[:8]],
+            "candidates": [sanitize_candidate(item, aliases) for item in (radar.get("candidates") or [])],
+        },
+        "visual_cards": [
+            {
+                "id": sanitized_text(item.get("id") or item.get("title") or "", 80),
+                "title": sanitized_text(item.get("title") or "", 100),
+                "summary": sanitized_text(item.get("summary") or item.get("caption") or "", 180),
+                "asset_status": "available" if item.get("path") else "metadata_only",
+            }
+            for item in payload.get("visual_cards") or []
+            if isinstance(item, dict)
+        ],
+        "raw_sources": [sanitize_raw_source(source, aliases) for source in payload.get("raw_sources") or []],
+        "charts": [sanitize_chart(chart) for chart in payload.get("charts") or []],
+        "available_assets": [sanitize_asset(asset) for asset in payload.get("available_assets") or []],
+        "input_limits": payload.get("input_limits") or {},
+        LOCAL_ALIAS_KEY: aliases,
+    }
+    return sanitized
+
+
+def prompt_payload(payload: dict) -> dict:
+    if isinstance(payload, dict):
+        return {key: prompt_payload(value) for key, value in payload.items() if not str(key).startswith("_")}
+    if isinstance(payload, list):
+        return [prompt_payload(item) for item in payload]
+    return payload
+
+
 def build_input_payload(target_date: str, max_candidates: int, max_raw_files: int, max_assets: int) -> dict:
     processed = PROCESSED_DIR / target_date
     radar = load_json(processed / "market-radar.json")
     visuals = load_json(processed / "visual-cards.json")
     candidates = select_focus_candidates(radar, max_candidates)
-    return {
+    raw_payload = {
         "date": target_date,
         "policy": {
             "role": "market_editor_not_news_summarizer",
@@ -509,11 +708,13 @@ def build_input_payload(target_date: str, max_candidates: int, max_raw_files: in
         "raw_sources": collect_raw_sources(target_date, max_raw_files),
         "charts": collect_charts(),
         "available_assets": collect_screenshot_assets(target_date, max_assets),
+        "market_preflight_agenda": load_optional_json(processed / "market-preflight-agenda.json"),
     }
+    return sanitize_local_packet(raw_payload)
 
 
 def synthetic_smoke_payload(target_date: str) -> dict:
-    return {
+    raw_payload = {
         "date": target_date,
         "policy": {
             "role": "market_editor_not_news_summarizer",
@@ -597,10 +798,12 @@ def synthetic_smoke_payload(target_date: str) -> dict:
         "available_assets": [],
         "input_limits": {"synthetic_smoke": True, "max_candidates": 3, "max_raw_files": 2, "max_assets": 0},
     }
+    return sanitize_local_packet(raw_payload)
 
 
 def known_evidence_ids(payload: dict) -> set[str]:
     ids: set[str] = {"market-radar"}
+    ids.update(str(value) for value in (payload.get(LOCAL_ALIAS_KEY) or {}).values() if value)
     for item in payload.get("market_radar", {}).get("candidates") or []:
         for key in ["id", "item_id", "url"]:
             value = item.get(key)
@@ -651,7 +854,7 @@ Runtime mode:
 Return JSON matching the provided schema. Do not wrap it in Markdown.
 
 Input packet:
-{json.dumps(payload, ensure_ascii=False, indent=2)}
+{json.dumps(prompt_payload(payload), ensure_ascii=False, indent=2)}
 """
 
 
@@ -915,6 +1118,8 @@ def normalize_order_item(item: dict, index: int, focus_by_rank: dict[int, dict])
     except (TypeError, ValueError):
         focus_rank = index
     focus = focus_by_rank.get(focus_rank, {})
+    if focus and focus.get("broadcast_use") not in PUBLIC_USES:
+        return None
     broadcast_use = normalized_use(item.get("broadcast_use") or focus.get("broadcast_use"))
     if broadcast_use not in PUBLIC_USES:
         return None
@@ -937,6 +1142,18 @@ def normalize_order_item(item: dict, index: int, focus_by_rank: dict[int, dict])
     }
 
 
+def resolve_evidence_alias(value: object, input_payload: dict) -> str:
+    text = compact_text(value, 240)
+    aliases = input_payload.get(LOCAL_ALIAS_KEY) or {}
+    return aliases.get(text, text)
+
+
+def resolve_focus_aliases(item: dict, input_payload: dict) -> dict:
+    item["source_ids"] = unique_strings([resolve_evidence_alias(value, input_payload) for value in item.get("source_ids") or []])
+    item["evidence_ids"] = unique_strings([resolve_evidence_alias(value, input_payload) for value in item.get("evidence_ids") or []])
+    return item
+
+
 def normalize_brief(brief: dict, input_payload: dict) -> dict:
     known_ids = known_evidence_ids(input_payload)
     focus_items = []
@@ -950,6 +1167,7 @@ def normalize_brief(brief: dict, input_payload: dict) -> dict:
     focus_items = sorted(focus_items, key=lambda item: int(item.get("rank") or 999))
     for index, item in enumerate(focus_items, start=1):
         item["rank"] = index
+        resolve_focus_aliases(item, input_payload)
 
     focus_by_rank = {int(item.get("rank") or index): item for index, item in enumerate(focus_items, start=1)}
     supplied_order = []
@@ -961,6 +1179,7 @@ def normalize_brief(brief: dict, input_payload: dict) -> dict:
     order = supplied_order or make_order_from_focus(focus_items)
     for index, item in enumerate(order, start=1):
         item["rank"] = index
+        item["evidence_ids"] = unique_strings([resolve_evidence_alias(value, input_payload) for value in item.get("evidence_ids") or []])
 
     missing_assets = unique_strings(
         [
@@ -1276,7 +1495,7 @@ def main() -> int:
                 "target_date": args.date,
                 "model": model,
                 "with_web": args.with_web,
-                "input_payload": input_payload,
+                "input_payload": prompt_payload(input_payload),
                 "prompt": prompt,
             },
         )

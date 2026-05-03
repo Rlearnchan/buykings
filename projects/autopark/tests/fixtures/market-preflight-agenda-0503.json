@@ -1,0 +1,93 @@
+{
+  "date": "2026-05-03",
+  "preflight_summary": "오늘은 실적보다 금리·달러와 유가 리스크 확인이 먼저다.",
+  "agenda_items": [
+    {
+      "rank": 1,
+      "agenda_id": "agenda_rates_dollar",
+      "market_question": "실적 호조가 금리·달러 부담을 이길 수 있는가?",
+      "why_to_check": "Fed와 인플레이션 해석이 성장주와 위험자산 상단을 제한할 수 있다.",
+      "expected_broadcast_use": "lead_candidate",
+      "collection_targets": [
+        {
+          "target_type": "chart",
+          "query_or_asset": "US10Y",
+          "preferred_sources": ["Datawrapper", "market-data"],
+          "reason": "금리 리드 후보 확인"
+        },
+        {
+          "target_type": "chart",
+          "query_or_asset": "DXY",
+          "preferred_sources": ["Datawrapper", "market-data"],
+          "reason": "달러 부담 확인"
+        },
+        {
+          "target_type": "news_search",
+          "query_or_asset": "Fed inflation bad news Goolsbee Reuters",
+          "preferred_sources": ["Reuters", "Bloomberg", "CNBC", "WSJ"],
+          "reason": "금리·달러 리드의 fact anchor 확보"
+        },
+        {
+          "target_type": "market_reaction",
+          "query_or_asset": "Nasdaq growth TLT reaction",
+          "preferred_sources": ["Yahoo Finance", "Finviz"],
+          "reason": "가격 반응 확인"
+        }
+      ],
+      "must_verify_with_local_evidence": true,
+      "public_safe": false
+    },
+    {
+      "rank": 2,
+      "agenda_id": "agenda_oil_risk",
+      "market_question": "지정학 뉴스가 유가와 에너지주 가격 반응으로 확인되는가?",
+      "why_to_check": "유가가 따라오지 않으면 지정학 속보는 리드보다 리스크 체크에 가깝다.",
+      "expected_broadcast_use": "supporting_candidate",
+      "collection_targets": [
+        {
+          "target_type": "chart",
+          "query_or_asset": "WTI Brent",
+          "preferred_sources": ["Datawrapper", "market-data"],
+          "reason": "유가 가격 반응 확인"
+        },
+        {
+          "target_type": "news_search",
+          "query_or_asset": "Iran oil WTI Brent market reaction Reuters CNBC",
+          "preferred_sources": ["Reuters", "CNBC", "Bloomberg"],
+          "reason": "지정학 리스크 fact anchor 확보"
+        },
+        {
+          "target_type": "x_search",
+          "query_or_asset": "WTI Brent Iran risk",
+          "preferred_sources": ["X"],
+          "reason": "소셜 분위기만 확인"
+        }
+      ],
+      "must_verify_with_local_evidence": true,
+      "public_safe": false
+    }
+  ],
+  "collection_priorities": {
+    "fixed_charts": ["major indices", "heatmap", "US10Y", "WTI", "DXY", "USD/KRW", "Bitcoin"],
+    "targeted_news_queries": [
+      "Fed inflation bad news Goolsbee Reuters",
+      "oil Iran WTI Brent market reaction",
+      "AI infrastructure chips capex cloud earnings"
+    ],
+    "targeted_x_queries": [
+      "US10Y DXY Nasdaq reaction",
+      "WTI Brent Iran risk",
+      "AI capex cloud earnings"
+    ],
+    "official_or_primary_sources": ["Fed", "company IR", "Reuters", "CME FedWatch"]
+  },
+  "do_not_use_publicly": [
+    {
+      "reason": "Pre-flight는 discovery layer라서 evidence_id가 없다.",
+      "rule": "Public dashboard에는 Market Focus Brief 이후 evidence-linked 결과만 노출한다."
+    }
+  ],
+  "source_gaps_to_watch": [
+    "금리 리드 후보는 10Y/DXY/TLT/Nasdaq 반응 확인 전까지 확정하지 말 것"
+  ]
+}

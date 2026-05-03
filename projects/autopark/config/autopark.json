@@ -25,6 +25,11 @@
       "description": "Draft three morning story line candidates."
     },
     {
+      "id": "market_preflight_agenda",
+      "enabled": true,
+      "description": "Default-on discovery layer before collection; proposes agenda and collection targets but is never public evidence."
+    },
+    {
       "id": "market_focus_brief",
       "enabled": true,
       "description": "Default-on in the all-in-one runner after market-radar and before editorial-brief; use --skip-market-focus-brief only for emergency/debug reruns."
