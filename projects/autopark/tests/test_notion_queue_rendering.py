@@ -40,7 +40,79 @@ class NotionQueueRenderingTest(unittest.TestCase):
 
         self.assertIn("10년물 금리", rendered)
         self.assertIn("X 반응", rendered)
-        self.assertIn("visual_only_not_causality", rendered)
+        self.assertIn("차트는 반응 확인용", rendered)
+        self.assertIn("### 0. 타이틀", rendered)
+        self.assertIn("### 1. 시장은 지금", rendered)
+
+    def test_compact_host_view_keeps_0421_shape_without_internal_labels(self) -> None:
+        brief = {
+            "daily_thesis": "실적은 좋은데, 금리가 발목을 잡는다",
+            "editorial_summary": "지수는 쉬고 금리와 달러는 부담이다. AI 인프라 수요는 살아 있다. 유가는 보조 리스크다.",
+            "ppt_asset_queue": [
+                {
+                    "asset_id": "storyline-1:10y",
+                    "storyline_id": "storyline-1",
+                    "caption": "10Y yield chart",
+                    "visual_asset_role": "rates_chart",
+                    "use_as_slide": True,
+                    "slide_priority": 1,
+                    "why_this_visual": "금리 부담을 보여준다.",
+                },
+                {
+                    "asset_id": "storyline-1:dxy",
+                    "storyline_id": "storyline-1",
+                    "caption": "DXY chart",
+                    "visual_asset_role": "data_chart",
+                    "use_as_slide": True,
+                    "slide_priority": 2,
+                    "why_this_visual": "달러 부담을 보여준다.",
+                },
+            ],
+            "storylines": [
+                {
+                    "storyline_id": "storyline-1",
+                    "rank": 1,
+                    "title": "실적은 좋은데, 금리가 발목을 잡는다",
+                    "hook": "시장은 오르고 싶지만 금리와 달러가 속도를 제한한다.",
+                    "lead_candidate_reason": "첫 5분에 시장 지도와 바로 붙는다.",
+                    "why_now": "Fed 발언 이후 금리 재해석이 필요하다.",
+                    "signal_or_noise": "signal",
+                    "evidence_to_use": [
+                        {"item_id": "10y", "evidence_id": "ev-10y", "title": "10Y yield", "evidence_role": "data"},
+                        {"item_id": "dxy", "evidence_id": "ev-dxy", "title": "DXY", "evidence_role": "data"},
+                    ],
+                    "ppt_asset_queue": [
+                        {
+                            "asset_id": "storyline-1:10y",
+                            "storyline_id": "storyline-1",
+                            "caption": "10Y yield chart",
+                            "visual_asset_role": "rates_chart",
+                            "use_as_slide": True,
+                            "slide_priority": 1,
+                            "why_this_visual": "금리 부담을 보여준다.",
+                        }
+                    ],
+                }
+            ],
+        }
+        lines: list[str] = []
+        dashboard.render_compact_host_view(
+            lines,
+            brief,
+            brief["storylines"],
+            {},
+            brief["daily_thesis"],
+            "지수는 쉬고 금리·달러는 부담",
+            [],
+        )
+        rendered = "\n".join(lines)
+
+        self.assertLess(rendered.index("# 오늘 방송 순서"), rendered.index("# 첫 꼭지"))
+        self.assertLess(rendered.index("# 첫 꼭지"), rendered.index("# PPT로 바로 만들 자료"))
+        self.assertIn("오늘의 메인 thesis", rendered)
+        self.assertIn("실적은 좋은데, 금리가 발목을 잡는다", rendered)
+        for forbidden in ["source_role", "evidence_role", "drop_code", "supported_by_mixed_evidence"]:
+            self.assertNotIn(forbidden, rendered)
 
 
 if __name__ == "__main__":

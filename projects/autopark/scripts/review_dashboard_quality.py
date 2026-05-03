@@ -132,6 +132,117 @@ def needs_expectation_check(story: dict) -> bool:
     return bool(re.search(r"earnings|eps|revenue|guidance|forecast|fed|fomc|inflation|pce|jobs|실적|가이던스|예상|연준|금리|물가", blob))
 
 
+PUBLIC_FORBIDDEN_LABELS = [
+    "supported_by_mixed_evidence",
+    "check_market_pricing",
+    "visual_only_not_causality",
+    "sentiment_only_not_fact",
+    "fact_anchor",
+    "analysis_anchor",
+    "market_reaction",
+    "source_role",
+    "evidence_role",
+    "drop_code",
+    "item_id",
+    "evidence_id",
+    "visual_asset_role",
+]
+
+
+LEAD_REQUIREMENTS = [
+    {
+        "axis": "rates_macro",
+        "label": "금리·달러",
+        "axis_patterns": [r"\brate", r"\brates", r"\bfed\b", r"\bfomc\b", r"\bdxy\b", r"\bdollar", r"금리", r"달러", r"연준"],
+        "required": {
+            "10Y": [r"\b10y\b", r"10-year", r"10년", r"treasury", r"국채"],
+            "DXY/달러": [r"\bdxy\b", r"dollar", r"달러", r"원달러"],
+            "TLT": [r"\btlt\b"],
+            "나스닥/성장주 반응": [r"nasdaq", r"qqq", r"growth", r"duration", r"나스닥", r"성장주"],
+        },
+        "minimum": 2,
+    },
+    {
+        "axis": "oil",
+        "label": "유가",
+        "axis_patterns": [r"\boil\b", r"\bwti\b", r"brent", r"crude", r"opec", r"hormuz", r"유가", r"원유", r"호르무즈"],
+        "required": {
+            "WTI": [r"\bwti\b", r"crude", r"원유"],
+            "Brent": [r"brent", r"브렌트"],
+            "XLE/에너지주": [r"\bxle\b", r"energy", r"에너지", r"xom", r"cvx"],
+            "OPEC/EIA/호르무즈": [r"opec", r"eia", r"hormuz", r"inventory", r"호르무즈", r"재고"],
+        },
+        "minimum": 2,
+    },
+    {
+        "axis": "earnings",
+        "label": "실적",
+        "axis_patterns": [r"earnings", r"\beps\b", r"revenue", r"guidance", r"실적", r"가이던스", r"매출"],
+        "required": {
+            "EPS": [r"\beps\b", r"주당순이익"],
+            "매출": [r"revenue", r"sales", r"매출"],
+            "가이던스": [r"guidance", r"outlook", r"forecast", r"가이던스", r"전망"],
+            "주가 반응": [r"after[- ]?hours", r"pre[- ]?market", r"reaction", r"shares", r"주가", r"시간외"],
+        },
+        "minimum": 2,
+    },
+    {
+        "axis": "ai",
+        "label": "AI",
+        "axis_patterns": [r"\bai\b", r"artificial intelligence", r"capex", r"cloud", r"semiconductor", r"data center", r"인공지능", r"반도체", r"데이터센터"],
+        "required": {
+            "CapEx": [r"capex", r"capital expenditure", r"투자"],
+            "클라우드/매출": [r"cloud", r"revenue", r"sales", r"클라우드", r"매출"],
+            "반도체 반응": [r"semiconductor", r"nvidia", r"nvda", r"amd", r"반도체"],
+            "데이터센터 수요": [r"data center", r"datacenter", r"데이터센터"],
+        },
+        "minimum": 2,
+    },
+]
+
+
+def match_any(blob: str, patterns: list[str]) -> bool:
+    return any(re.search(pattern, blob, flags=re.I) for pattern in patterns)
+
+
+def story_blob(story: dict) -> str:
+    parts = [str(story.get(key) or "") for key in ["title", "hook", "lead_candidate_reason", "why_now", "core_argument", "talk_track"]]
+    for item in story.get("evidence_to_use") or []:
+        parts.extend(str(item.get(key) or "") for key in ["title", "source", "source_role", "evidence_role", "reason"])
+    for asset in story.get("ppt_asset_queue") or []:
+        parts.extend(str(asset.get(key) or "") for key in ["caption", "visual_asset_role", "why_this_visual", "risks_or_caveats"])
+    return normalize(" ".join(parts)).lower()
+
+
+def story_asset_blob(story: dict) -> str:
+    parts = []
+    for item in story.get("evidence_to_use") or []:
+        parts.extend(str(item.get(key) or "") for key in ["title", "source", "source_role", "evidence_role", "reason"])
+    for asset in story.get("ppt_asset_queue") or []:
+        parts.extend(str(asset.get(key) or "") for key in ["caption", "visual_asset_role", "why_this_visual", "risks_or_caveats"])
+    return normalize(" ".join(parts)).lower()
+
+
+def lead_requirement_status(story: dict) -> dict:
+    blob = story_blob(story)
+    asset_blob = story_asset_blob(story)
+    for spec in LEAD_REQUIREMENTS:
+        if not match_any(blob, spec["axis_patterns"]):
+            continue
+        present = [label for label, patterns in spec["required"].items() if match_any(asset_blob, patterns)]
+        missing = [label for label in spec["required"] if label not in present]
+        return {"axis": spec["axis"], "label": spec["label"], "present": present, "missing": missing, "minimum": spec["minimum"], "met": len(present) >= int(spec["minimum"])}
+    return {"axis": "", "label": "", "present": [], "missing": [], "minimum": 0, "met": True}
+
+
+def public_markdown(markdown: str) -> str:
+    return re.split(r"^#\s+검증 로그/회고용\s*$", markdown, maxsplit=1, flags=re.M)[0]
+
+
+def compact_top_markdown(markdown: str) -> str:
+    return re.split(r"^#\s+📚\s*추천 스토리라인\s*$", markdown, maxsplit=1, flags=re.M)[0]
+
+
 def review_integrity(target_date: str, markdown: str) -> list[Finding]:
     findings: list[Finding] = []
     processed = PROCESSED_DIR / target_date
@@ -157,6 +268,17 @@ def review_integrity(target_date: str, markdown: str) -> list[Finding]:
         issue(findings, "integrity", "high", "INT-001 lead storyline 없음", "첫 꼭지 후보가 감지되지 않았습니다.", "rank=1 storyline을 만들고 lead_candidate_reason을 채우세요.")
     elif not normalize(lead.get("lead_candidate_reason")):
         issue(findings, "integrity", "high", "INT-002 lead_candidate_reason 없음", "리드 후보에 왜 첫 꼭지인지 설명이 없습니다.", "lead_candidate_reason에 시장 설명력, 첫 5분 이해도, PPT 근거를 적으세요.")
+    else:
+        lead_status = lead_requirement_status(lead)
+        if lead_status["axis"] and not lead_status["met"]:
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "INT-015 lead 필수 숫자/차트 부족",
+                f"리드가 {lead_status['label']} 축인데 필수 숫자/차트가 부족합니다. 현재 확인: {', '.join(lead_status['present']) or '-'} / 부족: {', '.join(lead_status['missing'])}",
+                "리드 확정 대신 lead_candidate_pending_numbers로 다루고, 10Y/DXY/TLT 같은 축별 필수 자료를 최소 2개 붙이세요.",
+            )
 
     seen_titles: dict[str, int] = {}
     seen_axes: dict[str, int] = {}
@@ -217,6 +339,40 @@ def review_integrity(target_date: str, markdown: str) -> list[Finding]:
         issue(findings, "integrity", "medium", "INT-007 전체 PPT 큐 없음", "대시보드 전체에 PPT asset queue가 없습니다.", "상단 PPT 캡처 후보 섹션을 채우세요.")
     if "PPT 캡처 후보" not in markdown or "말로만 처리할 자료" not in markdown:
         issue(findings, "integrity", "medium", "INT-008 대시보드 queue 섹션 없음", "Markdown에서 장표 후보와 talk-only 섹션을 찾지 못했습니다.", "Notion renderer에 두 큐 섹션을 유지하세요.")
+    public = public_markdown(markdown)
+    leaked = [label for label in PUBLIC_FORBIDDEN_LABELS if re.search(rf"\b{re.escape(label)}\b", public)]
+    if leaked:
+        issue(
+            findings,
+            "integrity",
+            "high",
+            "INT-016 내부 라벨 public 노출",
+            "진행자용 public 영역에 내부 enum/ID 라벨이 노출됩니다: " + ", ".join(leaked[:8]),
+            "source_role, evidence_role, drop_code, item_id/evidence_id는 하단 `검증 로그/회고용` 섹션으로만 보내고 public 영역은 한국어 표현으로 변환하세요.",
+        )
+    compact_top = compact_top_markdown(markdown)
+    compact_lines = [line for line in compact_top.splitlines() if line.strip()]
+    if len(compact_top) > 2600 or len(compact_lines) > 42:
+        issue(
+            findings,
+            "integrity",
+            "medium",
+            "INT-017 상단 요약 과다",
+            f"추천 스토리라인 전 상단 compact 영역이 너무 깁니다. 문자 {len(compact_top)}, 유효 라인 {len(compact_lines)}.",
+            "상단은 오늘의 한 줄, 방송 순서 5줄, 첫 꼭지, PPT 제작 큐, 확인 필요 수치로 압축하고 상세 근거는 하단으로 내리세요.",
+        )
+    queue_section = section(public, r"PPT로 바로 만들 자료")
+    for label in ["0. 타이틀", "1. 시장은 지금", "2. 리드"]:
+        if label not in queue_section:
+            issue(
+                findings,
+                "integrity",
+                "medium",
+                "INT-018 PPT 제작 순서 누락",
+                f"public PPT 큐에서 `{label}` 순서를 찾지 못했습니다.",
+                "PPT asset queue를 스토리라인별 설명이 아니라 타이틀, 시장은 지금, 리드, 보조/특징주 순서로 한 번 더 묶으세요.",
+            )
+            break
     if visual_error == "missing" or not visuals:
         issue(findings, "integrity", "low", "visual-cards 없음", "visual-cards.json을 읽지 못했습니다.", "시각 자료 큐 품질은 제한적으로만 검증됩니다.")
     return findings
@@ -233,6 +389,7 @@ def storyline_blocks(storyline_section: str) -> list[str]:
 
 def review_format(markdown: str, target_date: str) -> list[Finding]:
     findings: list[Finding] = []
+    public = public_markdown(markdown)
     expected_title = display_date_title(target_date)
     first_heading = next((title for level, title in heading_lines(markdown) if level == 1), "")
 
@@ -319,13 +476,14 @@ def review_format(markdown: str, target_date: str) -> list[Finding]:
             "`슬라이드 구성` 또는 `구성 제안` 아래에 자료 순서를 적으세요.",
         )
 
-    if source_url_count(markdown) > 0:
+    public_url_count = source_url_count(public)
+    if public_url_count > 0:
         issue(
             findings,
             "format",
             "low",
             "노출 URL 존재",
-            f"본문에 Markdown 링크가 아닌 원문 URL {source_url_count(markdown)}개가 노출됩니다.",
+            f"public 본문에 Markdown 링크가 아닌 원문 URL {public_url_count}개가 노출됩니다.",
             "`[KobeissiLetter](url)`처럼 짧은 출처명 링크로 바꾸세요.",
         )
 

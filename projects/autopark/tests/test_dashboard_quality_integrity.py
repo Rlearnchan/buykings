@@ -109,6 +109,56 @@ class DashboardQualityIntegrityTest(unittest.TestCase):
         blocked = [item for item in findings if item.title in {"INT-001 lead storyline 없음", "INT-005 evidence id 참조 오류"}]
         self.assertEqual([], blocked)
 
+    def test_integrity_gate_blocks_internal_labels_in_public_view_only(self) -> None:
+        radar = {"candidates": [{"id": "fact-1", "item_id": "fact-1", "source_role": "fact_anchor", "evidence_role": "fact"}]}
+        story = {
+            "storyline_id": "storyline-1",
+            "rank": 1,
+            "title": "Lead",
+            "lead_candidate_reason": "첫 꼭지 이유",
+            "signal_or_noise": "signal",
+            "ppt_asset_queue": [{"asset_id": "a1", "use_as_slide": True}],
+            "evidence_to_use": [{"item_id": "fact-1", "evidence_id": "fact-1", "evidence_role": "fact"}],
+        }
+        brief = {"daily_thesis": "x", "market_map_summary": "m", "ppt_asset_queue": [{"asset_id": "a1"}], "storylines": [story]}
+        markdown = "\n".join(
+            [
+                "# PPT로 바로 만들 자료",
+                "## PPT 캡처 후보",
+                "### 0. 타이틀",
+                "### 1. 시장은 지금",
+                "### 2. 리드",
+                "supported_by_mixed_evidence",
+                "# 말로만 처리할 자료",
+                "# 검증 로그/회고용",
+                "drop_code=`support_only`",
+            ]
+        )
+
+        with mock.patch.object(quality, "load_json", side_effect=self.fixture_loader(radar, brief, {"cards": []})):
+            findings = quality.review_integrity(self.date, markdown)
+
+        self.assertIn("INT-016 내부 라벨 public 노출", {item.title for item in findings})
+
+    def test_integrity_gate_requires_lead_numbers_for_rates_axis(self) -> None:
+        radar = {"candidates": [{"id": "fact-1", "item_id": "fact-1", "source_role": "fact_anchor", "evidence_role": "fact"}]}
+        story = {
+            "storyline_id": "storyline-1",
+            "rank": 1,
+            "title": "Fed rates and dollar lead",
+            "lead_candidate_reason": "금리와 달러가 오늘 시장을 설명한다.",
+            "signal_or_noise": "signal",
+            "ppt_asset_queue": [{"asset_id": "a1", "caption": "10Y yield", "use_as_slide": True}],
+            "evidence_to_use": [{"item_id": "fact-1", "evidence_id": "fact-1", "title": "Fed comments", "evidence_role": "fact"}],
+        }
+        brief = {"daily_thesis": "x", "market_map_summary": "m", "ppt_asset_queue": [{"asset_id": "a1"}], "storylines": [story]}
+        markdown = "# PPT로 바로 만들 자료\n## PPT 캡처 후보\n### 0. 타이틀\n### 1. 시장은 지금\n### 2. 리드\n# 말로만 처리할 자료\n"
+
+        with mock.patch.object(quality, "load_json", side_effect=self.fixture_loader(radar, brief, {"cards": []})):
+            findings = quality.review_integrity(self.date, markdown)
+
+        self.assertIn("INT-015 lead 필수 숫자/차트 부족", {item.title for item in findings})
+
 
 if __name__ == "__main__":
     unittest.main()
