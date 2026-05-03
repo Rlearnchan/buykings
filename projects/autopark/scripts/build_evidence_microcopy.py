@@ -247,7 +247,7 @@ def deterministic_item(item: dict, reason: str = "deterministic") -> dict:
 def validate_item(output: dict, source_item: dict) -> tuple[dict, list[str]]:
     errors: list[str] = []
     expected_id = item_id_of(source_item)
-    item_id = clean(output.get("item_id") or "")
+    item_id = str(output.get("item_id") or "").strip()
     if item_id != expected_id:
         errors.append("item_id_mismatch")
     source_label = sanitize_line(output.get("source_label") or source_label_of(source_item), 80)
@@ -385,7 +385,11 @@ def build_microcopy(target_date: str, env: dict[str, str], *, limit: int, group_
                 response, response_id = call_openai(build_prompt(target_date, group), token, model, timeout)
                 if response_id:
                     response_ids.append(response_id)
-                outputs = {clean(item.get("item_id")): item for item in response.get("items") or [] if isinstance(item, dict)}
+                outputs = {
+                    str(item.get("item_id") or "").strip(): item
+                    for item in response.get("items") or []
+                    if isinstance(item, dict)
+                }
                 for source_item in group:
                     item_id = item_id_of(source_item)
                     validated, errors = validate_item(outputs.get(item_id) or {}, source_item)

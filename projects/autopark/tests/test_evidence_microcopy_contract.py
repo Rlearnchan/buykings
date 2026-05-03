@@ -110,6 +110,27 @@ class EvidenceMicrocopyContractTest(unittest.TestCase):
         self.assertIn("invalid_summary_bullet_count", errors)
         self.assertEqual("oil-1", valid["item_id"])
 
+    def test_url_item_ids_validate_without_cleaning_away_key(self) -> None:
+        source_item = {
+            "id": "https://x.com/example/status/1",
+            "title": "Synthetic social post",
+            "source": "X",
+            "summary": "A short social item.",
+        }
+        valid, errors = evidence_microcopy.validate_item(
+            {
+                "item_id": "https://x.com/example/status/1",
+                "source_label": "X",
+                "title": "Synthetic social post",
+                "summary_bullets": ["소셜 게시물의 핵심을 짧게 확인하는 자료입니다."],
+                "ppt_use_hint": "말로 짚는 보조 자료로 씁니다.",
+                "caution": "소셜 자료만으로 사실을 단정하지 않습니다.",
+            },
+            source_item,
+        )
+        self.assertEqual([], errors)
+        self.assertEqual("https://x.com/example/status/1", valid["item_id"])
+
     def test_focus_and_editorial_payloads_include_microcopy_fields(self) -> None:
         self._write_json(
             "evidence-microcopy.json",
