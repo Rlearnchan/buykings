@@ -1,25 +1,27 @@
 # 26.05.03 Autopark Pipeline Sourcebook
 
-- Generated at: `26.05.03 18:33`
+- Generated at: `26.05.03 19:20`
 - Scope: end-to-end sourcebook for the compact dashboard pipeline: collection, API reasoning, filtering, renderer decisions, and quality gate.
 - Hygiene: credentials, browser/session data, signed URLs, raw HTML, full article bodies, and full X text are not included.
 - Long source material is represented as title/source/role/URL/summary only.
 
 ## 0. Artifact Inventory
+- `projects\autopark\data\processed\2026-05-03\dashboard-microcopy-context.json` (12,391 bytes)
+- `projects\autopark\data\processed\2026-05-03\dashboard-microcopy.json` (7,640 bytes)
 - `projects\autopark\data\processed\2026-05-03\earnings-calendar-tickers.json` (29,821 bytes)
 - `projects\autopark\data\processed\2026-05-03\earnings-calendar-x-posts.json` (9,581 bytes)
-- `projects\autopark\data\processed\2026-05-03\earnings-ticker-drilldown.json` (78,234 bytes)
+- `projects\autopark\data\processed\2026-05-03\earnings-ticker-drilldown.json` (76,030 bytes)
 - `projects\autopark\data\processed\2026-05-03\economic-calendar.json` (300 bytes)
-- `projects\autopark\data\processed\2026-05-03\editorial-brief.json` (44,463 bytes)
+- `projects\autopark\data\processed\2026-05-03\editorial-brief.json` (33,041 bytes)
 - `projects\autopark\data\processed\2026-05-03\finviz-feature-stocks.json` (28,258 bytes)
-- `projects\autopark\data\processed\2026-05-03\market-focus-brief.json` (17,435 bytes)
-- `projects\autopark\data\processed\2026-05-03\market-preflight-agenda.json` (27,887 bytes)
-- `projects\autopark\data\processed\2026-05-03\market-radar.json` (273,677 bytes)
-- `projects\autopark\data\processed\2026-05-03\today-misc-batch-a-candidates.json` (70,070 bytes)
-- `projects\autopark\data\processed\2026-05-03\today-misc-batch-b-candidates.json` (16,075 bytes)
+- `projects\autopark\data\processed\2026-05-03\market-focus-brief.json` (4,832 bytes)
+- `projects\autopark\data\processed\2026-05-03\market-preflight-agenda.json` (30,343 bytes)
+- `projects\autopark\data\processed\2026-05-03\market-radar.json` (295,780 bytes)
+- `projects\autopark\data\processed\2026-05-03\today-misc-batch-a-candidates.json` (69,843 bytes)
+- `projects\autopark\data\processed\2026-05-03\today-misc-batch-b-candidates.json` (16,073 bytes)
 - `projects\autopark\data\processed\2026-05-03\visual-cards.json` (9,035 bytes)
-- `projects\autopark\data\processed\2026-05-03\x-timeline-posts.json` (130,985 bytes)
-- `projects\autopark\runtime\notion\2026-05-03\26.05.03.md` (11,273 bytes)
+- `projects\autopark\data\processed\2026-05-03\x-timeline-posts.json` (134,101 bytes)
+- `projects\autopark\runtime\notion\2026-05-03\26.05.03.md` (12,997 bytes)
 
 ## 1. Pipeline Order
 - Pre-flight Market Agenda: web-enabled discovery agenda and collection targets
@@ -35,30 +37,43 @@
 ## 2. Pre-flight Market Agenda
 - Input: `target_date=2026-05-03`, `with_web=True`
 - Model: `gpt-5.5`, fallback: `False`
-- Public-use guard: `[{'reason': 'pre-flight 단계에는 local evidence_id가 없고 검증 패킷이 생성되지 않았다.', 'rule': '이 JSON의 어떤 문장도 방송 멘트나 공개 대시보드 근거로 직접 사용 금지.'}, {'reason': '웹 검색은 발견용이며 원문·차트·로컬 캡처로 재검증해야 한다.', 'rule': '뉴스 검색 결과를 인과관계 증거로 사용 금지.'}, {'reason': 'X/social은 심리 확인용이며 대표성·정확성이 없다.', 'rule': 'X 검색 결과를 사실 근거 또는 가격 원인으로 사용 금지.'}, {'reason': '차트는 시장 반응을 보여줄 뿐 원인을 증명하지 않는다.', 'rule': '차트만으로 ‘때문에 올랐다/내렸다’ 단정 금지.'}]`
+- Public-use guard: `[{'reason': '프리플라이트는 로컬 evidence_id가 없고 웹 발견 힌트만 포함함.', 'rule': 'No agenda item is public-safe; final dashboard must cite later Market Focus Brief/local packet only.'}, {'reason': '웹 검색 결과의 수치·헤드라인은 검증 전 오염 가능성이 있음.', 'rule': 'Do not quote discovered numbers or causal claims publicly until captured in local evidence.'}, {'reason': 'X/social은 포지셔닝과 관심도 확인용이며 사실 검증 자료가 아님.', 'rule': 'Never use X posts as factual evidence; use only as sentiment check.'}, {'reason': '차트는 반응 확인용이며 원인 증명 자료가 아님.', 'r…`
 - agenda_items: `8`
 - collection_priorities: `4`
 - raw response path: `projects\autopark\runtime\openai-responses\2026-05-03-market-preflight-raw.json`
-- raw response size: `28,677` bytes
-- raw_response_id: `resp_0e5c6c02ece5ee1d0069f6e40779008195b5a3834a6d69b0ef`
+- raw response size: `31,253` bytes
+- raw_response_id: `resp_063c14e210d6404b0069f6cc4d9590819688e6843bf92c3a39`
 - model: `gpt-5.5`
 - top keys: `agenda, model, raw_response_id, source, web_sources`
 - `agenda` keys: `agenda_items, collection_priorities, date, do_not_use_publicly, preflight_summary, source_gaps_to_watch`
 
 | rank | agenda_id | market_question | collection_targets | why_to_check |
 | --- | --- | --- | --- | --- |
-| 1 | agenda_equity_breadth | S&P500·Nasdaq 신고가 흐름이 대형 기술주 집중 랠리인지, 시장 전반 확산인지 확인할 것인가? | chart:S&P500, Nasdaq, Dow, Russell2000, S&P500 Equal We…; market_reaction:May 1 2026 US market close sector performance XLK…; capture:미국장 마감 히트맵: mega-cap tech vs cyclicals vs def… | 금요일 미국장 이후 한국 개인투자자에게 첫 화면은 지수 방향보다 폭과 질이 중요하다. |
-| 2 | agenda_rates_dollar | 최근 주가 랠리가 장기금리 안정과 달러 약세를 동반했는지, 아니면 금리 부담을 무시한 리스크온인지 확인할 것인가? | chart:US10Y, US2Y, 2s10s, DXY, USD/KRW, USD/JPY: Apr 29…; official_source:Federal Reserve April 29 2026 FOMC statement and…; market_reaction:Fed funds futures implied cuts 2026 af… | 한국 투자자에게 미국 10년물, DXY, USD/KRW는 나스닥과 반도체 밸류에이션의 핵심 필터다. |
-| 3 | agenda_ai_capex | 빅테크 AI CAPEX 확대가 ‘수요 확인’으로 매수되는지, ‘마진 훼손’으로 할인되는지 종목별로 갈렸는가? | chart:MSFT AMZN GOOGL META NVDA AVGO AMD MU: earnings 이…; official_source:Microsoft Alphabet Meta Amazon Q1 2026 earnings r…; news_search:Q1 2026 big tech AI capex guidance Micros… | AI 인프라 지출은 미국 빅테크, 엔비디아, 한국 HBM·장비주를 동시에 움직이는 핵심 축이다. |
-| 4 | agenda_semis_hbm_korea | 미국 AI 인프라 지출이 엔비디아·브로드컴·마이크론뿐 아니라 삼성전자·SK하이닉스·한국 장비주로 연결되는가? | chart:NVDA AVGO AMD MU SMH SOXX vs Samsung Electronics…; official_source:Samsung Electronics SK hynix Q1 2026 earnings rel…; news_search:May 2026 Samsung SK hynix HBM shortage AI… | 방송 시청자 포트폴리오와 직접 연결되는 반도체·HBM 수혜 확인 항목이다. |
-| 5 | agenda_oil_risk | 유가 하락 또는 안정이 인플레이션 안도 요인인지, OPEC+·재고·지정학 리스크가 남아 있는지 확인할 것인가? | chart:WTI front month, Brent front month, Brent-WTI spr…; official_source:EIA Weekly Petroleum Status Report week ended Apr…; news_search:May 2 2026 OPEC+ June output target incre… | 유가는 미국 인플레 기대, 항공·화학·정유, 한국 무역수지와 원화에 동시에 영향을 준다. |
-| 6 | agenda_jobs_inflation | 이번 주 미국 고용·물가 캘린더가 주식 랠리를 뒷받침할 ‘골디락스’인지, 금리 재상승 리스크인지 확인할 것인가? | official_source:BLS Employment Situation April 2026 release sched…; official_source:BEA March 2026 PCE price index release April 30 2…; chart:Core PCE YoY/MoM, CPI YoY/MoM, averag… | 5월 초 방송에서는 지난 PCE와 다음 고용지표를 연결해 금리 민감도를 점검해야 한다. |
-| 7 | agenda_fx_korea | 달러/원은 미국 금리·DXY보다 유가와 한국 반도체 수출 호조에 더 민감하게 움직였는가? | chart:USD/KRW, DXY, US10Y, WTI, KOSPI, KOSDAQ, foreign…; official_source:Bank of Korea daily FX rate USD/KRW and market co…; official_source:Korea April 2026 exports imports trade… | 한국 개인투자자의 미국주식 환차손익과 국내 증시 외국인 수급에 직접 연결된다. |
-| 8 | agenda_bitcoin_risk | 비트코인이 나스닥·달러·금리와 같은 방향으로 움직여 위험선호 확인 지표로 쓸 수 있는가? | chart:Bitcoin spot, Nasdaq futures, DXY, US10Y: May 1 c…; market_reaction:BTC vs QQQ vs DXY correlation last 30 days and we…; news_search:Bitcoin May 2026 weekend move Nasdaq doll… | 한국 개인투자자 관심도가 높고, 주말 장중에도 움직여 월요일 아침 리스크온 확인에 유용하다. |
+| 1 | agenda_rates_dollar | 미 10년물·DXY·USD/KRW가 주식 사상권 랠리를 제약하는가, 아니면 위험선호를 확인하는가? | chart:US10Y yield 5D/1M, DXY 5D/1M, USDKRW 5D/1M overlay; market_reaction:S&P500 vs Nasdaq100 vs US10Y intraday reaction ar…; official_source:Federal Reserve latest FOMC statement… | 발견 힌트상 주식은 강하지만 채권시장은 인플레·유가·Fed 경로를 더 경계할 수 있음. 한국 개인투자자에게 환율과 성장주 할인율이 1차 체크포인트. |
+| 2 | agenda_oil_risk | WTI·Brent 급등/되돌림이 인플레 기대와 섹터 로테이션을 다시 흔드는가? | chart:WTI front month, Brent front month, RBOB gasoline…; market_reaction:XLE, XOP, OIH, JETS, Dow Transports 5D relative p…; chart:US 5Y breakeven, 10Y breakeven, US10Y real yiel… | 발견 힌트상 중동·Hormuz 관련 유가 변동성이 큰 상태. 한국 시청자에게 항공·해운·정유·화학·인플레 재점화 리스크가 직접 연결됨. |
+| 3 | agenda_equity_breadth | S&P500·Nasdaq 신고가성 흐름이 대형 기술주 집중 랠리인가, Russell2000·동일가중까지 확산된 랠리인가? | chart:S&P500, Nasdaq Composite, Dow, Russell2000 1D/5D/…; chart:RSP/SPY ratio, QQQ equal weight vs QQQ, IWM/SPY r…; market_reaction:S&P500 sector performance 2026-05-01 and weekly… | 지수 레벨만으로는 방송 리드가 약함. 폭과 참여율을 봐야 ‘건강한 상승’인지 ‘빅테크 의존’인지 구분 가능. |
+| 4 | agenda_ai_capex | 빅테크 AI capex 증액은 반도체·전력·데이터센터 수혜로 해석되는가, FCF 압박으로 해석되는가? | chart:GOOGL MSFT AMZN META AAPL NVDA AVGO AMD SMCI VRT…; market_reaction:SOX index vs Nasdaq100 vs Cloud ETF vs Data cente…; official_source:Alphabet Microsoft Amazon Meta Q1 2026… | 발견 힌트상 Alphabet·Microsoft·Amazon·Meta 실적 이후 시장은 AI 매출 증거와 capex 부담을 차별 평가 중. 한국 반도체 투자자에게 핵심 소재. |
+| 5 | agenda_semis_earnings | 이번 주 AMD·AI 인프라 실적이 ‘AI 수요 지속’ 확인인지, 높아진 기대치 부담인지? | official_source:AMD Q1 2026 earnings date, webcast, investor rela…; news_search:May 2026 AMD earnings preview AI GPU data center…; chart:AMD vs NVDA vs SOXX vs SMH 1M and YTD; mar… | 빅테크 capex 이후 다음 검증은 GPU·서버·전력·네트워킹 공급망. 한국 반도체주 오프닝에 연결될 가능성 큼. |
+| 6 | agenda_apple_supply_chain | Apple 실적 반응은 소비 하드웨어 회복인가, 메모리·부품 제약 신호인가? | official_source:Apple Q1/FY2026 latest earnings release transcrip…; chart:AAPL 1D/5D, Apple suppliers basket: QCOM AVGO SWK…; news_search:Apple earnings May 2026 memory constraint… | 발견 힌트상 Apple 관련 이익 서프라이즈와 공급 제약 언급 가능성이 있음. 한국 IT 부품·메모리 투자자에게 단기 재료가 될 수 있음. |
+| 7 | agenda_us_data_week | 이번 주 ISM 서비스·JOLTS·고용 관련 지표가 Fed 인하 기대를 밀어내는가, 경기둔화 우려를 키우는가? | official_source:BLS Employment Situation April 2026 release sched…; official_source:ISM Services PMI April 2026 release schedule; official_source:BLS JOLTS March 2026 release sche… | 방송일 이후 발표될 지표가 금리·달러·성장주 리스크의 다음 촉매. 일정형 아젠다로 짧게 배치 가능. |
+| 8 | agenda_korea_cross_market | 미국 마감 후 한국 개장에 가장 직접 전이될 변수는 환율, 반도체, 유가 중 무엇인가? | chart:EWY, MSCI Korea ETF, USDKRW, KOSPI200 futures, Ph…; market_reaction:Samsung Electronics, SK Hynix, Hyundai Motor, Kor…; capture:PPT heatmap: Korea-linked US overnight proxie… | 한국 개인투자자 방송은 미국 뉴스보다 국내 개장 전이 더 중요. USD/KRW·EWY·반도체 ADR·유가 민감 업종을 연결해야 함. |
+
+### preflight_downgrade_trace
+- Internal trace only; not rendered in publish Markdown.
+| rank | agenda_id | status | trace_destination | market_question |
+| --- | --- | --- | --- | --- |
+| 1 | agenda_rates_dollar | public_focus | Market Focus public item | 미 10년물·DXY·USD/KRW가 주식 사상권 랠리를 제약하는가, 아니면 위험선호를 확인하는가? |
+| 2 | agenda_oil_risk | public_focus | Market Focus public item | WTI·Brent 급등/되돌림이 인플레 기대와 섹터 로테이션을 다시 흔드는가? |
+| 3 | agenda_equity_breadth | downgraded | source_gap | S&P500·Nasdaq 신고가성 흐름이 대형 기술주 집중 랠리인가, Russell2000·동일가중까지 확산된 랠리인가? |
+| 4 | agenda_ai_capex | source_gap | source_gap (not confirmed by local evidence) | 빅테크 AI capex 증액은 반도체·전력·데이터센터 수혜로 해석되는가, FCF 압박으로 해석되는가? |
+| 5 | agenda_semis_earnings | source_gap | source_gap (not confirmed by local evidence) | 이번 주 AMD·AI 인프라 실적이 ‘AI 수요 지속’ 확인인지, 높아진 기대치 부담인지? |
+| 6 | agenda_apple_supply_chain | local_evidence_only | collected locally but not promoted | Apple 실적 반응은 소비 하드웨어 회복인가, 메모리·부품 제약 신호인가? |
+| 7 | agenda_us_data_week | source_gap | source_gap (not confirmed by local evidence) | 이번 주 ISM 서비스·JOLTS·고용 관련 지표가 Fed 인하 기대를 밀어내는가, 경기둔화 우려를 키우는가? |
+| 8 | agenda_korea_cross_market | public_focus | Market Focus public item | 미국 마감 후 한국 개장에 가장 직접 전이될 변수는 환율, 반도체, 유가 중 무엇인가? |
 
 ## 3. News / X / Earnings Collection
 ### News batch A
-- captured_at: `2026-05-03T14:59:52+09:00`
+- captured_at: `2026-05-03T13:18:44+09:00`
 - lookback_hours: `48`
 - require_recent_signal: `False`
 - collected_count: `47`
@@ -79,14 +94,14 @@ Representative candidates
 | 3 | Exxon Mobil CEO expects higher oil prices due to Iran war: ‘The market hasn’t seen the full impact’ | International Business, World News & Global Stock Market Analysis |  | https://www.cnbc.com/2026/05/01/exxon-ceo-iran-war-oil-strait-hormuz.html |
 | 4 | Jobs and earnings will dominate the first full week of May. Here's what's ahead | International Business, World News & Global Stock Market Analysis |  | https://www.cnbc.com/2026/05/01/stock-market-next-week-outlook-for-may-4-8-2026.html |
 | 5 | The market isn't grading all Big Tech earnings the same — here's why | International Business, World News & Global Stock Market Analysis |  | https://www.cnbc.com/2026/05/01/the-market-isnt-grading-all-big-tech-earnings-the-same-heres-why.html |
-| 6 | 2 days ago TradingView AMZN: Amazon Stock Jumps After Earnings, Revenue Top Consensus Estimates | Financial News & Top Stories — Market Analysis — TradingView |  | https://www.tradingview.com/news/tradingview:2532cf758094b:0-amzn-amazon-stock-jumps-after-earnings-revenue-top-consensus-estimates |
-| 7 | 2 days ago TradingView MSFT: Microsoft Stock Steady After Strong Earnings, Cloud Growth Hits 40% | Financial News & Top Stories — Market Analysis — TradingView |  | https://www.tradingview.com/news/tradingview:f337d69c7094b:0-msft-microsoft-stock-steady-after-strong-earnings-cloud-growth-hits-40 |
-| 8 | Apr 23 TradingView IBM Stock Sheds 7% Despite Double Beat. It’s the Disappointing Guidance. | Financial News & Top Stories — Market Analysis — TradingView |  | https://www.tradingview.com/news/tradingview:814d16f2a094b:0-ibm-stock-sheds-7-despite-double-beat-it-s-the-disappointing-guidance |
-| 9 | Apr 23 TradingView TSLA: Tesla Stock Slides After Tiny Revenue Miss, High Capex. Profit Soars 136%. | Financial News & Top Stories — Market Analysis — TradingView |  | https://www.tradingview.com/news/tradingview:4305c607d094b:0-tsla-tesla-stock-slides-after-tiny-revenue-miss-high-capex-profit-soars-136 |
-| 10 | Apr 24 TradingView INTC: Intel Stock Up Massive 20% After Earnings Crush Estimates | Financial News & Top Stories — Market Analysis — TradingView |  | https://www.tradingview.com/news/tradingview:e948c25f2094b:0-intc-intel-stock-up-massive-20-after-earnings-crush-estimates |
+| 6 | 1 hour ago Stock Story Ameresco (AMRC) Q1 Earnings: What To Expect | Financial News & Top Stories — Market Analysis — TradingView |  | https://www.tradingview.com/news/stockstory:d70fdfbc5094b:0-ameresco-amrc-q1-earnings-what-to-expect |
+| 7 | 1 hour ago Stock Story BWX (BWXT) To Report Earnings Tomorrow: Here Is What To Expect | Financial News & Top Stories — Market Analysis — TradingView |  | https://www.tradingview.com/news/stockstory:5234a581d094b:0-bwx-bwxt-to-report-earnings-tomorrow-here-is-what-to-expect |
+| 8 | 1 hour ago Stock Story BioMarin Pharmaceutical (BMRN) Reports Earnings Tomorrow: What To Expect | Financial News & Top Stories — Market Analysis — TradingView |  | https://www.tradingview.com/news/stockstory:5f5ad2361094b:0-biomarin-pharmaceutical-bmrn-reports-earnings-tomorrow-what-to-expect |
+| 9 | 1 hour ago Stock Story Black Stone Minerals (BSM) To Report Earnings Tomorrow: Here Is What To Expect | Financial News & Top Stories — Market Analysis — TradingView |  | https://www.tradingview.com/news/stockstory:1d809c6d7094b:0-black-stone-minerals-bsm-to-report-earnings-tomorrow-here-is-what-to-expect |
+| 10 | 1 hour ago Stock Story Boise Cascade (BCC) Reports Q1: Everything You Need To Know Ahead Of Earnings | Financial News & Top Stories — Market Analysis — TradingView |  | https://www.tradingview.com/news/stockstory:32d54528b094b:0-boise-cascade-bcc-reports-q1-everything-you-need-to-know-ahead-of-earnings |
 
 ### News batch B
-- captured_at: `2026-05-03T14:59:57+09:00`
+- captured_at: `2026-05-03T13:18:50+09:00`
 - lookback_hours: `72`
 - require_recent_signal: `False`
 - collected_count: `8`
@@ -115,10 +130,10 @@ Representative candidates
 | 8 | WTI Oil Prices in Real Terms | Blog – ISABELNET |  | https://www.isabelnet.com/the-cost-of-a-barrel-of-oil-in-real-u-s-dollar-terms |
 
 ### X timeline
-- captured_at: `2026-05-03T06:00:10.872Z`
+- captured_at: `2026-05-03T04:19:03.102Z`
 - lookback_hours: `48`
 - require_recent_signal: `None`
-- collected_count: `84`
+- collected_count: `86`
 
 | source | status | count | error/fallback |
 | --- | --- | --- | --- |
@@ -165,15 +180,21 @@ Representative candidates
 ## 4. Visual Cards / Captures / Charts
 - visual cards: `6`
 - visual stats: `{"candidate_count": 6, "image_count": 6, "fetched_pages": 0, "fetch_errors": 0}`
-- screenshots: `5` under `projects\autopark\runtime\screenshots\2026-05-03`
-- chart exports: `10` under `projects\autopark\exports\current`
+- screenshots: `11` under `projects\autopark\runtime\screenshots\2026-05-03`
+- chart exports: `11` under `projects\autopark\exports\current`
 | kind | file |
 | --- | --- |
 | screenshot | projects\autopark\runtime\screenshots\2026-05-03\cnn-fear-greed-gauge.png |
+| screenshot | projects\autopark\runtime\screenshots\2026-05-03\cnn-fear-greed.png |
 | screenshot | projects\autopark\runtime\screenshots\2026-05-03\finviz-index-futures-1.png |
 | screenshot | projects\autopark\runtime\screenshots\2026-05-03\finviz-index-futures-2.png |
+| screenshot | projects\autopark\runtime\screenshots\2026-05-03\finviz-index-futures.png |
+| screenshot | projects\autopark\runtime\screenshots\2026-05-03\finviz-russell-heatmap-map-fallback.png |
 | screenshot | projects\autopark\runtime\screenshots\2026-05-03\finviz-russell-heatmap-map.png |
+| screenshot | projects\autopark\runtime\screenshots\2026-05-03\finviz-russell-heatmap.png |
+| screenshot | projects\autopark\runtime\screenshots\2026-05-03\finviz-sp500-heatmap-map-fallback.png |
 | screenshot | projects\autopark\runtime\screenshots\2026-05-03\finviz-sp500-heatmap-map.png |
+| screenshot | projects\autopark\runtime\screenshots\2026-05-03\finviz-sp500-heatmap.png |
 | chart | projects\autopark\exports\current\bitcoin.png |
 | chart | projects\autopark\exports\current\crude-oil-brent.png |
 | chart | projects\autopark\exports\current\crude-oil-wti.png |
@@ -182,18 +203,20 @@ Representative candidates
 | chart | projects\autopark\exports\current\economic-calendar-us.png |
 | chart | projects\autopark\exports\current\fedwatch-conditional-probabilities-long-term.png |
 | chart | projects\autopark\exports\current\fedwatch-conditional-probabilities-short-term.png |
+| chart | projects\autopark\exports\current\fedwatch-conditional-probabilities.png |
 | chart | projects\autopark\exports\current\us10y.png |
 | chart | projects\autopark\exports\current\usd-krw.png |
 
 ## 5. Market Radar Merge / Selection
-- generated_at: `2026-05-03T15:05:12`
-- candidate_count: `124`
+- generated_at: `2026-05-03T13:24:00`
+- candidate_count: `136`
 - storylines in radar: `5`
 - Internal role/id fields remain available for audit, but are not rendered in publish Markdown.
 | id | title | source | source_role | evidence_role |
 | --- | --- | --- | --- | --- |
 | https://x.com/KobeissiLetter/status/2050710022938558611 | BREAKING: President Trump says he will be reviewing the plan that Iran has sent to the US but “can’t imagine that it wou | (13) The Kobeissi Letter (@KobeissiLetter) / X | sentiment_probe | sentiment |
 | https://x.com/wallstengine/status/2050376010269634723 | Apple raised the Mac mini’s starting price to $799 from $599 after AI demand and chip supply constraints drained invento | (16) Wall St Engine (@wallstengine) / X | sentiment_probe | sentiment |
+| https://x.com/_Investinq/status/2050070498306904444 | Mark Cuban's raising a question that a lot of people are asking about the biggest infrastructure build in human history. | (16) StockMarket.News (@_Investinq) / X | sentiment_probe | sentiment |
 | https://x.com/wallstengine/status/2050372648077865429 | TRUMP ON IRAN: MAYBE BETTER OFF NOT MAKING A DEAL | (16) Wall St Engine (@wallstengine) / X | sentiment_probe | sentiment |
 | https://x.com/KobeissiLetter/status/2050722187884089775 | The US government's cash balance is rising: The Treasury General Account (TGA) is up to ~$1 trillion, the highest since | (13) The Kobeissi Letter (@KobeissiLetter) / X | sentiment_probe | sentiment |
 | https://x.com/wallstengine/status/2050551657206034656 | BERKSHIRE CASH HITS RECORD $397B Berkshire Hathaway’s cash pile rose to a record $397B in Greg Abel’s first quarter as C | (16) Wall St Engine (@wallstengine) / X | sentiment_probe | sentiment |
@@ -216,71 +239,51 @@ Representative candidates
 | https://x.com/wallstengine/status/2050349249188278280 | WSJ: GameStop is preparing an offer for eBay, with Ryan Cohen reportedly building a stake ahead of a potential bid. The | (16) Wall St Engine (@wallstengine) / X | sentiment_probe | sentiment |
 | https://x.com/CNBC/status/2050587179680665948 | Airfare amid Iran war: Buy now or wait out the conflict? Experts weigh the risks | CNBC (@CNBC) / X | sentiment_probe | sentiment |
 | https://x.com/charliebilello/status/2050587363731272009 | Apple has bought back $732 billion in stock over the past 10 years, which is greater than the market cap of 488 companie | (2) Charlie Bilello (@charliebilello) / Twitter | sentiment_probe | sentiment |
-| https://x.com/business/status/2050740844563493368 | Australian Prime Minister Anthony Albanese said the coming budget will boost spending on Medicare urgent care clinics as | Bloomberg (@business) / X | sentiment_probe | sentiment |
 
 ## 6. Market Focus Brief API
 - Input: market-radar/local candidates + preflight agenda + sanitized local packet
-- Model: `gpt-5.5`, fallback: `False`, with_web: `False`
-- focus_count: `4`
-- source_gap_count: `5`
-- raw_response_id: `resp_007ce719a952f8390069f6e7018cbc81959b96255199fd7642`
+- Model: `fixture`, fallback: `False`, with_web: `False`
+- focus_count: `2`
+- source_gap_count: `1`
+- raw_response_id: ``
 ### Sanitized prompt check
-- prompt check file: missing
+- model: `gpt-5.5`
+- with_web: `False`
+- prompt_chars: `78265`
+- http_url_count: `0`
+- signed_url_hits: `0`
+- local_path_hits: `6`
+- body_like_key_hits: `0`
+- ev_alias_count: `316`
+- input_payload_keys: `available_assets, charts, date, input_limits, market_preflight_agenda, market_radar, packet_mode, policy, raw_sources, visual_cards`
 - raw response path: `projects\autopark\runtime\openai-responses\2026-05-03-market-focus-raw.json`
-- raw response size: `16,281` bytes
-- raw_response_id: `resp_007ce719a952f8390069f6e7018cbc81959b96255199fd7642`
+- raw response size: `4,874` bytes
+- raw_response_id: ``
 - model: `gpt-5.5`
 - top keys: `brief, model, ok, raw_response_id, received_at, source, target_date, web_sources`
 - `brief` keys: `false_leads, market_focus_summary, missing_assets, source_gaps, suggested_broadcast_order, what_market_is_watching`
 
 | rank | use | focus | evidence_ids | host sentence |
 | --- | --- | --- | --- | --- |
-| 1 | lead | 유가·이란 프리미엄이 다시 인플레와 위험선호를 흔드는가 | cnbc-com-world-051, finance-yahoo-com-source-018, finance-yahoo-com-source-016, https://x.com/Reuters/status/2050810107324211286, https://x.com/Reuters/status/2050774856640127425,… | 오늘 미국장 해석의 출발점은 이란 뉴스 자체가 아니라, 100달러대 유가가 인플레와 Fed 기대를 다시 압박하느냐입니다. |
-| 2 | supporting_story | 빅테크 실적이 랠리의 방어 논리인가, 종목별 선별 장세인가 | cnbc-com-world-053, cnbc-com-world-026, cnbc-com-world-035, tradingview-com-news-009, tradingview-com-news-008, tradingview-com-news-002, insight-factset-com-source-002, https://x… | 유가가 매크로 부담이라면, 이를 버티게 한 쪽은 빅테크 실적과 클라우드 성장 기대였습니다. |
-| 3 | supporting_story | 금리·달러는 랠리의 제약인가, 아직은 통제 가능한 변수인가 | finance-yahoo-com-source-010, https://x.com/Reuters/status/2050777376536101213, cnbc-com-world-030, https://x.com/LizAnnSonders/status/2050225388928795107, https://x.com/LizAnnSon… | 10년물은 조금 내려왔지만, 시장은 이번 주 고용과 물가성 지표가 다시 금리 경로를 흔들지 확인하려 합니다. |
-| 4 | talk_only | AI 인프라 수요가 한국 반도체로 연결되는가 | https://x.com/business/status/2050740299614335408, https://x.com/business/status/2050771436868944114, tradingview-com-news-008, tradingview-com-news-009 | AI 인프라 기대가 한국 반도체로 이어지는지는 중요하지만, 오늘 패킷만으로는 말로 짚고 데이터는 추가 확인해야 합니다. |
+| 1 | lead | 인플레이션 재경계가 금리와 달러를 다시 시장의 발목으로 만드는가 | tradingview-com-news-064, finance-yahoo-com-source-010 | 오늘은 헤드라인보다 금리와 달러가 위험자산의 상단을 어디까지 누르는지부터 보겠습니다. |
+| 2 | supporting_story | 이란/유가 헤드라인은 시장을 흔드는 원인인가, 말거리인가 | cnbc-com-world-040, https://x.com/KobeissiLetter/status/2050710022938558611 | 이란 뉴스는 크지만, 방송에서는 유가와 에너지주가 따라오는지를 먼저 따져보겠습니다. |
 ### Market Focus source gaps
-- 미국 지수 랠리의 폭과 질 확인 자료 부족
-- 유가 뉴스의 공식·원문 검증 부족
-- Fed 기대 변화 수치 부재
-- 빅테크 AI CAPEX 원문 검증 부족
-- 한국 반도체 연결고리의 로컬 가격·공식 자료 부족
+- 전날 미국장 지수 종가와 섹터별 실제 반응
 
 ## 7. Editorial Brief API
 - Input: Market Focus output + Market Radar candidates + recent briefs/feedback + visual/material candidates
-- Model: `gpt-5-mini`, fallback: `False`
-- raw_response_id: `resp_073ba6c1e3cf0f0e0069f6ead568e08195b64f3489f5511c48`
-- daily_thesis: 오늘 미국장 핵심은 ‘유가가 다시 100달러대라는 점이 인플레이션·Fed 경로에 얼마나 부담을 주느냐’다. 그 부담을 일정 부분 흡수한 동력은 빅테크 실적의 선별적 강세이고, 금리·달러 변동은 랠리를 제약할 가능성이 남아 있다.
-- market_map_summary: 미국 장 마감·지수 히트맵과 종목별 반응은 ‘에너지·몇몇 대형 기술주 간 차별적 흐름’을 보여준다. 에너지 섹터(오일) 관련 불확실성은 남아있지만 장중 유가는 하락 전환해 ‘급등’보다는 ‘높게 유지되는 유가가 남긴 인플레 부담’으로 해석하는 게 적절하다.
-- storyline_count: `4`
-### debug_stats.first_attempt
-- model: `gpt-5-mini`
-- timeout_seconds: `120`
-- request_started_at: `2026-05-03T15:27:32+09:00`
-- request_finished_at: `2026-05-03T15:29:27+09:00`
-- elapsed_seconds: `114.703`
-- candidate_count_total: `124`
-- candidate_count_sent: `56`
-- market_focus_available: `True`
-- market_focus_focus_count: `4`
-- market_focus_source_gap_count: `5`
-- prompt_chars: `150968`
-- estimated_prompt_tokens: `37742`
-- max_output_tokens: `16384`
-- raw_response_id: `resp_073ba6c1e3cf0f0e0069f6ead568e08195b64f3489f5511c48`
-- raw response path: `projects\autopark\runtime\openai-responses\2026-05-03-editorial-raw.json`
-- raw response size: `41,235` bytes
-- raw_response_id: `resp_073ba6c1e3cf0f0e0069f6ead568e08195b64f3489f5511c48`
-- model: `gpt-5-mini`
-- top keys: `brief, model, ok, raw_response_id, received_at, source, target_date`
-- `brief` keys: `broadcast_mode, daily_thesis, drop_list, editorial_summary, market_map_summary, one_line_market_frame, ppt_asset_queue, retrospective_watchpoints, storylines, talk_only_queue`
+- Model: `None`, fallback: `True`
+- raw_response_id: ``
+- daily_thesis: 에너지/지정학, 단신/화제 재료를 3개 묶어, 오늘 시장이 실제로 반응한 축인지 확인하는 꼭지입니다. 핵심 근거는 BREAKING: President Trump says he will be r…, TRUMP ON IRAN: MAYBE BETTER O…
+- market_map_summary: fallback 결과입니다. 시장 지도는 지수/히트맵/금리/유가/달러/비트코인 차트에서 수동 확인하세요.
+- storyline_count: `3`
+- raw response: none
 
 | rank | stars | title | hook | evidence_to_use | ppt_asset_queue labels |
 | --- | --- | --- | --- | --- | --- |
-| 1 | 3 | 유가 100달러대 — 인플레·Fed 기대를 다시 흔드는가 | 유가가 다시 100달러대입니다. 오늘 시장의 출발점은 ‘이 지정학 뉴스가 단순 헤드라인이 아니라 인플레이션·금리 경로를 다시 압박하느냐’입니다. | isabelnet-com-blog-013, finance-yahoo-com-source-016, cnbc-com-world-051, https://x.com/Reuters/status/2050774856640127425, https://x.com/KobeissiLetter/status/2050710022938558611 | WTI Oil Prices in Real Terms, US Jobs Report to Show Resilience in the Wake of Iran War (Yahoo), Exxon Mobil CEO expects higher oil prices due to Iran war (CNBC), Trump says there… |
-| 2 | 2 | 빅테크 실적 — 모두가 오른 게 아니라 선별됐다 | 유가(인플레)가 부담이라면, 그 부담을 일부 흡수한 것은 빅테크의 실적 선별성입니다. | insight-factset-com-source-002, cnbc-com-world-053, tradingview-com-news-009, tradingview-com-news-008, https://x.com/bespokeinvest/status/2050286082734932276 | S&P 500 Earnings Season Update: May 1, 2026 (FactSet), The market isn't grading all Big Tech earnings the same (CNBC), MSFT 일간 차트 (Finviz), AMZN 일간 차트 (Finviz) |
-| 3 | 2 | 금리는 내려도 안심 못하는 이유: 달러·물가·유동성 변수 | 10년물은 소폭 하락했지만, Fed 발언과 달러·물가 지표는 여전히 시장을 불안하게 한다. | finance-yahoo-com-source-010, https://x.com/Reuters/status/2050777376536101213, https://x.com/KobeissiLetter/status/2050722187884089775, https://x.com/LizAnnSonders/status/2050225… | The US government's cash balance is rising: TGA ≈ $1tn (Kobeissi Letter), Recent inflation data was 'bad news,' Fed's Goolsbee says (Reuters X) |
-| 4 | 1 | AI 인프라 기대와 한국 반도체 연결고리(말로 짚기) | AI 인프라가 한국 반도체로 이어질까? 오늘은 ‘확인 필요’라는 결론입니다. | https://x.com/business/status/2050740299614335408, tradingview-com-news-009, tradingview-com-news-008, cnbc-com-world-030, insight-factset-com-source-002 | The list of Asian stocks that benefit from business partnership with Nvidia is getting longer, as the region further int, 2 days ago TradingView AMZN: Amazon Stock Jumps After Ear… |
+| 1 | 3 | 이란 뉴스에 되살아난 유가 프리미엄 | 에너지/지정학, 단신/화제 재료를 3개 묶어, 오늘 시장이 실제로 반응한 축인지 확인하는 꼭지입니다. 핵심 근거는 BREAKING: President Trump says he will be r…, TRUMP ON IRAN: MAYBE BETTER OFF NOT MAKING…, Trump says there is poss… | https://x.com/KobeissiLetter/status/2050710022938558611, https://x.com/wallstengine/status/2050372648077865429, https://x.com/Reuters/status/2050774856640127425, finance-yahoo-com… | BREAKING: President Trump says he will be reviewing the plan that Iran has sent to the US but “can’t imagine that it wou, Trump says there is possibility US could restart strikes… |
+| 2 | 3 | 이란 뉴스에 되살아난 유가 프리미엄 | 에너지/지정학, 금리/매크로 재료를 3개 묶어, 오늘 시장이 실제로 반응한 축인지 확인하는 꼭지입니다. 핵심 근거는 Vietnam’s inflation picked up more than exp…, WTI Oil Prices in Real Terms, US Jobs Report to Show Resilience in t… | https://x.com/business/status/2050770083039883365, isabelnet-com-blog-013, finance-yahoo-com-source-021 | Vietnam’s inflation picked up more than expected in April, as a surge in global energy prices driven by the Iran war beg, WTI Oil Prices in Real Terms, US Jobs Report to Show Resi… |
+| 3 | 3 | 금리와 달러가 오늘의 숨은 제약인가 | 금리/매크로 재료를 3개 묶어, 오늘 시장이 실제로 반응한 축인지 확인하는 꼭지입니다. 핵심 근거는 The US government's cash balance is rising:…, Average 30-Year Mortgage Rate in the US… 19…, Recent inflation data was 'bad… | https://x.com/KobeissiLetter/status/2050722187884089775, https://x.com/charliebilello/status/2050598689849143303, https://x.com/Reuters/status/2050777376536101213, cnbc-com-world-… | The US government's cash balance is rising: The Treasury General Account (TGA) is up to ~$1 trillion, the highest since, Average 30-Year Mortgage Rate in the US… 1970s: 8.9% 1980s… |
 
 ## 8. Fixed Renderer: Visible vs Filtered
 - Contract: LLM output supplies values only; renderer owns section names, order, and allowed public fields.
@@ -290,17 +293,13 @@ Representative candidates
 - Market material order is deterministic: index flow -> heatmaps -> rates -> oil -> dollar/FX -> risk assets -> FedWatch.
 - Media focus cards follow storyline slide order and receive circled numbers.
 ### Host slide labels
-- `① WTI·브렌트 가격 차트`
-- `② 유가 지정학 기사`
+- `① 유가 지정학 기사`
+- `② WTI·브렌트 가격 차트`
 - `③ 에너지주 반응 차트`
-- `④ FactSet 실적 시즌 요약`
-- `⑤ 빅테크 실적 반응 자료`
-- `⑥ 실적 특징주 차트`
-- `⑦ 10년물 국채금리`
-- `⑧ Fed 인플레이션 발언 기사`
-- `⑨ 금리 부담 기사`
+- `⑥ 금리 부담 기사`
+- `⑦ Fed 인플레이션 발언 기사`
 ### Market-now cards
-- count: `11`
+- count: `12`
 | label | source | has_content | image_count |
 | --- | --- | --- | --- |
 | 주요 지수 흐름 | [finviz-index-futures](https://finviz.com/) |  | 2 |
@@ -313,27 +312,25 @@ Representative candidates
 | 원/달러 환율 차트 | [Yahoo Finance](https://finance.yahoo.com/quote/KRW%3DX) |  | 1 |
 | 비트코인 가격 차트 | [CoinGecko](https://www.coingecko.com/en/coins/bitcoin) |  | 1 |
 | CNN Fear & Greed | [cnn-fear-greed](https://edition.cnn.com/markets/fear-and-greed) |  | 1 |
-| FedWatch 금리 확률 | [CME FedWatch](https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html) |  | 2 |
+| FedWatch 단기 금리 확률 | [CME FedWatch](https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html) |  | 1 |
+| FedWatch 장기 금리 확률 | [CME FedWatch](https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html) |  | 1 |
 ### Media focus cards
-- count: `16`
+- count: `13`
 | label | source | has_content | image_count |
 | --- | --- | --- | --- |
-| ① WTI·브렌트 가격 차트 | [IsabelNet](https://www.isabelnet.com/the-cost-of-a-barrel-of-oil-in-real-u-s-dollar-terms) | True |  |
-| ② 유가 지정학 기사 | [Yahoo Finance](https://finance.yahoo.com/news/us-jobs-report-show-resilience-200000920.html) | True |  |
+| ① 유가 지정학 기사 | [KobeissiLetter](https://x.com/KobeissiLetter/status/2050710022938558611) | True | 1 |
+| ② WTI·브렌트 가격 차트 | [IsabelNet](https://www.isabelnet.com/the-cost-of-a-barrel-of-oil-in-real-u-s-dollar-terms) | True |  |
 | ③ 에너지주 반응 차트 | Autopark | True |  |
 | ④ 보강 후보 자료 | Market Focus | True |  |
 | ⑤ 프리플라이트 보강 자료 | Pre-flight Agenda | True |  |
-| ⑥ FactSet 실적 시즌 요약 | [FactSet Insight - Comme…](https://insight.factset.com/sp-500-earnings-season-update-may-1-2026) | True |  |
-| ⑦ 빅테크 실적 반응 자료 | [CNBC](https://www.cnbc.com/2026/05/01/apple-stock-rallies-on-q2-earnings-and-q3-guidance.html) | True |  |
-| ⑧ 실적 특징주 차트 | Autopark | True |  |
-| ⑨ Fed 인플레이션 발언 기사 | [Yahoo Finance](https://finance.yahoo.com/economy/policy/articles/recent-inflation-data-bad-news-190611607.html) | True |  |
-| ⑩ 금리 부담 기사 | [(16) Liz Ann Sonders (@…](https://x.com/LizAnnSonders/status/2050225388928795107) | True | 1 |
-| ⑪ XLE 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=XLE&p=d) | True | 1 |
-| ⑫ CVX 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=CVX&p=d) | True | 1 |
-| ⑬ XOM 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=XOM&p=d) | True | 1 |
-| ⑭ GOOGL 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=GOOGL&p=d) | True | 1 |
-| ⑮ MSFT 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=MSFT&p=d) | True | 1 |
-| ⑯ META 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=META&p=d) | True | 1 |
+| ⑥ 금리 부담 기사 | [Charlie Bilello](https://x.com/charliebilello/status/2050598689849143303) | True | 1 |
+| ⑦ Fed 인플레이션 발언 기사 | [Reuters](https://x.com/Reuters/status/2050777376536101213) | True | 1 |
+| ⑧ XLE 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=XLE&p=d) | True | 1 |
+| ⑨ CVX 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=CVX&p=d) | True | 1 |
+| ⑩ XOM 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=XOM&p=d) | True | 1 |
+| ⑪ GOOGL 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=GOOGL&p=d) | True | 1 |
+| ⑫ MSFT 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=MSFT&p=d) | True | 1 |
+| ⑬ META 일간 차트 | [Finviz](https://finviz.com/quote.ashx?t=META&p=d) | True | 1 |
 ### Renderer filter check
 - source_role: `0`
 - evidence_role: `0`
@@ -345,6 +342,39 @@ Representative candidates
 - 자료 수집 상세: `0`
 - Audit: `0`
 - Debug: `0`
+
+## 8.1 Dashboard Microcopy
+- microcopy_enabled: `False`
+- model: `gpt-5-mini`
+- source: `deterministic`
+- request_count: `0`
+- card_count: `13`
+- fallback_count: `16`
+- invalid_output_count: `0`
+- estimated_tokens: `2078`
+- generated fields: `quote_lines, host_relevance_bullets, content_bullets`
+### Microcopy storyline fields
+| storyline_id | quote_lines | host_relevance_bullets |
+| --- | --- | --- |
+| storyline-1 | 유가 헤드라인과 실제 가격 반응이 같은 방향인지 먼저 분리한다. / 오늘은 헤드라인보다 금리와 달러가 위험자산의 상단을 어디까지 누르는지부터 보겠습니다. / 10년물, 달러인덱스, USD/KRW 차트가 주식 반응과 같은 방향인지 확인해야 한다. | 전일에도 비슷한 테마가 있어 감점했지만, 오늘 새 근거가 충분해 후보로 유지했습니다. / 첫 5분에는 뉴스 강도와 가격 반응의 차이를 보여주면 이해가 빠르다. / 같은 주식 호재라도 금리와 달러가 버티면 밸류에이션이 높은 기술주와 한국장 성장주에는 부담으로 번질 수 있다. |
+| storyline-3 | 유가 헤드라인과 실제 가격 반응이 같은 방향인지 먼저 분리한다. / 이란 뉴스는 크지만, 방송에서는 유가와 에너지주가 따라오는지를 먼저 따져보겠습니다. / WTI/Brent와 XLE 반응이 함께 움직이는지 확인해야 한다. | 지정학 뉴스 반복이 유가와 에너지주 가격 반응으로 확인되는가? / 유가가 따라오지 않으면 지정학 뉴스는 첫 꼭지보다 리스크 체크용 보조 꼭지에 가깝다. / 한국장에서는 정유·화학·항공과 물가 부담 장표로 곧장 이어진다. |
+| storyline-2 | 금리와 달러가 위험자산 반등의 속도를 다시 제한하는지 확인한다. / 전일 고정 프레임보다 오늘 수집물의 점수와 구체성이 더 강하게 잡힌 묶음입니다. / 지수보다 채권·환율 반응을 먼저 봐야 하는 아침이다. | 전일 고정 프레임보다 오늘 수집물의 점수와 구체성이 더 강하게 잡힌 묶음입니다. / 첫 5분에는 지수보다 10년물·달러 흐름을 먼저 보여주는 편이 빠르다. / 한국장에서는 환율과 성장주 밸류에이션 부담으로 바로 연결된다. |
+### Microcopy media fields
+| card_key | content_bullets |
+| --- | --- |
+| media_focus:https:-x.com-KobeissiLetter-status-2050710022938558611 | 유가와 지정학 리스크 관련 내용입니다. / 유가 지정학 기사 / 유가 지정학 기사의 시장 반응과 방송 연결 포인트를 확인한다. |
+| media_focus:isabelnet-com-blog-013 | 유가와 지정학 리스크 관련 내용입니다. / WTI·브렌트 가격 차트 / WTI·브렌트 가격 차트의 시장 반응과 방송 연결 포인트를 확인한다. |
+| media_focus:15:에너지주-반응-차트 | 에너지주 반응 차트 / 에너지주 반응 차트의 시장 반응과 방송 연결 포인트를 확인한다. / 유가 헤드라인이 실제 가격과 에너지주 반응으로 이어지는지 보는 자료다. |
+| media_focus:16:보강-후보-자료 | 전날 미국장 지수 종가와 섹터별 실제 반응 / 보강 후보 자료 / 보강 후보 자료의 시장 반응과 방송 연결 포인트를 확인한다. |
+| media_focus:17:프리플라이트-보강-자료 | 발견 힌트상 주식은 강하지만 채권시장은 인플레·유가·Fed 경로를 더 경계할 수 있음. / 한국 개인투자자에게 환율과 성장주 할인율이 1차 체크포인트. / 미 10년물·DXY·USD/KRW가 주식 사상권 랠리를 제약하는가, 아니면 위험선호를 확인하는가? |
+| media_focus:https:-x.com-charliebilello-status-2050598689849143303 | 연준과 인플레이션 경로를 보는 자료입니다. / 금리 부담 기사 / 금리 부담 기사의 시장 반응과 방송 연결 포인트를 확인한다. |
+| media_focus:https:-x.com-Reuters-status-2050777376536101213 | 연준과 인플레이션 경로를 보는 자료입니다. / Fed 인플레이션 발언 기사 / Fed 인플레이션 발언 기사의 시장 반응과 방송 연결 포인트를 확인한다. |
+| media_focus:XLE | XLE 일간 차트 / XLE 일간 차트의 시장 반응과 방송 연결 포인트를 확인한다. / 유가 헤드라인이 실제 가격과 에너지주 반응으로 이어지는지 보는 자료다. |
+| media_focus:CVX | CVX 일간 차트 / CVX 일간 차트의 시장 반응과 방송 연결 포인트를 확인한다. / 유가 헤드라인이 실제 가격과 에너지주 반응으로 이어지는지 보는 자료다. |
+| media_focus:XOM | XOM 일간 차트 / XOM 일간 차트의 시장 반응과 방송 연결 포인트를 확인한다. / 유가 헤드라인이 실제 가격과 에너지주 반응으로 이어지는지 보는 자료다. |
+| media_focus:GOOGL | GOOGL 일간 차트 / GOOGL 일간 차트의 시장 반응과 방송 연결 포인트를 확인한다. / 기술주 반응을 AI·실적 기대와 분리해 확인하는 보조 자료다. |
+| media_focus:MSFT | MSFT 일간 차트 / MSFT 일간 차트의 시장 반응과 방송 연결 포인트를 확인한다. / 기술주 반응을 AI·실적 기대와 분리해 확인하는 보조 자료다. |
+| media_focus:META | META 일간 차트 / META 일간 차트의 시장 반응과 방송 연결 포인트를 확인한다. / 기술주 반응을 AI·실적 기대와 분리해 확인하는 보조 자료다. |
 
 ## 9. Quality Gate
 - gate: `pass`

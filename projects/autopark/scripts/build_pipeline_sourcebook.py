@@ -200,6 +200,8 @@ def extract_between(markdown: str, start: str, end: str | None = None) -> str:
 
 def renderer_summary(markdown: str) -> tuple[list[str], list[dict[str, Any]], list[dict[str, Any]], dict[str, int]]:
     story_labels = re.findall(r"^- `([^`]+)`$", markdown, flags=re.M)
+    story_labels.extend(re.findall(r"`([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]\s+[^`]+)`", markdown))
+    story_labels = list(dict.fromkeys(story_labels))
     market_body = extract_between(markdown, "## 1. 시장은 지금", "## 2. 미디어 포커스")
     media_body = extract_between(markdown, "## 2. 미디어 포커스")
     forbidden = [
@@ -215,6 +217,47 @@ def renderer_summary(markdown: str) -> tuple[list[str], list[dict[str, Any]], li
         "Debug",
     ]
     return story_labels, parse_card_blocks(market_body), parse_card_blocks(media_body), {token: markdown.count(token) for token in forbidden}
+
+
+def trace_blob(value: Any) -> str:
+    return compact(json.dumps(value, ensure_ascii=False), 2000).lower()
+
+
+def preflight_downgrade_trace(preflight: dict[str, Any], focus: dict[str, Any], radar: dict[str, Any]) -> list[list[Any]]:
+    focus_items = [item for item in focus.get("what_market_is_watching") or [] if isinstance(item, dict)]
+    public_blob = trace_blob([item for item in focus_items if item.get("broadcast_use") in {"lead", "supporting_story", "talk_only"}])
+    downgrade_ledgers = {
+        "source_gap": focus.get("source_gaps") or [],
+        "false_lead": focus.get("false_leads") or [],
+        "missing_assets": focus.get("missing_assets") or [],
+        "drop": [item for item in focus_items if item.get("broadcast_use") == "drop"],
+    }
+    downgrade_blobs = {name: trace_blob(payload) for name, payload in downgrade_ledgers.items()}
+    local_blob = trace_blob(radar.get("candidates") or [])
+    rows: list[list[Any]] = []
+    for item in preflight.get("agenda_items") or []:
+        if not isinstance(item, dict):
+            continue
+        agenda_id = compact(item.get("agenda_id") or f"rank-{item.get('rank')}", 80)
+        question = compact(item.get("market_question"), 140)
+        tokens = [token.lower() for token in re.findall(r"[A-Za-z0-9가-힣/.-]{4,}", f"{agenda_id} {question}")]
+        public_hit = any(token in public_blob for token in tokens[:12])
+        downgrade_hits = [name for name, blob in downgrade_blobs.items() if any(token in blob for token in tokens[:12])]
+        local_hit = any(token in local_blob for token in tokens[:12])
+        if public_hit:
+            status = "public_focus"
+            trace = "Market Focus public item"
+        elif downgrade_hits:
+            status = "downgraded"
+            trace = "/".join(downgrade_hits)
+        elif local_hit:
+            status = "local_evidence_only"
+            trace = "collected locally but not promoted"
+        else:
+            status = "source_gap"
+            trace = "source_gap (not confirmed by local evidence)"
+        rows.append([item.get("rank"), agenda_id, status, trace, question])
+    return rows
 
 
 def build_sourcebook(target_date: str, output: Path) -> Path:
@@ -236,6 +279,7 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
     finviz = read_json(processed / "finviz-feature-stocks.json")
     earnings = read_json(processed / "earnings-ticker-drilldown.json")
     economic = read_json(processed / "economic-calendar.json")
+    microcopy = read_json(processed / "dashboard-microcopy.json")
     quality = read_json(RUNTIME_DIR / "reviews" / target_date / "dashboard-quality.json")
     dashboard_markdown = runtime_date.read_text(encoding="utf-8") if runtime_date.exists() else ""
     story_labels, market_cards, media_cards, forbidden_counts = renderer_summary(dashboard_markdown)
@@ -290,6 +334,14 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
         )
         preflight_rows.append([item.get("rank"), item.get("agenda_id"), item.get("market_question"), targets, item.get("why_to_check")])
     lines.extend(["", markdown_table(["rank", "agenda_id", "market_question", "collection_targets", "why_to_check"], preflight_rows), ""])
+    lines.extend(
+        [
+            "### preflight_downgrade_trace",
+            "- Internal trace only; not rendered in publish Markdown.",
+            markdown_table(["rank", "agenda_id", "status", "trace_destination", "market_question"], preflight_downgrade_trace(preflight, focus, radar)),
+            "",
+        ]
+    )
 
     lines.append("## 3. News / X / Earnings Collection")
     for label, payload, key in [
@@ -463,6 +515,38 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
     )
     for token, count in forbidden_counts.items():
         lines.append(f"- {token}: `{count}`")
+    lines.extend(
+        [
+            "",
+            "## 8.1 Dashboard Microcopy",
+            f"- microcopy_enabled: `{microcopy.get('microcopy_enabled')}`",
+            f"- model: `{microcopy.get('model') or ''}`",
+            f"- source: `{microcopy.get('source') or ''}`",
+            f"- request_count: `{microcopy.get('request_count') or 0}`",
+            f"- card_count: `{microcopy.get('card_count') or len(microcopy.get('media_focus_cards') or [])}`",
+            f"- fallback_count: `{microcopy.get('fallback_count') or 0}`",
+            f"- invalid_output_count: `{microcopy.get('invalid_output_count') or 0}`",
+            f"- estimated_tokens: `{microcopy.get('estimated_tokens') or 0}`",
+            f"- generated fields: `{', '.join(microcopy.get('generated_fields') or ['quote_lines', 'host_relevance_bullets', 'content_bullets'])}`",
+            "### Microcopy storyline fields",
+            markdown_table(
+                ["storyline_id", "quote_lines", "host_relevance_bullets"],
+                [
+                    [
+                        item.get("storyline_id"),
+                        " / ".join(item.get("quote_lines") or []),
+                        " / ".join(item.get("host_relevance_bullets") or []),
+                    ]
+                    for item in microcopy.get("storylines") or []
+                ],
+            ),
+            "### Microcopy media fields",
+            markdown_table(
+                ["card_key", "content_bullets"],
+                [[item.get("card_key"), " / ".join(item.get("content_bullets") or [])] for item in microcopy.get("media_focus_cards") or []],
+            ),
+        ]
+    )
     lines.extend(
         [
             "",

@@ -13,6 +13,7 @@ PROJECT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT / "scripts"))
 
 import build_live_notion_dashboard as dashboard
+import build_dashboard_microcopy as microcopy
 import build_pipeline_sourcebook as sourcebook
 import publish_recon_to_notion as publisher
 import review_dashboard_quality as quality
@@ -68,6 +69,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
             "*fedwatch-conditional-probabilities-long-term*.png": "fedwatch-long.png",
             "*fedwatch*short*.png": "fedwatch-short.png",
             "*fedwatch*long*.png": "fedwatch-long.png",
+            "*fear*greed*.png": "fear-greed.png",
         }
         hits = []
         for name in names:
@@ -255,7 +257,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         top = [title for level, title in quality.heading_lines(markdown) if level == 1]
         self.assertEqual(["🎥 진행자용 요약", "🤖 자료 수집"], top)
         host = quality.compact_host_area(markdown)
-        self.assertLessEqual(len([line for line in host.splitlines() if line.strip()]), 45)
+        self.assertLessEqual(len([line for line in host.splitlines() if line.strip()]), 55)
         host_h2 = [title for level, title in quality.heading_lines(host) if level == 2]
         self.assertEqual(["주요 뉴스", "방송 순서", "스토리라인"], host_h2)
         self.assertEqual(3, quality.compact_bullet_count(quality.compact_section_body(host, "주요 뉴스")))
@@ -265,21 +267,35 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertEqual(3, len(story_blocks))
         for block in story_blocks:
             self.assertEqual(1, len(re.findall(r"^추천도:\s+`(?:★★★|★★☆|★☆☆)`$", block, flags=re.M)))
-            self.assertEqual(1, len(re.findall(r"^>\s+.+$", block, flags=re.M)))
-            self.assertEqual(1, block.count("**슬라이드 구성**"))
+            quotes = re.findall(r"^>\s+(.+)$", block, flags=re.M)
+            self.assertGreaterEqual(len(quotes), 1)
+            self.assertLessEqual(len(quotes), 3)
+            self.assertTrue(all(len(quote) <= 90 for quote in quotes))
+            self.assertEqual(1, block.count("**왜 중요한가**"))
+            why_body = block.split("**왜 중요한가**", 1)[1].split("**슬라이드 구성:**", 1)[0]
+            why_bullets = re.findall(r"^-\s+(.+)$", why_body, flags=re.M)
+            self.assertGreaterEqual(len(why_bullets), 2)
+            self.assertLessEqual(len(why_bullets), 3)
+            self.assertTrue(all(len(bullet) <= 90 for bullet in why_bullets))
+            self.assertTrue(quality.compact_host_relevance_complete(why_bullets))
+            self.assertEqual(1, len(re.findall(r"^\*\*슬라이드 구성:\*\*\s+`[①②③④⑤⑥⑦⑧⑨⑩]", block, flags=re.M)))
 
         for forbidden in quality.COMPACT_HOST_FORBIDDEN:
             self.assertNotIn(forbidden, host)
         self.assertNotIn("US Jobs Report to Show Resilience", host)
         self.assertNotIn("상단에 나오면 안 되는 네 번째", host)
-        self.assertIn("10년물 국채금리", host)
+        self.assertIn("Fed 인플레이션 발언 기사", host)
         self.assertIn("WTI·브렌트 가격 차트", host)
         news_bullets = re.findall(r"^-\s+(.+)$", quality.compact_section_body(host, "주요 뉴스"), flags=re.M)
         self.assertEqual(3, len(news_bullets))
         self.assertTrue(all(len(bullet) <= 80 for bullet in news_bullets))
-        story_label_lines = re.findall(r"^-\s+(.+)$", quality.compact_section_body(host, "스토리라인"), flags=re.M)
-        self.assertTrue(any(re.match(r"`[①②③④⑤⑥⑦⑧⑨⑩] .+`$", label) for label in story_label_lines))
-        bare_story_label_lines = [quality.strip_public_label_marker(label) for label in story_label_lines]
+        slide_lines = re.findall(r"^\*\*슬라이드 구성:\*\*\s+(.+)$", quality.compact_section_body(host, "스토리라인"), flags=re.M)
+        self.assertTrue(any(re.search(r"`[①②③④⑤⑥⑦⑧⑨⑩] .+`", label) for label in slide_lines))
+        bare_story_label_lines = [
+            label.strip()
+            for slide_line in slide_lines
+            for _, label in re.findall(r"`([①②③④⑤⑥⑦⑧⑨⑩]|\(\d+\))\s+([^`]+)`", slide_line)
+        ]
         self.assertLessEqual(bare_story_label_lines.count("WTI·브렌트 가격 차트"), 1)
 
         collection = quality.compact_collection_area(markdown)
@@ -292,9 +308,9 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertLess(labels.index("S&P500 히트맵"), labels.index("WTI 가격 차트"))
         self.assertLess(labels.index("WTI 가격 차트"), labels.index("브렌트 가격 차트"))
         self.assertIn("원/달러 환율 차트", labels)
-        self.assertIn("FedWatch 금리 확률", labels)
-        self.assertNotIn("FedWatch 단기 금리 확률", labels)
-        self.assertNotIn("FedWatch 장기 금리 확률", labels)
+        self.assertIn("FedWatch 단기 금리 확률", labels)
+        self.assertIn("FedWatch 장기 금리 확률", labels)
+        self.assertNotIn("FedWatch 금리 확률", labels)
         self.assertNotIn("10년물 금리 차트", labels)
         self.assertEqual(len(labels), len(set(labels)))
         bare_labels = [quality.strip_public_label_marker(label) for label in labels]
@@ -305,7 +321,8 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertNotIn("원문 제목:", market_body)
         market_blocks = {quality.card_title(block): block for block in quality.compact_card_blocks(market_body)}
         self.assertEqual(2, quality.image_count(market_blocks["주요 지수 흐름"]))
-        self.assertEqual(2, quality.image_count(market_blocks["FedWatch 금리 확률"]))
+        self.assertEqual(1, quality.image_count(market_blocks["FedWatch 단기 금리 확률"]))
+        self.assertEqual(1, quality.image_count(market_blocks["FedWatch 장기 금리 확률"]))
         media_body = quality.compact_collection_section_body(collection, "2. 미디어 포커스")
         media_blocks = quality.compact_card_blocks(media_body)
         self.assertTrue(all(re.match(r"^### [①②③④⑤⑥⑦⑧⑨⑩]", block.splitlines()[0]) for block in media_blocks[:3]))
@@ -344,6 +361,17 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         findings = quality.review_compact_publish_contract(broken)
         self.assertTrue(any(finding.title.startswith("COMPACT-005") for finding in findings))
 
+    def test_quality_gate_fails_if_why_relevance_lacks_required_axes(self) -> None:
+        markdown = dashboard.render_dashboard(DATE)
+        broken = re.sub(
+            r"(\*\*왜 중요한가\*\*\n)- .+\n- .+\n- .+",
+            r"\1- 전날 시장 반응만 확인한다.\n- 가격 반응만 확인한다.",
+            markdown,
+            count=1,
+        )
+        findings = quality.review_compact_publish_contract(broken)
+        self.assertTrue(any(finding.title.startswith("COMPACT-045") for finding in findings))
+
     def test_public_material_label_rejects_internal_or_raw_title_labels(self) -> None:
         label = dashboard.public_material_label(
             {
@@ -377,7 +405,9 @@ class CompactPublishRendererContractTest(unittest.TestCase):
                 "### FedWatch 금리 확률",
                 "- 출처: [CME](https://example.com/)",
                 "![FedWatch 금리 확률](short.png)",
-                "![FedWatch 금리 확률](long.png)",
+                "### FedWatch 장기 금리 확률",
+                "- 출처: [CME](https://example.com/)",
+                "![FedWatch 장기 금리 확률](long.png)",
                 "## 2. 미디어 포커스",
                 "### ① WTI·브렌트 가격 차트",
                 "- 출처: [IsabelNet](https://example.com/oil)",
@@ -389,11 +419,13 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         story_labels, market_cards, media_cards, forbidden = sourcebook.renderer_summary(markdown)
 
         self.assertEqual(["① WTI·브렌트 가격 차트"], story_labels)
-        self.assertEqual(2, len(market_cards))
+        self.assertEqual(3, len(market_cards))
         self.assertEqual("주요 지수 흐름", market_cards[0]["label"])
         self.assertEqual(2, market_cards[0]["image_count"])
         self.assertEqual("FedWatch 금리 확률", market_cards[1]["label"])
-        self.assertEqual(2, market_cards[1]["image_count"])
+        self.assertEqual(1, market_cards[1]["image_count"])
+        self.assertEqual("FedWatch 장기 금리 확률", market_cards[2]["label"])
+        self.assertEqual(1, market_cards[2]["image_count"])
         self.assertEqual(1, len(media_cards))
         self.assertTrue(media_cards[0]["has_content"])
         self.assertEqual(0, forbidden["source_role"])
@@ -406,6 +438,40 @@ class CompactPublishRendererContractTest(unittest.TestCase):
 
         self.assertIn("OPENAI_API_KEY", findings)
         self.assertIn("X-Amz-Signature", findings)
+
+    def test_microcopy_validation_falls_back_per_invalid_item(self) -> None:
+        context = {
+            "storylines": [
+                {
+                    "storyline_id": "storyline-1",
+                    "axis": "rates",
+                    "quote_seed": "금리와 달러 부담을 확인한다.",
+                    "slide_line": "`① 10년물 국채금리` → `② 달러인덱스 차트`",
+                }
+            ],
+            "media_focus_cards": [
+                {"card_key": "card-1", "label": "10년물 국채금리", "summary": "금리 부담을 확인하는 차트."}
+            ],
+        }
+        fallback = microcopy.deterministic_microcopy(context)
+        candidate = {
+            "storylines": [
+                {
+                    "storyline_id": "storyline-1",
+                    "quote_lines": ["https://example.com source_role bad"],
+                    "host_relevance_bullets": ["하나뿐인 bullet"],
+                    "slide_line": "`① 다른 자료`",
+                }
+            ],
+            "media_focus_cards": [{"card_key": "card-1", "content_bullets": ["금리 부담을 90자 이내로 확인한다."]}],
+        }
+
+        payload, fallback_count, invalid_count = microcopy.validate_microcopy(candidate, context, fallback)
+
+        self.assertEqual(1, fallback_count)
+        self.assertGreaterEqual(invalid_count, 1)
+        self.assertEqual(fallback["storylines"][0]["quote_lines"], payload["storylines"][0]["quote_lines"])
+        self.assertEqual(["금리 부담을 90자 이내로 확인한다."], payload["media_focus_cards"][0]["content_bullets"])
 
 
 if __name__ == "__main__":

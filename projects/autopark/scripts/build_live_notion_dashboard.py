@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 from collections import Counter
 from datetime import datetime
@@ -13,6 +14,8 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageDraw, ImageFont
+
+import build_dashboard_microcopy as dashboard_microcopy
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -3011,6 +3014,136 @@ def media_focus_label_numbers(storylines: list[dict], radar_by_id: dict) -> dict
     return label_numbers
 
 
+def storyline_public_id(storyline: dict, index: int) -> str:
+    return clean(storyline.get("storyline_id") or f"storyline-{index}", 80)
+
+
+def slide_ref_line(refs: list[dict]) -> str:
+    return " → ".join(f"`{ref['number']} {ref['label']}`" for ref in refs)
+
+
+def story_slide_refs(
+    storyline: dict,
+    radar_by_id: dict,
+    media_number_by_label: dict[str, str],
+    used_labels: set[str] | None = None,
+) -> list[dict]:
+    refs: list[dict] = []
+    labels = public_material_labels_for_story(storyline, radar_by_id, used_labels)[:3]
+    for label in labels:
+        number = media_number_by_label.get(label)
+        if number:
+            refs.append({"number": number, "label": label})
+    if len(refs) < 3:
+        for label, number in media_number_by_label.items():
+            if all(ref["label"] != label for ref in refs):
+                refs.append({"number": number, "label": label})
+            if len(refs) >= 3:
+                break
+    return refs[:3]
+
+
+def focus_by_story_rank(market_focus: dict) -> dict[int, dict]:
+    rows: dict[int, dict] = {}
+    for focus in market_focus.get("what_market_is_watching") or []:
+        if not isinstance(focus, dict):
+            continue
+        try:
+            rows[int(focus.get("rank") or 0)] = focus
+        except (TypeError, ValueError):
+            continue
+    return rows
+
+
+def build_microcopy_context(
+    target_date: str,
+    brief: dict,
+    market_focus: dict,
+    storylines: list[dict],
+    radar_by_id: dict,
+    media_cards: list[dict],
+) -> dict:
+    media_number_by_label = {clean(card.get("label")): clean(card.get("media_number")) for card in media_cards if card.get("label")}
+    focus_by_rank = focus_by_story_rank(market_focus)
+    used_labels: set[str] = set()
+    story_payloads: list[dict] = []
+    for index, story in enumerate(storylines[:3], start=1):
+        refs = story_slide_refs(story, radar_by_id, media_number_by_label, used_labels)
+        focus = focus_by_rank.get(int(story.get("rank") or index), {})
+        evidence_summary = []
+        for item in story.get("evidence_to_use") or []:
+            if not isinstance(item, dict):
+                continue
+            item_id = item.get("item_id") or item.get("evidence_id") or ""
+            row = radar_by_id.get(item_id) or {}
+            evidence_summary.append(
+                clean(
+                    row.get("summary")
+                    or row.get("radar_question")
+                    or row.get("market_reaction")
+                    or item.get("reason")
+                    or item.get("title"),
+                    220,
+                )
+            )
+        story_payloads.append(
+            {
+                "storyline_id": storyline_public_id(story, index),
+                "rank": index,
+                "title": public_story_title(story, index),
+                "axis": story_public_axis(story),
+                "quote_seed": public_story_hook(story),
+                "why_it_matters": focus.get("why_it_matters") or "",
+                "price_confirmation": focus.get("price_confirmation") or "",
+                "one_sentence_for_host": focus.get("one_sentence_for_host") or "",
+                "lead_candidate_reason": story.get("lead_candidate_reason") or "",
+                "why_now": story.get("why_now") or "",
+                "market_causality": story.get("market_causality") or "",
+                "korea_open_relevance": story.get("korea_open_relevance") or "",
+                "first_5min_fit": story.get("first_5min_fit") or "",
+                "market_attention": focus.get("market_question") or brief.get("daily_thesis") or brief.get("one_line_market_frame") or "",
+                "evidence_summary": " / ".join(item for item in evidence_summary if item)[:500],
+                "slide_refs": refs,
+                "slide_line": slide_ref_line(refs),
+            }
+        )
+    card_payloads = [
+        {
+            "card_key": clean(card.get("card_key")),
+            "number": clean(card.get("media_number")),
+            "label": clean(card.get("label")),
+            "title": clean(card.get("title") or card.get("headline") or card.get("label"), 120),
+            "source": clean(card.get("source") or card.get("source_label"), 80),
+            "summary": clean(card.get("summary") or card.get("source_gap") or card.get("content") or card.get("title"), 360),
+            "source_gap": clean(card.get("source_gap"), 240),
+        }
+        for card in media_cards
+    ]
+    return {
+        "target_date": target_date,
+        "contract": "compact_publish_microcopy_v1",
+        "storylines": story_payloads,
+        "media_focus_cards": card_payloads,
+    }
+
+
+def microcopy_story_by_id(microcopy: dict) -> dict[str, dict]:
+    return {clean(row.get("storyline_id")): row for row in microcopy.get("storylines") or [] if isinstance(row, dict)}
+
+
+def microcopy_card_by_key(microcopy: dict) -> dict[str, dict]:
+    return {clean(row.get("card_key")): row for row in microcopy.get("media_focus_cards") or [] if isinstance(row, dict)}
+
+
+def write_microcopy_payload(target_date: str, context: dict, microcopy: dict) -> None:
+    processed = PROCESSED_DIR / target_date
+    output = processed / "dashboard-microcopy.json"
+    context_output = processed / "dashboard-microcopy-context.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(microcopy, ensure_ascii=False, indent=2), encoding="utf-8")
+    context_output.write_text(json.dumps(context, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def compact_top_news(brief: dict, market_focus: dict, storylines: list[dict]) -> list[str]:
     seeds: list[str] = []
     for item in market_focus.get("what_market_is_watching") or []:
@@ -3033,8 +3166,11 @@ def compact_top_news(brief: dict, market_focus: dict, storylines: list[dict]) ->
 
 
 def compact_market_map_line(brief: dict) -> str:
+    raw = brief.get("market_map_summary") or brief.get("one_line_market_frame") or ""
+    if "fallback" in clean(raw).lower():
+        raw = ""
     return clip_public_sentence(
-        brief.get("market_map_summary") or brief.get("one_line_market_frame") or "지수·금리·달러·유가의 방향을 먼저 확인한다.",
+        raw or "지수·금리·달러·유가의 방향을 먼저 확인한다.",
         70,
         "지수·금리·달러·유가의 방향을 먼저 확인한다.",
     )
@@ -3061,10 +3197,13 @@ def render_compact_publish_host(
     radar_by_id: dict,
     finviz_features: dict,
     earnings_drilldown: dict,
-    label_numbers: dict[str, str],
+    media_cards: list[dict],
+    microcopy: dict,
 ) -> None:
     while len(storylines) < 3:
         storylines.append({})
+    media_number_by_label = {clean(card.get("label")): clean(card.get("media_number")) for card in media_cards if card.get("label")}
+    copy_by_story = microcopy_story_by_id(microcopy)
     used_story_labels: set[str] = set()
     lines.extend(
         [
@@ -3085,17 +3224,42 @@ def render_compact_publish_host(
     lines.append(f"- `실적/특징주`: {compact_public_text(compact_feature_line(finviz_features, earnings_drilldown), 64, '실적 일정과 특징주 반응을 보조 자료로 확인한다.')}")
     lines.append("## 스토리라인")
     for index, story in enumerate(storylines[:3], start=1):
+        story_id = storyline_public_id(story, index)
+        story_copy = copy_by_story.get(story_id) or {}
+        refs = story_slide_refs(story, radar_by_id, media_number_by_label, used_story_labels)
+        quote_lines = [
+            compact_public_text(line, 90, public_story_hook(story))
+            for line in (story_copy.get("quote_lines") or [public_story_hook(story)])
+        ][:3]
+        why_bullets = [
+            compact_public_text(line, 90, "첫 5분 방송에서 시장 반응과 한국장 연결점을 확인한다.")
+            for line in (story_copy.get("host_relevance_bullets") or [])
+        ][:3]
+        if len(why_bullets) < 2:
+            why_bullets = dashboard_microcopy.deterministic_storyline(
+                {
+                    "storyline_id": story_id,
+                    "axis": story_public_axis(story),
+                    "quote_seed": public_story_hook(story),
+                    "slide_line": slide_ref_line(refs),
+                    "why_now": story.get("why_now") or story.get("lead_candidate_reason") or "",
+                    "korea_open_relevance": story.get("korea_open_relevance") or "",
+                }
+            )["host_relevance_bullets"][:2]
+        slide_line = slide_ref_line(refs)
         lines.extend(
             [
                 f"### {index}. {compact_public_text(public_story_title(story, index), 48, fallback_story_title(story_public_axis(story), index))}",
                 f"추천도: `{compact_stars_text(story.get('recommendation_stars'))}`",
-                f"> {compact_public_text(public_story_hook(story), 120, '가격 반응과 로컬 근거가 같은 방향인지 확인한다.')}",
-                "**슬라이드 구성**",
             ]
         )
-        for label in public_material_labels_for_story(story, radar_by_id, used_story_labels)[:4]:
-            prefix = label_numbers.get(label, "")
-            lines.append(f"- `{(prefix + ' ') if prefix else ''}{label}`")
+        for quote in quote_lines:
+            lines.append(f"> {quote}")
+        lines.extend(["", "**왜 중요한가**"])
+        for bullet in why_bullets[:3]:
+            lines.append(f"- {bullet}")
+        lines.extend(["", f"**슬라이드 구성:** {slide_line}"])
+        lines.append("")
 
 
 MARKET_NOW_CAPTURE_ORDER = [
@@ -3122,9 +3286,8 @@ FIXED_ASSET_ORDER = {
     "usd-krw": 7,
     "bitcoin": 8,
     "cnn-fear-greed": 9,
-    "fedwatch": 10,
     "fedwatch-conditional-probabilities-short-term": 10,
-    "fedwatch-conditional-probabilities-long-term": 10,
+    "fedwatch-conditional-probabilities-long-term": 11,
 }
 
 CIRCLED_NUMBERS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱", "⑲", "⑳"]
@@ -3233,14 +3396,15 @@ def render_market_material_card(lines: list[str], card: dict, rendered_keys: set
     return True
 
 
-def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str], index: int) -> bool:
+def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str], index: int = 0, microcopy_card: dict | None = None) -> bool:
     label = public_material_label(card)
     card = {**card, "label": label}
     keys = material_dedupe_keys(card)
     if keys & rendered_keys:
         return False
     rendered_keys.update(keys)
-    lines.append(f"### {circled_number(index)} {label}")
+    number = clean(card.get("media_number")) or circled_number(index)
+    lines.append(f"### {number} {label}")
     source = clean(card.get("source") or card.get("source_label") or "source")
     url = clean(card.get("url"))
     if url:
@@ -3251,8 +3415,9 @@ def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str
     if collected_at:
         lines.append(f"- 수집 시점: `{collected_at}`")
     lines.append("- 내용:")
-    for bullet in content_bullets(card):
-        lines.append(f"  - {bullet}")
+    bullets = (microcopy_card or {}).get("content_bullets") or content_bullets(card)
+    for bullet in bullets[:3]:
+        lines.append(f"  - {compact_public_text(bullet, 90, '자료의 가격 반응과 방송 연결 포인트를 확인한다.')}")
     image = clean(card.get("image") or card.get("visual_local_path") or card.get("local_path"))
     if image:
         lines.extend(["", notion_image(label, image)])
@@ -3306,8 +3471,7 @@ def ordered_material_ids(market_focus: dict, storylines: list[dict]) -> list[str
     return ids
 
 
-def render_compact_collection_section(
-    lines: list[str],
+def build_compact_collection_cards(
     target_date: str,
     market_focus: dict,
     market_preflight: dict,
@@ -3316,9 +3480,7 @@ def render_compact_collection_section(
     storylines: list[dict],
     finviz_features: dict,
     economic: dict,
-) -> None:
-    lines.append("# 🤖 자료 수집")
-    rendered_keys: set[str] = set()
+) -> list[dict]:
     collection_cards: list[dict] = []
 
     for label, source_id, pattern, url in MARKET_NOW_CAPTURE_ORDER:
@@ -3376,30 +3538,29 @@ def render_compact_collection_section(
                 }
             )
 
-    fedwatch_images = []
-    for source_id, filename in [
-        ("fedwatch-conditional-probabilities-short-term", "fedwatch-conditional-probabilities-short-term.png"),
-        ("fedwatch-conditional-probabilities-long-term", "fedwatch-conditional-probabilities-long-term.png"),
+    for source_id, filename, label in [
+        ("fedwatch-conditional-probabilities-short-term", "fedwatch-conditional-probabilities-short-term.png", "FedWatch 단기 금리 확률"),
+        ("fedwatch-conditional-probabilities-long-term", "fedwatch-conditional-probabilities-long-term.png", "FedWatch 장기 금리 확률"),
     ]:
         images = screenshots_for(target_date, f"*{source_id}*.png")[:1]
         if not images:
             png = EXPORTS_DIR / filename
             images = [str(png)] if png.exists() else []
-        fedwatch_images.extend(crop_bottom_whitespace(image, target_date) for image in images)
-    if fedwatch_images:
-        collection_cards.append(
-            {
-                "section": "market_now",
-                "asset_key": "fedwatch",
-                "label": "FedWatch 금리 확률",
-                "title": "FedWatch 금리 확률",
-                "source": "CME FedWatch",
-                "url": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
-                "item_id": "fedwatch",
-                "evidence_id": "fedwatch",
-                "images": fedwatch_images,
-            }
-        )
+        for image in images[:1]:
+            collection_cards.append(
+                {
+                    "section": "market_now",
+                    "asset_key": source_id,
+                    "label": label,
+                    "title": label,
+                    "source": "CME FedWatch",
+                    "url": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
+                    "item_id": source_id,
+                    "evidence_id": source_id,
+                    "image": crop_bottom_whitespace(image, target_date),
+                    "allow_duplicate_url": True,
+                }
+            )
 
     focus_by_id: dict[str, dict] = {}
     for focus in market_focus.get("what_market_is_watching") or []:
@@ -3494,24 +3655,47 @@ def render_compact_collection_section(
             }
         )
 
-    sections = [
-        ("market_now", "## 1. 시장은 지금"),
-        ("media_focus", "## 2. 미디어 포커스"),
-    ]
-    sorted_cards = sorted(collection_cards, key=material_publish_order_key)
-    media_index = 0
-    for section_key, heading in sections:
-        cards = [card for card in sorted_cards if card.get("section") == section_key]
-        if not cards:
+    return collection_cards
+
+
+def compact_card_key(card: dict, index: int) -> str:
+    for key in ["card_key", "item_id", "evidence_id", "chart_id", "asset_id", "url", "image"]:
+        value = clean(card.get(key), 120)
+        if value:
+            safe = re.sub(r"[^A-Za-z0-9가-힣_.:-]+", "-", value).strip("-")
+            return f"{card.get('section') or 'card'}:{safe[:96]}"
+    label = re.sub(r"[^A-Za-z0-9가-힣_.:-]+", "-", clean(card.get("label") or card.get("title"), 80)).strip("-")
+    return f"{card.get('section') or 'card'}:{index}:{label or 'material'}"
+
+
+def prepare_compact_collection_cards(collection_cards: list[dict]) -> tuple[list[dict], list[dict]]:
+    rendered_keys: set[str] = set()
+    market_cards: list[dict] = []
+    media_cards: list[dict] = []
+    for index, original in enumerate(sorted(collection_cards, key=material_publish_order_key), start=1):
+        label = public_material_label(original)
+        card = {**original, "label": label, "card_key": compact_card_key({**original, "label": label}, index)}
+        keys = material_dedupe_keys(card)
+        if keys & rendered_keys:
             continue
-        lines.append(heading)
-        for card in cards:
-            if section_key == "market_now":
-                render_market_material_card(lines, card, rendered_keys)
-            else:
-                media_index += 1
-                if not render_media_focus_card(lines, card, rendered_keys, media_index):
-                    media_index -= 1
+        rendered_keys.update(keys)
+        if card.get("section") == "market_now":
+            market_cards.append(card)
+        elif card.get("section") == "media_focus":
+            card = {**card, "media_number": circled_number(len(media_cards) + 1)}
+            media_cards.append(card)
+    return market_cards, media_cards
+
+
+def render_compact_collection_section(lines: list[str], market_cards: list[dict], media_cards: list[dict], microcopy: dict) -> None:
+    lines.append("# 🤖 자료 수집")
+    lines.append("## 1. 시장은 지금")
+    for card in market_cards:
+        render_market_material_card(lines, card, set())
+    lines.append("## 2. 미디어 포커스")
+    card_copy = microcopy_card_by_key(microcopy)
+    for card in media_cards:
+        render_media_focus_card(lines, card, set(), int(card.get("media_number_index") or 0), card_copy.get(card.get("card_key")))
 
 
 def render_compact_publish_dashboard(target_date: str) -> str:
@@ -3536,7 +3720,17 @@ def render_compact_publish_dashboard(target_date: str) -> str:
     }
     use_editorial = valid_editorial_brief(editorial_brief)
     storylines = compact_storylines_for_publish(editorial_brief.get("storylines") if use_editorial else market_radar.get("storylines") or [])
-    label_numbers = media_focus_label_numbers(storylines, radar_by_id)
+    collection_cards = build_compact_collection_cards(
+        target_date,
+        market_focus,
+        market_preflight,
+        radar_by_id,
+        candidate_by_id,
+        storylines,
+        finviz_features,
+        economic,
+    )
+    market_cards, media_cards = prepare_compact_collection_cards(collection_cards)
     created_at = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M")
     start_times: list[str] = []
     end_times: list[str] = []
@@ -3550,6 +3744,32 @@ def render_compact_publish_dashboard(target_date: str) -> str:
         end_times.append(freeze_time)
     collection_window = run_window(target_date) or f"{min(start_times) if start_times else '-'}-{max(end_times) if end_times else '-'}"
     brief = editorial_brief if use_editorial else {"daily_thesis": infer_today_axis(storylines, radar_candidates), "storylines": storylines}
+    microcopy_context = build_microcopy_context(target_date, brief, market_focus, storylines, radar_by_id, media_cards)
+    cached_microcopy = load_json(processed / "dashboard-microcopy.json")
+    microcopy_requested = os.environ.get("AUTOPARK_MICROCOPY_ENABLED") == "1"
+    deterministic_cache = clean(cached_microcopy.get("source")).startswith("deterministic") and not cached_microcopy.get("microcopy_enabled")
+    use_cached_microcopy = (
+        cached_microcopy
+        and cached_microcopy.get("contract") == "compact_publish_microcopy_v1"
+        and not (microcopy_requested and deterministic_cache)
+    )
+    if use_cached_microcopy:
+        if clean(cached_microcopy.get("source")).startswith("deterministic") and not cached_microcopy.get("microcopy_enabled"):
+            microcopy = dashboard_microcopy.deterministic_microcopy(
+                microcopy_context,
+                model=cached_microcopy.get("model") or os.environ.get("AUTOPARK_MICROCOPY_MODEL") or "",
+                reason=cached_microcopy.get("source") or "deterministic",
+            )
+        else:
+            fallback_copy = dashboard_microcopy.deterministic_microcopy(microcopy_context, model=cached_microcopy.get("model") or "")
+            microcopy, fallback_count, invalid_output_count = dashboard_microcopy.validate_microcopy(cached_microcopy, microcopy_context, fallback_copy)
+            microcopy = {**cached_microcopy, **microcopy}
+            microcopy["fallback_count"] = fallback_count
+            microcopy["invalid_output_count"] = invalid_output_count
+    else:
+        microcopy = dashboard_microcopy.build_microcopy(microcopy_context, env=os.environ)
+    microcopy["contract"] = "compact_publish_microcopy_v1"
+    write_microcopy_payload(target_date, microcopy_context, microcopy)
     lines: list[str] = []
     render_compact_publish_host(
         lines,
@@ -3562,9 +3782,10 @@ def render_compact_publish_dashboard(target_date: str) -> str:
         radar_by_id,
         finviz_features,
         earnings_drilldown,
-        label_numbers,
+        media_cards,
+        microcopy,
     )
-    render_compact_collection_section(lines, target_date, market_focus, market_preflight, radar_by_id, candidate_by_id, storylines, finviz_features, economic)
+    render_compact_collection_section(lines, market_cards, media_cards, microcopy)
     return "\n".join(lines).rstrip() + "\n"
 
 
