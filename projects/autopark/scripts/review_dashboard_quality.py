@@ -529,6 +529,10 @@ def markdown_image_targets(text: str) -> list[str]:
     return re.findall(r"!\[[^\]]*\]\(([^)]+)\)", text or "")
 
 
+def missing_image_marker(text: str) -> bool:
+    return bool(re.search(r"^-\s+이미지 없음\s*$", text or "", flags=re.M))
+
+
 def finviz_index_chart_image_ok(image_path: str) -> bool | None:
     if "finviz-index-futures" not in image_path:
         return None
@@ -754,11 +758,14 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
         missing_market_cards = [label for label in COMPACT_MARKET_NOW_LABEL_ORDER if label not in market_titles]
         if missing_market_cards:
             issue(findings, "format", "high", "COMPACT-044 시장 필수 카드 누락", ", ".join(missing_market_cards), "시장 지도 고정 카드 전체를 같은 순서로 렌더하세요.")
-        if market_titles.count("주요 지수 흐름") != 1 or image_count(market_block_by_title.get("주요 지수 흐름", "")) < 2:
+        index_block = market_block_by_title.get("주요 지수 흐름", "")
+        index_image_count = image_count(index_block)
+        index_blank = missing_image_marker(index_block)
+        if market_titles.count("주요 지수 흐름") != 1 or (index_image_count < 2 and not index_blank):
             issue(findings, "format", "high", "COMPACT-030 주요 지수 흐름 2장 누락", f"시장 카드: {market_titles[:6]}", "Finviz index futures 캡처는 주요 지수 흐름 한 카드 안에 2장 렌더하세요.")
         index_quality = [
             finviz_index_chart_image_ok(target)
-            for target in markdown_image_targets(market_block_by_title.get("주요 지수 흐름", ""))
+            for target in markdown_image_targets(index_block)
         ]
         bad_index_images = [result for result in index_quality if result is False]
         if bad_index_images:

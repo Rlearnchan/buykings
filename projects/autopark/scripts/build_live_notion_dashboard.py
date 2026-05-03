@@ -3414,6 +3414,8 @@ def render_market_material_card(lines: list[str], card: dict, rendered_keys: set
         images.append(image)
     for image_path in images:
         lines.extend(["", notion_image(label, image_path)])
+    if card.get("missing_image") and not images:
+        lines.append("- 이미지 없음")
     return True
 
 
@@ -3521,6 +3523,22 @@ def build_compact_collection_cards(
                     "allow_duplicate_url": True,
                 }
             )
+        elif source_id == "finviz-index-futures":
+            collection_cards.append(
+                {
+                    "section": "market_now",
+                    "asset_key": source_id,
+                    "label": label,
+                    "title": label,
+                    "source": source_id,
+                    "url": url,
+                    "item_id": source_id,
+                    "evidence_id": source_id,
+                    "images": [],
+                    "missing_image": True,
+                    "allow_duplicate_url": True,
+                }
+            )
 
     for chart_id, chart_title_text, subtitle, source_name, source_url in chart_rows():
         png = EXPORTS_DIR / f"{chart_id}.png"
@@ -3582,7 +3600,6 @@ def build_compact_collection_cards(
                     "allow_duplicate_url": True,
                 }
             )
-
     focus_by_id: dict[str, dict] = {}
     for focus in market_focus.get("what_market_is_watching") or []:
         for item_id in market_focus_ids(focus):
@@ -3974,11 +3991,13 @@ def render_dashboard(target_date: str) -> str:
         ]
     )
     index_futures = screenshots_for(target_date, "finviz-index-futures-*.png")
+    lines.extend(["### 주요 지수 흐름", "", screenshot_source_line(target_date, "finviz-index-futures", "[Finviz](https://finviz.com/)"), ""])
     if index_futures:
-        lines.extend(["### 주요 지수 흐름", "", screenshot_source_line(target_date, "finviz-index-futures", "[Finviz](https://finviz.com/)"), ""])
         for idx, index_future in enumerate(index_futures, start=1):
             label = "주요 지수 흐름" if idx == 1 else f"주요 지수 흐름 {idx}"
             lines.extend([notion_image(label, index_future), ""])
+    else:
+        lines.extend(["- 이미지 없음", ""])
     sp500_heatmap = screenshot_for(target_date, "finviz-sp500-heatmap*.png")
     if sp500_heatmap:
         lines.extend(["### S&P500 히트맵", "", screenshot_source_line(target_date, "finviz-sp500-heatmap", "[Finviz](https://finviz.com/map.ashx?t=sec)"), "", notion_image("S&P500 히트맵", sp500_heatmap), ""])
