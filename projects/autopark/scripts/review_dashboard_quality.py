@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -100,6 +101,89 @@ def print_json(payload: dict) -> None:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     except UnicodeEncodeError:
         print(json.dumps(payload, ensure_ascii=True, indent=2))
+
+
+EVIDENCE_MICROCOPY_FORBIDDEN = [
+    "source_role",
+    "evidence_role",
+    "item_id:",
+    "evidence_id",
+    "asset_id",
+    "MF-",
+    "http://",
+    "https://",
+]
+
+
+def review_evidence_microcopy_contract(target_date: str) -> list[Finding]:
+    findings: list[Finding] = []
+    path = PROCESSED_DIR / target_date / "evidence-microcopy.json"
+    payload, error = load_json(path)
+    if error:
+        if os.environ.get("AUTOPARK_EVIDENCE_MICROCOPY_ENABLED") == "1":
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "Evidence microcopy artifact missing",
+                f"`{path}` could not be loaded: {error}",
+                "Run build_evidence_microcopy.py after market-radar and before focus/editorial.",
+            )
+        return findings
+    if payload.get("enabled") and not payload.get("items"):
+        issue(
+            findings,
+            "integrity",
+            "high",
+            "Evidence microcopy has no items",
+            "Evidence microcopy is enabled but generated zero item summaries.",
+            "Generate deterministic fallback rows when the API path is unavailable.",
+        )
+    for index, item in enumerate(payload.get("items") or [], start=1):
+        if not isinstance(item, dict):
+            issue(findings, "integrity", "high", "Invalid evidence microcopy row", f"Row {index} is not an object.", "Keep items as JSON objects.")
+            continue
+        content = normalize(str(item.get("content") or " ".join((item.get("summary_bullets") or [])[:1]) or ""))
+        if not content:
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "Evidence microcopy content missing",
+                f"`{item.get('item_id') or index}` has no one-line content.",
+                "Each evidence microcopy item needs exactly one content line.",
+            )
+        for field, value in [("content", content)]:
+            text = normalize(str(value or ""))
+            if len(text) > 90:
+                issue(
+                    findings,
+                    "integrity",
+                    "high",
+                    "Evidence microcopy line too long",
+                    f"`{item.get('item_id') or index}` {field} is {len(text)} chars.",
+                    "Keep every generated evidence microcopy line within 90 characters.",
+                )
+            lowered = text.lower()
+            if any(token.lower() in lowered for token in EVIDENCE_MICROCOPY_FORBIDDEN):
+                issue(
+                    findings,
+                    "integrity",
+                    "high",
+                    "Evidence microcopy exposes forbidden token",
+                    f"`{item.get('item_id') or index}` {field} contains a forbidden token or URL.",
+                    "Validate and replace only the failing item with deterministic fallback.",
+                )
+            if re.search(r"<html\b|<!doctype html|<body\b|</body>|X-Amz-Signature|SessionToken", text, flags=re.I):
+                issue(
+                    findings,
+                    "integrity",
+                    "high",
+                    "Evidence microcopy contains raw body material",
+                    f"`{item.get('item_id') or index}` {field} looks like raw HTML or a signed response.",
+                    "Never send or persist raw HTML, full article bodies, or signed URLs in microcopy.",
+                )
+    return findings
 
 
 def item_ids(payload: dict) -> set[str]:
@@ -281,8 +365,445 @@ def public_markdown(markdown: str) -> str:
 
 
 def public_before_media_focus(markdown: str) -> str:
+    if is_compact_publish_markdown(markdown):
+        return compact_host_area(markdown)
     public = public_markdown(markdown)
     return re.split(r"^##\s+\d+\.\s+미디어 포커스\s*$", public, maxsplit=1, flags=re.M)[0]
+
+
+COMPACT_TOP_LEVEL_HEADINGS = ["🎥 진행자용 요약", "🤖 자료 수집"]
+COMPACT_HOST_SUBHEADINGS = ["주요 뉴스", "방송 순서", "스토리라인"]
+COMPACT_HOST_FORBIDDEN = [
+    "MF-",
+    "http://",
+    "https://",
+    "source_role",
+    "evidence_role",
+    "item_id",
+    "evidence_id",
+    "![",
+    "<table",
+    "PPT 제작 큐",
+    "슬라이드 제작 순서",
+    "말로만 처리할 자료",
+    "자료 수집 상세",
+    "경제 일정/실적 일정",
+    "Audit",
+    "Debug",
+]
+COMPACT_BANNED_SECTIONS = [
+    "# PPT 제작 큐",
+    "## 슬라이드 제작 순서",
+    "## 말로만 처리할 자료",
+    "# 자료 수집 상세",
+    "## 경제 일정/실적 일정",
+    "# Audit",
+    "# Debug",
+    "# 품질 리뷰",
+    "# 회고",
+    "## 자료 수집",
+]
+COMPACT_GLOBAL_FORBIDDEN = [
+    "source_role",
+    "evidence_role",
+    "item_id",
+    "evidence_id",
+    "asset_id",
+    "MF-",
+    "PPT 제작 큐",
+    "슬라이드 제작 순서",
+    "말로만 처리할 자료",
+    "자료 수집 상세",
+    "리드 스토리 자료",
+    "보조 스토리 자료",
+    "확인 필요 자료",
+    "원문 확인 필요 자료",
+    "경제 일정/실적 일정",
+    "# Audit",
+    "# Debug",
+]
+COMPACT_MARKET_NOW_LABEL_ORDER = [
+    "주요 지수 흐름",
+    "S&P500 히트맵",
+    "러셀 2000 히트맵",
+    "10년물 국채금리",
+    "WTI 가격 차트",
+    "브렌트 가격 차트",
+    "달러인덱스 차트",
+    "원/달러 환율 차트",
+    "비트코인 가격 차트",
+    "CNN Fear & Greed",
+    "FedWatch 단기 금리 확률",
+    "FedWatch 장기 금리 확률",
+]
+
+
+def is_compact_publish_markdown(markdown: str) -> bool:
+    top = [title for level, title in heading_lines(markdown) if level == 1]
+    return any(title in top for title in COMPACT_TOP_LEVEL_HEADINGS)
+
+
+def compact_host_area(markdown: str) -> str:
+    match = re.search(r"^#\s+🎥 진행자용 요약\s*$", markdown, flags=re.M)
+    if not match:
+        return ""
+    start = match.start()
+    next_match = re.search(r"^#\s+🤖 자료 수집\s*$", markdown[match.end() :], flags=re.M)
+    if not next_match:
+        return markdown[start:]
+    return markdown[start : match.end() + next_match.start()]
+
+
+def compact_collection_area(markdown: str) -> str:
+    parts = re.split(r"^#\s+🤖 자료 수집\s*$", markdown, maxsplit=1, flags=re.M)
+    return parts[1] if len(parts) == 2 else ""
+
+
+def compact_collection_sections(collection: str) -> list[str]:
+    return [title for level, title in heading_lines(collection) if level == 2]
+
+
+def compact_section_body(host: str, heading: str) -> str:
+    match = re.search(rf"^##\s+{re.escape(heading)}\s*$", host, flags=re.M)
+    if not match:
+        return ""
+    start = match.end()
+    next_match = re.search(r"^##\s+", host[start:], flags=re.M)
+    end = start + next_match.start() if next_match else len(host)
+    return host[start:end].strip()
+
+
+def compact_bullet_count(body: str) -> int:
+    return len(re.findall(r"^-\s+", body, flags=re.M))
+
+
+def compact_story_blocks(host: str) -> list[str]:
+    body = compact_section_body(host, "스토리라인")
+    matches = list(re.finditer(r"^###\s+[123]\.\s+.+$", body, flags=re.M))
+    blocks = []
+    for index, match in enumerate(matches):
+        start = match.start()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
+        blocks.append(body[start:end].strip())
+    return blocks
+
+
+def compact_collection_labels(collection: str) -> list[str]:
+    return [title for level, title in heading_lines(collection) if level == 3]
+
+
+def compact_collection_section_body(collection: str, heading: str) -> str:
+    return compact_section_body(collection, heading)
+
+
+def compact_card_blocks(section_body: str) -> list[str]:
+    matches = list(re.finditer(r"^###\s+.+$", section_body, flags=re.M))
+    blocks: list[str] = []
+    for index, match in enumerate(matches):
+        start = match.start()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(section_body)
+        blocks.append(section_body[start:end].strip())
+    return blocks
+
+
+def card_title(block: str) -> str:
+    first = block.splitlines()[0] if block.splitlines() else ""
+    return re.sub(r"^###\s+", "", first).strip()
+
+
+def strip_public_label_marker(label: str) -> str:
+    text = normalize(label).strip("`")
+    text = re.sub(r"^(?:[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\))\s+", "", text)
+    return text.strip("` ")
+
+
+def image_count(block: str) -> int:
+    return len(re.findall(r"^!\[[^\]]*]\([^)]+\)$", block, flags=re.M))
+
+
+def has_markdown_table(text: str) -> bool:
+    return bool(re.search(r"^\|.+\|\s*$", text, flags=re.M))
+
+
+def markdown_image_targets(text: str) -> list[str]:
+    return re.findall(r"!\[[^\]]*\]\(([^)]+)\)", text or "")
+
+
+def finviz_index_chart_image_ok(image_path: str) -> bool | None:
+    if "finviz-index-futures" not in image_path:
+        return None
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+    path = Path(image_path)
+    if not path.is_absolute():
+        path = PROJECT_ROOT.parents[1] / path
+    try:
+        image = Image.open(path).convert("RGB")
+    except OSError:
+        return None
+    width, height = image.size
+    if width < 650 or height < 180:
+        return False
+    left = image.crop((0, 0, min(width, 390), min(height, 190)))
+    title_band = left.crop((25, 18, min(left.width, 170), min(left.height, 58)))
+    chart_body = left.crop((35, 45, min(left.width, 340), min(left.height, 175)))
+    title_pixels = 0
+    grid_pixels = 0
+    market_pixels = 0
+    title_data = title_band.load()
+    for y in range(title_band.height):
+        for x in range(title_band.width):
+            red, green, blue = title_data[x, y]
+            if max(red, green, blue) < 245 and max(red, green, blue) - min(red, green, blue) < 35:
+                title_pixels += 1
+    chart_data = chart_body.load()
+    for y in range(chart_body.height):
+        for x in range(chart_body.width):
+            red, green, blue = chart_data[x, y]
+            if 175 <= red <= 235 and 175 <= green <= 235 and 175 <= blue <= 235 and max(red, green, blue) - min(red, green, blue) < 28:
+                grid_pixels += 1
+            if (green > red + 35 and green > blue + 20) or (red > green + 35 and red > blue + 20):
+                market_pixels += 1
+    return title_pixels >= 80 and grid_pixels >= 250 and market_pixels >= 120
+
+
+def compact_english_word_run_too_long(text: str) -> bool:
+    return len(re.findall(r"\b[A-Za-z][A-Za-z0-9&'’.-]*\b", text or "")) >= 5
+
+
+def compact_raw_source_like(text: str) -> bool:
+    lowered = normalize(text).lower()
+    enum_like = re.fullmatch(r"[a-z0-9_.:-]{3,40}", lowered.strip() or "") is not None
+    return bool(
+        compact_english_word_run_too_long(text)
+        or enum_like
+        or "_" in lowered
+        or re.search(r"\b[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/|\b)", lowered)
+        or re.search(r"@\w+|breaking:|trump on|says he will|등\s+\d+개\s+출처|source-count|same direction", lowered)
+        or re.search(r"\b(?:low|medium|high|unknown|null|true|false|fallback|source_gap|false_lead|missing_assets)\b", lowered)
+        or lowered.count("/") >= 2
+    )
+
+
+def compact_contains_any(text: str, words: list[str]) -> bool:
+    lowered = normalize(text).lower()
+    return any(word.lower() in lowered for word in words)
+
+
+def compact_host_relevance_complete(lines: list[str]) -> bool:
+    blob = " ".join(lines)
+    requirements = [
+        ["전날", "전일", "시장", "주목", "반영", "가격", "화제"],
+        ["첫 5분", "첫 꼭지", "방송", "진행자", "보여주", "다룰"],
+        ["한국", "개인투자자", "PPT", "환율", "업종", "성장주"],
+    ]
+    return all(compact_contains_any(blob, needles) for needles in requirements)
+
+
+def compact_public_label_ok(label: str) -> bool:
+    text = normalize(label)
+    if not text or len(text) > 28:
+        return False
+    forbidden = [
+        "MF-",
+        "http",
+        "/",
+        "source_role",
+        "evidence_role",
+        "item_id",
+        "evidence_id",
+        "Reuters",
+        "Bloomberg",
+        "CNBC",
+        "Yahoo Finance",
+        "TradingView",
+        "Kobeissi",
+        "AdvisorPerspectives",
+    ]
+    if any(token.lower() in text.lower() for token in forbidden):
+        return False
+    return not compact_english_word_run_too_long(text)
+
+
+def review_compact_publish_contract(markdown: str) -> list[Finding]:
+    findings: list[Finding] = []
+    lines = markdown.splitlines()
+    meta_patterns = [
+        r"^문서 생성: `\d{2}\.\d{2}\.\d{2} \d{2}:\d{2} \(KST\)`$",
+        r"^자료 수집: `[^`]+ \(KST\)`$",
+        r"^시장 차트: `\d{2}\.\d{2}\.\d{2} 미국장 종가 기준`$",
+    ]
+    for index, pattern in enumerate(meta_patterns):
+        if len(lines) <= index or not re.match(pattern, lines[index]):
+            issue(findings, "format", "high", "COMPACT-001 메타 3줄 불일치", "문서 맨 위 메타 3줄이 고정 형식과 다릅니다.", "문서 생성/자료 수집/시장 차트 3줄만 먼저 렌더하세요.")
+            break
+
+    top = [title for level, title in heading_lines(markdown) if level == 1]
+    if top != COMPACT_TOP_LEVEL_HEADINGS:
+        issue(findings, "format", "high", "COMPACT-002 top-level heading 불일치", f"top-level heading: {top}", "허용 heading은 # 🎥 진행자용 요약, # 🤖 자료 수집 두 개뿐입니다.")
+    global_hits = [token for token in COMPACT_GLOBAL_FORBIDDEN if token in markdown]
+    if global_hits:
+        issue(findings, "format", "high", "COMPACT-021 publish forbidden metadata", ", ".join(global_hits), "publish Markdown에는 role/id/debug/PPT 제작 큐 성격의 내부 토큰을 렌더하지 마세요.")
+
+    host = compact_host_area(markdown)
+    if not host:
+        issue(findings, "format", "high", "COMPACT-003 진행자용 요약 없음", "host_area를 찾을 수 없습니다.", "고정 heading # 🎥 진행자용 요약을 사용하세요.")
+        return findings
+
+    host_h2 = [title for level, title in heading_lines(host) if level == 2]
+    if host_h2 != COMPACT_HOST_SUBHEADINGS:
+        issue(findings, "format", "high", "COMPACT-004 host 하위 heading 불일치", f"host h2: {host_h2}", "주요 뉴스/방송 순서/스토리라인 세 heading만 허용합니다.")
+    forbidden_hits = [token for token in COMPACT_HOST_FORBIDDEN if token in host]
+    if forbidden_hits:
+        issue(findings, "format", "high", "COMPACT-005 host forbidden token", ", ".join(forbidden_hits), "host_area에는 내부 ID, URL, 이미지, audit/debug 성격 토큰을 넣지 마세요.")
+    if has_markdown_table(host):
+        issue(findings, "format", "high", "COMPACT-006 host table 금지", "host_area에 Markdown table이 있습니다.", "host_area는 bullet과 짧은 문장만 사용하세요.")
+    if len([line for line in host.splitlines() if line.strip()]) > 55:
+        issue(findings, "format", "high", "COMPACT-007 host line count 초과", "host_area가 55줄을 초과합니다.", "진행자용 요약은 55줄 이하로 유지하세요.")
+    news_body = compact_section_body(host, "주요 뉴스")
+    news_bullets = re.findall(r"^-\s+(.+)$", news_body, flags=re.M)
+    if len(news_bullets) != 3:
+        issue(findings, "format", "high", "COMPACT-008 주요 뉴스 bullet 수 불일치", "주요 뉴스는 정확히 3개 bullet이어야 합니다.", "주요 뉴스 bullet 3개만 렌더하세요.")
+    else:
+        invalid_news = [bullet for bullet in news_bullets if len(bullet) > 80 or compact_english_word_run_too_long(bullet)]
+        if invalid_news:
+            issue(findings, "format", "high", "COMPACT-016 주요 뉴스 public 문장 위반", "주요 뉴스 bullet이 80자를 넘거나 영어 원문형 제목처럼 보입니다.", "주요 뉴스는 80자 이하 한국어 방송 해석 문장으로만 렌더하세요.")
+    if compact_bullet_count(compact_section_body(host, "방송 순서")) != 5:
+        issue(findings, "format", "high", "COMPACT-009 방송 순서 bullet 수 불일치", "방송 순서는 정확히 5개 bullet이어야 합니다.", "시장/3개 스토리라인/실적 bullet만 렌더하세요.")
+
+    story_blocks = compact_story_blocks(host)
+    if len(story_blocks) != 3:
+        issue(findings, "format", "high", "COMPACT-010 스토리라인 수 불일치", f"스토리라인 {len(story_blocks)}개가 렌더됐습니다.", "스토리라인은 정확히 3개만 렌더하세요.")
+    for index, block in enumerate(story_blocks, start=1):
+        if len(re.findall(r"^추천도:\s+`(?:★★★|★★☆|★☆☆)`$", block, flags=re.M)) != 1:
+            issue(findings, "format", "high", "COMPACT-011 추천도 형식 불일치", f"{index}번 스토리라인 추천도 형식이 다릅니다.", "추천도는 ★★★/★★☆/★☆☆ 중 하나만 사용하세요.")
+        quotes = [match.group(1).strip() for match in re.finditer(r"^>\s+(.+)$", block, flags=re.M)]
+        if len(quotes) != 1:
+            issue(findings, "format", "high", "COMPACT-012 quote 줄 수 위반", f"{index}번 스토리라인 quote 수: {len(quotes)}", "quote는 한 줄 인용문 하나만 렌더하세요.")
+        quote_bad = [line for line in quotes if len(line) > 180 or compact_raw_source_like(line) or any(token in line for token in COMPACT_HOST_FORBIDDEN)]
+        if quote_bad:
+            issue(findings, "format", "high", "COMPACT-017 quote public 문장 위반", f"{index}번 quote가 180자를 넘거나 금지 토큰을 포함합니다.", "quote는 180자 이하 public 문장만 사용하세요.")
+        if block.count("**왜 중요한가**") != 1:
+            issue(findings, "format", "high", "COMPACT-040 왜 중요한가 누락", f"{index}번 스토리라인에 왜 중요한가 블록이 없습니다.", "각 스토리라인에 **왜 중요한가**와 2~3개 bullet을 렌더하세요.")
+        why_body = block.split("**왜 중요한가**", 1)[1].split("**슬라이드 구성:**", 1)[0] if "**왜 중요한가**" in block else ""
+        why_bullets = re.findall(r"^-\s+(.+)$", why_body, flags=re.M)
+        if len(why_bullets) < 2 or len(why_bullets) > 3:
+            issue(findings, "format", "high", "COMPACT-041 왜 중요한가 bullet 수 위반", f"{index}번 why bullet 수: {len(why_bullets)}", "왜 중요한가 bullet은 2~3개만 렌더하세요.")
+        why_bad = [line for line in why_bullets if len(line) > 90 or compact_raw_source_like(line) or any(token in line for token in COMPACT_HOST_FORBIDDEN)]
+        if why_bad:
+            issue(findings, "format", "high", "COMPACT-042 왜 중요한가 public 문장 위반", f"{index}번 why bullet이 90자를 넘거나 금지 토큰을 포함합니다.", "왜 중요한가 bullet은 90자 이하 public 문장만 사용하세요.")
+        if why_bullets and not compact_host_relevance_complete(why_bullets):
+            issue(findings, "format", "high", "COMPACT-045 왜 중요한가 핵심 요소 누락", f"{index}번 why bullet: " + " / ".join(why_bullets[:3]), "왜 중요한가에는 전날 시장 이슈, 첫 5분 방송 이유, 한국장/개인투자자/PPT 연결점을 모두 담으세요.")
+        slide_match = re.search(r"^\*\*슬라이드 구성:\*\*\s+(.+)$", block, flags=re.M)
+        if not slide_match:
+            issue(findings, "format", "high", "COMPACT-013 슬라이드 구성 한 줄 누락", f"{index}번 스토리라인에 한 줄 슬라이드 구성이 없습니다.", "`**슬라이드 구성:** `① 자료명` → `② 자료명`` 형식으로 렌더하세요.")
+            material_labels = []
+        else:
+            slide_line = slide_match.group(1).strip()
+            if any(token in slide_line for token in COMPACT_HOST_FORBIDDEN) or "\n" in slide_line:
+                issue(findings, "format", "high", "COMPACT-043 슬라이드 구성 금지 토큰", f"{index}번 슬라이드 구성에 금지 토큰이 있습니다.", "슬라이드 구성에는 번호+자료명만 넣으세요.")
+            refs = re.findall(r"`([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\))\s+([^`]+)`", slide_line)
+            if not refs:
+                issue(findings, "format", "high", "COMPACT-014 슬라이드 구성 원형 번호 누락", f"{index}번 슬라이드 구성: {slide_line}", "슬라이드 구성 자료명은 미디어 포커스의 원형 번호와 함께 렌더하세요.")
+            material_labels = [label.strip() for _, label in refs]
+            bad_labels = [label for label in material_labels if not compact_public_label_ok(label)]
+            if bad_labels:
+                issue(findings, "format", "high", "COMPACT-018 public material label 위반", f"{index}번 스토리라인 자료명 위반: " + ", ".join(bad_labels[:4]), "자료명은 28자 이하 한국어 명사구로 렌더하고 내부 ID/URL/source metadata를 넣지 마세요.")
+
+    collection = compact_collection_area(markdown)
+    if collection:
+        sections = compact_collection_sections(collection)
+        expected_sections = ["1. 시장은 지금", "2. 미디어 포커스", "3. 실적/특징주"]
+        if sections != expected_sections:
+            issue(findings, "format", "high", "COMPACT-022 자료 수집 section 불일치", f"자료 수집 sections: {sections}", "자료 수집 하위 heading은 ## 1. 시장은 지금, ## 2. 미디어 포커스, ## 3. 실적/특징주만 허용합니다.")
+        labels = compact_collection_labels(collection)
+        label_positions = {label: index for index, label in enumerate(labels)}
+        for earlier, later in [
+            ("주요 지수 흐름", "10년물 국채금리"),
+            ("S&P500 히트맵", "WTI 가격 차트"),
+            ("WTI 가격 차트", "브렌트 가격 차트"),
+        ]:
+            if earlier in label_positions and later in label_positions and label_positions[earlier] > label_positions[later]:
+                issue(findings, "format", "high", "COMPACT-024 자료 수집 material order 불일치", f"{earlier}가 {later}보다 뒤에 있습니다.", "시장 지도 → 히트맵 → 금리 → 유가 → 달러/환율 → 위험자산 순서를 유지하세요.")
+        if "원/달러 환율 차트" not in labels and ("usd-krw" in markdown or "원/달러" in markdown):
+            issue(findings, "format", "high", "COMPACT-025 usd-krw label 불일치", "USD/KRW 자료가 원/달러 환율 차트 label로 렌더되지 않았습니다.", "usd-krw는 반드시 원/달러 환율 차트로 렌더하세요.")
+        duplicate_cards = sorted(label for label in set(labels) if labels.count(label) > 1)
+        if duplicate_cards:
+            issue(findings, "format", "high", "COMPACT-026 중복 자료 카드", "동일 label 카드가 중복 렌더됐습니다: " + ", ".join(duplicate_cards[:6]), "같은 asset/url/image 자료는 한 번만 full card로 렌더하세요.")
+        story_labels = []
+        for block in story_blocks:
+            slide_match = re.search(r"^\*\*슬라이드 구성:\*\*\s+(.+)$", block, flags=re.M)
+            if slide_match:
+                story_labels.extend(label.strip() for _, label in re.findall(r"`([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\))\s+([^`]+)`", slide_match.group(1)))
+        bare_labels = {strip_public_label_marker(label) for label in labels}
+        missing_story_labels = sorted(set(story_labels) - bare_labels)
+        if missing_story_labels:
+            issue(findings, "format", "high", "COMPACT-027 스토리 자료 label 미수집", "스토리라인 자료명이 자료 수집 카드에 없습니다: " + ", ".join(missing_story_labels[:6]), "슬라이드 구성에 노출한 public material label은 자료 수집에도 같은 label로 렌더하세요.")
+        if re.search(r"^-\s+(?:source_role|evidence_role|item_id|evidence_id|원문 제목):", collection, flags=re.M):
+            issue(findings, "format", "high", "COMPACT-028 자료 카드 필드 위반", "자료 수집 카드에 금지 필드가 렌더됐습니다.", "자료 카드에는 출처/수집 시점/요약/원문/이미지만 렌더하세요.")
+        market_body = compact_collection_section_body(collection, "1. 시장은 지금")
+        media_body = compact_collection_section_body(collection, "2. 미디어 포커스")
+        feature_body = compact_collection_section_body(collection, "3. 실적/특징주")
+        market_blocks = compact_card_blocks(market_body)
+        market_titles = [card_title(block) for block in market_blocks]
+        market_block_by_title = {card_title(block): block for block in market_blocks}
+        if "1. 시장은 지금" not in sections:
+            issue(findings, "format", "high", "COMPACT-029 시장은 지금 누락", "## 1. 시장은 지금 section이 없습니다.", "자료 수집 첫 section으로 시장은 지금을 렌더하세요.")
+        missing_market_cards = [label for label in COMPACT_MARKET_NOW_LABEL_ORDER if label not in market_titles]
+        if missing_market_cards:
+            issue(findings, "format", "high", "COMPACT-044 시장 필수 카드 누락", ", ".join(missing_market_cards), "시장 지도 고정 카드 전체를 같은 순서로 렌더하세요.")
+        if market_titles.count("주요 지수 흐름") != 1 or image_count(market_block_by_title.get("주요 지수 흐름", "")) < 2:
+            issue(findings, "format", "high", "COMPACT-030 주요 지수 흐름 2장 누락", f"시장 카드: {market_titles[:6]}", "Finviz index futures 캡처는 주요 지수 흐름 한 카드 안에 2장 렌더하세요.")
+        index_quality = [
+            finviz_index_chart_image_ok(target)
+            for target in markdown_image_targets(market_block_by_title.get("주요 지수 흐름", ""))
+        ]
+        bad_index_images = [result for result in index_quality if result is False]
+        if bad_index_images:
+            issue(findings, "format", "high", "COMPACT-050 주요 지수 흐름 이미지 품질 실패", "Finviz 주요 지수 이미지가 상단 DOW/NASDAQ/S&P500 차트 형태로 보이지 않습니다.", "Cloudflare 화면이나 테이블 영역 crop이 아닌 상단 지수 캔들차트 2장을 다시 캡처하세요.")
+        for fed_label in ["FedWatch 단기 금리 확률", "FedWatch 장기 금리 확률"]:
+            if market_titles.count(fed_label) != 1 or image_count(market_block_by_title.get(fed_label, "")) < 1:
+                issue(findings, "format", "high", "COMPACT-031 FedWatch 단기/장기 누락", f"시장 카드: {market_titles}", "FedWatch 단기/장기 금리 확률을 각각 한 카드씩 렌더하세요.")
+        if re.search(r"^-\s+(?:요약|원문 제목|기준 시점):", market_body, flags=re.M):
+            issue(findings, "format", "high", "COMPACT-032 시장 카드 설명 필드 위반", "시장 차트 카드에 요약/원문 제목/기준 시점 필드가 있습니다.", "시장 차트에는 출처/수집 시점/이미지만 렌더하세요.")
+        if "원/달러 환율 차트" not in market_titles and "원/달러" in markdown:
+            issue(findings, "format", "high", "COMPACT-033 원/달러 label 누락", "원/달러 자료가 시장 카드 label로 보이지 않습니다.", "usd-krw는 원/달러 환율 차트로 렌더하세요.")
+        if "2. 미디어 포커스" not in sections:
+            issue(findings, "format", "high", "COMPACT-034 미디어 포커스 누락", "## 2. 미디어 포커스 section이 없습니다.", "시장은 지금 다음에는 미디어 포커스 하나만 렌더하세요.")
+        media_blocks = compact_card_blocks(media_body)
+        for idx, block in enumerate(media_blocks, start=1):
+            title = card_title(block)
+            if not re.match(r"^(?:[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\))\s+", title):
+                issue(findings, "format", "high", "COMPACT-035 미디어 포커스 순번 누락", f"자료명 `{title}`에 원형 숫자가 없습니다.", "미디어 포커스 자료명은 ①부터 순서대로 시작하세요.")
+            if "- 출처:" not in block or "- 수집 시점:" not in block:
+                issue(findings, "format", "high", "COMPACT-036 미디어 카드 출처/수집 시점 누락", title, "각 미디어 포커스 카드에는 출처와 수집 시점을 렌더하세요.")
+            if "- 내용:" not in block:
+                issue(findings, "format", "high", "COMPACT-037 미디어 카드 내용 누락", title, "각 미디어 포커스 카드에는 내용 블록을 렌더하세요.")
+            content_part = block.split("- 내용:", 1)[1] if "- 내용:" in block else ""
+            bullets = re.findall(r"^\s{2}-\s+(.+)$", content_part, flags=re.M)
+            if len(bullets) != 1:
+                issue(findings, "format", "high", "COMPACT-038 미디어 내용 bullet 수 위반", f"{title}: {len(bullets)}개", "내용 bullet은 1개만 렌더하세요.")
+            long_bullets = [bullet for bullet in bullets if len(bullet) > 90 or compact_raw_source_like(bullet)]
+            if long_bullets:
+                issue(findings, "format", "high", "COMPACT-039 미디어 내용 bullet 위반", f"{title}: " + ", ".join(long_bullets[:2]), "내용 bullet은 90자 이하 public 문장으로 렌더하세요.")
+        if "3. 실적/특징주" not in sections:
+            issue(findings, "format", "high", "COMPACT-046 실적/특징주 누락", "## 3. 실적/특징주 section이 없습니다.", "특징주와 실적 캘린더는 미디어 포커스가 아니라 3번 섹션에 렌더하세요.")
+        feature_blocks = compact_card_blocks(feature_body)
+        feature_titles = [card_title(block) for block in feature_blocks]
+        if feature_titles[:1] != ["실적 캘린더"]:
+            issue(findings, "format", "high", "COMPACT-047 실적 캘린더 첫 카드 누락", f"실적/특징주 첫 카드: {feature_titles[:1]}", "실적/특징주 섹션의 첫 자료는 ### 실적 캘린더 이미지 카드여야 합니다.")
+        if feature_blocks and image_count(feature_blocks[0]) < 1:
+            issue(findings, "format", "high", "COMPACT-048 실적 캘린더 이미지 누락", "실적 캘린더 카드에 이미지가 없습니다.", "Earnings Whispers 실적 캘린더 캡처를 첫 카드 이미지로 렌더하세요.")
+        numbered_feature_titles = [title for title in feature_titles[1:] if re.match(r"^(?:\\d+\\.|[①②③④⑤⑥⑦⑧⑨⑩])\\s+", title)]
+        if numbered_feature_titles:
+            issue(findings, "format", "high", "COMPACT-049 특징주 기업명 번호 노출", ", ".join(numbered_feature_titles[:4]), "실적/특징주 하위 기업명 앞에는 순번을 붙이지 마세요.")
+
+    for banned in COMPACT_BANNED_SECTIONS:
+        if banned in markdown:
+            issue(findings, "format", "high", "COMPACT-015 금지 섹션 노출", banned, "publish Markdown에서는 금지 섹션을 생성하지 마세요.")
+    return findings
 
 
 def compact_top_markdown(markdown: str) -> str:
@@ -1025,9 +1546,10 @@ def review_market_focus_contract(target_date: str, markdown: str) -> list[Findin
     if focus_error == "missing" and "Market Focus Brief" not in markdown:
         return findings
 
-    storyline = section(markdown, r"추천 스토리라인|異붿쿇 ?ㅽ넗由щ씪")
-    media_focus = section(markdown, r"미디어 포커스|誘몃뵒??포커스|蹂댁“ 瑗")
-    public = public_markdown(markdown)
+    compact_publish = is_compact_publish_markdown(markdown)
+    storyline = compact_host_area(markdown) if compact_publish else section(markdown, r"추천 스토리라인|異붿쿇 ?ㅽ넗由щ씪")
+    media_focus = compact_collection_area(markdown) if compact_publish else section(markdown, r"미디어 포커스|誘몃뵒??포커스|蹂댁“ 瑗")
+    public = compact_host_area(markdown) if compact_publish else public_markdown(markdown)
     public_before_media = public_before_media_focus(markdown)
     if preflight_agenda:
         raw_preflight_markers = [
@@ -1067,28 +1589,29 @@ def review_market_focus_contract(target_date: str, markdown: str) -> list[Findin
                 "스토리라인에는 방송 흐름과 `MF-... / title_tag`만 남기고 원문 제목, URL, 캡처 설명은 `2. 미디어 포커스`로 이동하세요.",
             )
 
-        refs = set(re.findall(r"`(MF-[a-f0-9]{8}|MF-source-gap)`", storyline))
-        media_ids = set(re.findall(r"`(MF-[a-f0-9]{8})`|^(?:#{2,4})\s+(MF-[a-f0-9]{8})", media_focus, flags=re.M))
-        media_ids = {item for pair in media_ids for item in pair if item}
-        missing = sorted(ref for ref in refs if ref not in media_ids)
-        if not refs:
-            issue(
-                findings,
-                "integrity",
-                "high",
-                "STORY-002 스토리라인 자료 태그 누락",
-                "스토리라인 섹션에서 `MF-...` 자료 태그를 찾지 못했습니다.",
-                "`2. 미디어 포커스`의 asset_id와 같은 `MF-...` 태그만 스토리라인에 참조하세요.",
-            )
-        elif missing:
-            issue(
-                findings,
-                "integrity",
-                "high",
-                "STORY-002 미디어 포커스 asset_id 매칭 실패",
-                "스토리라인 자료 태그가 하단 미디어 포커스 asset_id와 맞지 않습니다: " + ", ".join(missing[:8]),
-                "스토리라인의 자료 태그는 반드시 `2. 미디어 포커스`에 존재하는 asset_id만 사용하세요.",
-            )
+        if not compact_publish:
+            refs = set(re.findall(r"`(MF-[a-f0-9]{8}|MF-source-gap)`", storyline))
+            media_ids = set(re.findall(r"`(MF-[a-f0-9]{8})`|^(?:#{2,4})\s+(MF-[a-f0-9]{8})", media_focus, flags=re.M))
+            media_ids = {item for pair in media_ids for item in pair if item}
+            missing = sorted(ref for ref in refs if ref not in media_ids)
+            if not refs:
+                issue(
+                    findings,
+                    "integrity",
+                    "high",
+                    "STORY-002 스토리라인 자료 태그 누락",
+                    "스토리라인 섹션에서 `MF-...` 자료 태그를 찾지 못했습니다.",
+                    "`2. 미디어 포커스`의 asset_id와 같은 `MF-...` 태그만 스토리라인에 참조하세요.",
+                )
+            elif missing:
+                issue(
+                    findings,
+                    "integrity",
+                    "high",
+                    "STORY-002 미디어 포커스 asset_id 매칭 실패",
+                    "스토리라인 자료 태그가 하단 미디어 포커스 asset_id와 맞지 않습니다: " + ", ".join(missing[:8]),
+                    "스토리라인의 자료 태그는 반드시 `2. 미디어 포커스`에 존재하는 asset_id만 사용하세요.",
+                )
 
     if not focus_brief:
         return findings
@@ -1189,6 +1712,11 @@ def review_market_focus_contract(target_date: str, markdown: str) -> list[Findin
             overlaps_public = overlaps_public or sum(1 for token in question_tokens if token in focus_public_blob) >= 2
             mentions_downgrade = agenda_id and agenda_id in downgrade_blob
             mentions_downgrade = mentions_downgrade or sum(1 for token in question_tokens if token in downgrade_blob) >= 2
+            targets = [target for target in item.get("collection_targets") or [] if isinstance(target, dict)]
+            collected_as_evidence = any(target_collected(target, collected_blob) for target in targets)
+            collected_as_evidence = collected_as_evidence or sum(1 for token in question_tokens if token in collected_blob) >= 2
+            if collected_as_evidence:
+                continue
             if not overlaps_public and not mentions_downgrade:
                 issue(
                     findings,
@@ -1441,12 +1969,20 @@ def main() -> int:
 
     input_path = args.input or (RUNTIME_NOTION_DIR / args.date / f"{display_date_title(args.date)}.md")
     markdown = input_path.read_text(encoding="utf-8")
-    findings = (
-        review_format(markdown, args.date)
-        + review_content(markdown)
-        + review_integrity(args.date, markdown)
-        + review_market_focus_contract(args.date, markdown)
-    )
+    if is_compact_publish_markdown(markdown):
+        findings = (
+            review_compact_publish_contract(markdown)
+            + review_market_focus_contract(args.date, markdown)
+            + review_evidence_microcopy_contract(args.date)
+        )
+    else:
+        findings = (
+            review_format(markdown, args.date)
+            + review_content(markdown)
+            + review_integrity(args.date, markdown)
+            + review_market_focus_contract(args.date, markdown)
+            + review_evidence_microcopy_contract(args.date)
+        )
     format_score = score(findings, "format")
     content_score = score(findings, "content")
     integrity_score = score(findings, "integrity")

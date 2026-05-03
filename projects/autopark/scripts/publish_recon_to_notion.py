@@ -250,8 +250,17 @@ def table_block(header: list[str], rows: list[list[str]]) -> dict:
     }
 
 
+def compact_publish_title(markdown_path: Path | None) -> str:
+    if markdown_path is None:
+        return ""
+    if re.match(r"^\d{2}\.\d{2}\.\d{2}\.md$", markdown_path.name):
+        return markdown_path.stem
+    return ""
+
+
 def markdown_to_blocks(markdown: str, markdown_path: Path | None = None, token: str | None = None, upload_images: bool = False) -> tuple[str, list[dict]]:
-    title = "Untitled"
+    title = compact_publish_title(markdown_path) or "Untitled"
+    consume_first_h1_as_title = title == "Untitled"
     blocks: list[dict] = []
     list_stack: list[tuple[int, dict]] = []
     in_code = False
@@ -361,8 +370,9 @@ def markdown_to_blocks(markdown: str, markdown_path: Path | None = None, token: 
             reset_list_stack()
             level = len(heading.group(1))
             text = heading.group(2).strip()
-            if level == 1 and title == "Untitled":
+            if level == 1 and consume_first_h1_as_title:
                 title = text
+                consume_first_h1_as_title = False
                 continue
             if level >= 4:
                 blocks.append(block("paragraph", f"**{text}**"))
@@ -429,6 +439,7 @@ def publish_file(
     token: str,
     dry_run: bool,
     replace_existing: bool,
+    title_override: str | None = None,
 ) -> dict:
     title, blocks = markdown_to_blocks(
         path.read_text(encoding="utf-8"),
@@ -436,6 +447,8 @@ def publish_file(
         token=token,
         upload_images=not dry_run,
     )
+    if title_override:
+        title = title_override
     block_chunks = chunks(blocks, MAX_CHILDREN_PER_REQUEST)
     result = {
         "source": str(path),
@@ -470,6 +483,7 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--env", type=Path, default=DEFAULT_ENV)
     parser.add_argument("--parent-page-id", help="Override the Notion parent page id")
+    parser.add_argument("--title", help="Override the Notion page title without changing the Markdown content")
     parser.add_argument("--replace-existing", action="store_true", help="Archive child pages with the same title before publishing")
     parser.add_argument("--archive-existing-only", action="store_true", help="Archive matching child pages and do not create a new page")
     parser.add_argument("--dry-run", action="store_true")
@@ -495,6 +509,8 @@ def main() -> None:
             token=token,
             upload_images=False,
         )
+        if args.title:
+            title = args.title
         if args.archive_existing_only:
             results.append(
                 {
@@ -519,6 +535,7 @@ def main() -> None:
                 token=token,
                 dry_run=args.dry_run,
                 replace_existing=args.replace_existing,
+                title_override=args.title,
             )
         )
     print(json.dumps({"ok": True, "results": results}, ensure_ascii=False, indent=2))

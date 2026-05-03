@@ -279,6 +279,29 @@ def score_of(item: dict) -> float:
         return 0.0
 
 
+def microcopy_by_item_id(payload: dict) -> dict[str, dict]:
+    return {
+        str(item.get("item_id") or ""): item
+        for item in payload.get("items") or []
+        if isinstance(item, dict) and item.get("item_id")
+    }
+
+
+def attach_evidence_microcopy(rows: list[dict], microcopy: dict) -> list[dict]:
+    lookup = microcopy_by_item_id(microcopy)
+    enriched = []
+    for row in rows:
+        item = dict(row)
+        copy = lookup.get(item_id_of(item))
+        if copy:
+            item["micro_content"] = compact_text(
+                copy.get("content") or " ".join((copy.get("summary_bullets") or [])[:1]),
+                90,
+            )
+        enriched.append(item)
+    return enriched
+
+
 def compact_candidate(item: dict) -> dict:
     return {
         "id": item_id_of(item),
@@ -298,6 +321,7 @@ def compact_candidate(item: dict) -> dict:
         "korea_open_relevance": compact_text(item.get("korea_open_relevance") or "", 120),
         "radar_question": compact_text(item.get("radar_question") or "", 180),
         "summary": compact_text(item.get("summary") or item.get("description") or "", 320),
+        "micro_content": compact_text(item.get("micro_content") or "", 90),
         "visual_local_path": item.get("visual_local_path") or "",
         "image_refs": [
             {
@@ -517,6 +541,7 @@ def sanitize_candidate(item: dict, aliases: dict[str, str]) -> dict:
         "prepricing_risk": sanitized_text(item.get("prepricing_risk") or "", 120),
         "korea_open_relevance": sanitized_text(item.get("korea_open_relevance") or "", 120),
         "radar_question": sanitized_text(item.get("radar_question") or "", 180),
+        "micro_content": sanitized_text(item.get("micro_content") or "", 90),
         "asset_status": "capture_candidate" if item.get("visual_local_path") or item.get("image_refs") else "no_capture",
     }
 
@@ -676,6 +701,9 @@ def prompt_payload(payload: dict) -> dict:
 def build_input_payload(target_date: str, max_candidates: int, max_raw_files: int, max_assets: int) -> dict:
     processed = PROCESSED_DIR / target_date
     radar = load_json(processed / "market-radar.json")
+    evidence_microcopy = load_optional_json(processed / "evidence-microcopy.json")
+    if evidence_microcopy:
+        radar = {**radar, "candidates": attach_evidence_microcopy(radar.get("candidates") or [], evidence_microcopy)}
     visuals = load_json(processed / "visual-cards.json")
     candidates = select_focus_candidates(radar, max_candidates)
     raw_payload = {
@@ -850,6 +878,7 @@ def build_prompt(payload: dict, with_web: bool = False) -> str:
 
 Runtime mode:
 - {web_note}
+- candidates[].micro_content is a one-line description of what the material says; do not let it change source order or promote unsupported stories.
 
 Return JSON matching the provided schema. Do not wrap it in Markdown.
 

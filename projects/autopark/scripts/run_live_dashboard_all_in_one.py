@@ -630,6 +630,7 @@ def main() -> int:
     parser.add_argument("--skip-market-focus-brief", action="store_true")
     parser.add_argument("--skip-publish", action="store_true")
     parser.add_argument("--publish-policy", choices=["gate", "always", "never"], default=None)
+    parser.add_argument("--publish-title", default=None, help="Override the Notion page title when publishing")
     parser.add_argument("--operation-mode", choices=["auto", "daily_broadcast", "monday_catchup", "no_broadcast"], default="auto")
     parser.add_argument("--broadcast-calendar", type=Path, default=DEFAULT_CALENDAR)
     parser.add_argument("--skip-state-mirror", action="store_true")
@@ -669,6 +670,7 @@ def main() -> int:
         120,
     )
     editorial_stage_timeout = editorial_api_timeout + 90
+    publish_title = args.publish_title or run_env.get("AUTOPARK_PUBLISH_TITLE") or file_env.get("AUTOPARK_PUBLISH_TITLE")
     preflight_enabled = flag_enabled(run_env, "AUTOPARK_PREFLIGHT_ENABLED", True) and not args.skip_preflight_agenda
     market_focus_with_web = args.market_focus_with_web or flag_enabled(run_env, "AUTOPARK_MARKET_FOCUS_WITH_WEB_DEFAULT", False)
 
@@ -1189,6 +1191,15 @@ def main() -> int:
     )
     append_step(results, result)
 
+    result, _ = run(
+        [py, "projects/autopark/scripts/build_evidence_microcopy.py", "--date", args.date],
+        "build evidence microcopy",
+        240,
+        allow_fail=True,
+        env=run_env,
+    )
+    append_step(results, result)
+
     if args.skip_market_focus_brief:
         now = now_kst().isoformat(timespec="seconds")
         market_focus_payload = {
@@ -1289,8 +1300,12 @@ def main() -> int:
         and (publish_policy == "always" or review_payload.get("gate") == "pass")
     )
     if should_publish:
+        publish_command = [py, "projects/autopark/scripts/publish_recon_to_notion.py", "--replace-existing"]
+        if publish_title:
+            publish_command.extend(["--title", publish_title])
+        publish_command.append(dashboard_path)
         result, publish_payload = run(
-            [py, "projects/autopark/scripts/publish_recon_to_notion.py", "--replace-existing", dashboard_path],
+            publish_command,
             "publish notion",
             240,
         )

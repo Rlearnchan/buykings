@@ -539,6 +539,16 @@ async function detectPartialCapture(source, page, bodyText) {
   };
 }
 
+function detectBlockedPage(title, bodyText) {
+  return (
+    /just a moment/i.test(title || '') ||
+    /verifying you are human/i.test(bodyText || '') ||
+    /security verification/i.test(bodyText || '') ||
+    /not a bot/i.test(bodyText || '') ||
+    /cloudflare/i.test(bodyText || '')
+  );
+}
+
 function clampClip(clip, viewport) {
   return {
     x: Math.max(0, Math.round(clip.x)),
@@ -549,22 +559,41 @@ function clampClip(clip, viewport) {
 }
 
 async function captureFinvizIndexFutures(page, screenshotDir, safeId, viewport) {
+  await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+  await page.waitForTimeout(250);
   const canvases = await page.locator('canvas').evaluateAll((items) =>
     items
       .map((el) => {
         const rect = el.getBoundingClientRect();
-        return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+        return {
+          x: rect.x + window.scrollX,
+          y: rect.y + window.scrollY,
+          viewport_y: rect.y,
+          width: rect.width,
+          height: rect.height,
+        };
       })
-      .filter((rect) => rect.width >= 250 && rect.height >= 150 && rect.y < 420)
-      .slice(0, 3),
+      .filter((rect) => rect.width >= 280 && rect.width <= 380 && rect.height >= 160 && rect.height <= 230 && rect.viewport_y < 360)
+      .sort((left, right) => left.y - right.y || left.x - right.x),
   );
-  if (canvases.length < 3) return null;
+  let row = null;
+  for (let index = 0; index < canvases.length; index += 1) {
+    const candidates = canvases
+      .filter((rect) => Math.abs(rect.y - canvases[index].y) <= 30)
+      .sort((left, right) => left.x - right.x);
+    if (candidates.length >= 3) {
+      row = candidates.slice(0, 3);
+      break;
+    }
+  }
+  if (!row || row.length < 3) return null;
 
-  const top = Math.min(...canvases.map((rect) => rect.y));
-  const bottom = Math.max(...canvases.map((rect) => rect.y + rect.height));
-  const first = canvases[0];
-  const second = canvases[1];
-  const third = canvases[2];
+  const top = Math.min(...row.map((rect) => rect.y));
+  const bottom = Math.max(...row.map((rect) => rect.y + rect.height));
+  const first = row[0];
+  const second = row[1];
+  const third = row[2];
+  if (second.x - first.x < 260 || third.x - second.x < 260) return null;
   const variants = [
     {
       suffix: '1',
@@ -591,6 +620,7 @@ async function captureFinvizIndexFutures(page, screenshotDir, safeId, viewport) 
   const paths = [];
   for (const variant of variants) {
     const filePath = path.join(screenshotDir, `${safeId}-${variant.suffix}.png`);
+    await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
     await page.screenshot({ path: filePath, clip: clampClip(variant.clip, viewport) });
     paths.push({
       label: variant.label,
@@ -949,16 +979,13 @@ async function main() {
     await dismissCommonOverlays(page);
 
     const fullPage = source.capture_full_page === false ? false : args.fullPage;
-    let capturedImages = await captureSourceScreenshots(source, page, screenshotDir, safeId, screenshotPath, fullPage, viewport);
     const title = await page.title();
     const bodyText = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
-    const blocked =
-      /just a moment/i.test(title) ||
-      /security verification/i.test(bodyText) ||
-      /not a bot/i.test(bodyText);
+    const blocked = detectBlockedPage(title, bodyText);
     const fallback = blocked ? reusableFinvizFallback(source, args.date, screenshotDir, safeId) : null;
-    if (fallback) {
-      capturedImages = [fallback.image];
+    let capturedImages = fallback ? [fallback.image] : [];
+    if (!blocked && !fallback) {
+      capturedImages = await captureSourceScreenshots(source, page, screenshotDir, safeId, screenshotPath, fullPage, viewport);
     }
     const partial = blocked ? null : await detectPartialCapture(source, page, bodyText);
     const extracted = blocked ? {} : await extractStructuredData(source, page, title, bodyText);
