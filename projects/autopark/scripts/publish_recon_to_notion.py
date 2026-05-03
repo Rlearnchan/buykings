@@ -134,6 +134,14 @@ def archive_page(page_id: str, token: str) -> dict:
     return notion_request("PATCH", f"/pages/{page_id}", token, {"in_trash": True})
 
 
+def archive_block(block_id: str, token: str) -> dict:
+    return notion_request("PATCH", f"/blocks/{block_id}", token, {"in_trash": True})
+
+
+def get_page(page_id: str, token: str) -> dict:
+    return notion_request("GET", f"/pages/{page_id}", token)
+
+
 def archive_existing_child_pages(parent_page_id: str, title: str, token: str, dry_run: bool) -> list[dict]:
     matches = []
     for child in get_block_children(parent_page_id, token):
@@ -151,6 +159,59 @@ def archive_existing_child_pages(parent_page_id: str, title: str, token: str, dr
         archive_page(match["page_id"], token)
         archived.append({"status": "archived", **match})
     return archived
+
+
+def page_title(page: dict) -> str:
+    for value in page.get("properties", {}).values():
+        if value.get("type") != "title":
+            continue
+        return "".join(fragment.get("plain_text", "") for fragment in value.get("title", []))
+    return ""
+
+
+def archive_existing_page_links(parent_page_id: str, title: str, token: str, dry_run: bool) -> list[dict]:
+    matches = []
+    for child in get_block_children(parent_page_id, token):
+        if child.get("type") != "link_to_page":
+            continue
+        link = child.get("link_to_page", {})
+        if link.get("type") != "page_id":
+            continue
+        linked_page_id = link.get("page_id")
+        if not linked_page_id:
+            continue
+        linked_page = get_page(linked_page_id, token)
+        if page_title(linked_page) == title:
+            matches.append({"block_id": child["id"], "page_id": linked_page_id, "title": title})
+
+    if dry_run:
+        return [{"status": "would-archive-link", **match} for match in matches]
+
+    archived = []
+    for match in matches:
+        archive_block(match["block_id"], token)
+        archived.append({"status": "archived-link", **match})
+    return archived
+
+
+def block_plain_text(item: dict) -> str:
+    block_type = item.get("type")
+    if block_type == "child_page":
+        return str(item.get("child_page", {}).get("title") or "")
+    payload = item.get(block_type, {}) if block_type else {}
+    return "".join(fragment.get("plain_text", "") for fragment in payload.get("rich_text", []))
+
+
+def find_heading_block(parent_page_id: str, heading_text: str, token: str) -> dict | None:
+    expected = heading_text.strip()
+    if not expected:
+        return None
+    for child in get_block_children(parent_page_id, token):
+        if child.get("type") not in {"heading_1", "heading_2", "heading_3"}:
+            continue
+        if block_plain_text(child).strip() == expected:
+            return child
+    return None
 
 
 def text_fragments(text: str, *, link: str | None = None, code: bool = False, bold: bool = False) -> list[dict]:
@@ -425,8 +486,39 @@ def create_page(parent_page_id: str, title: str, initial_children: list[dict], t
     )
 
 
-def append_children(block_id: str, children: list[dict], token: str) -> None:
-    notion_request("PATCH", f"/blocks/{block_id}/children", token, {"children": children})
+def append_children(block_id: str, children: list[dict], token: str, position: dict | None = None) -> dict:
+    payload = {"children": children}
+    if position:
+        payload["position"] = position
+    return notion_request("PATCH", f"/blocks/{block_id}/children", token, payload)
+
+
+def append_page_link_at_position(parent_page_id: str, page_id: str, token: str, position: dict) -> dict:
+    payload = append_children(
+        parent_page_id,
+        [
+            {
+                "object": "block",
+                "type": "link_to_page",
+                "link_to_page": {"type": "page_id", "page_id": page_id},
+            }
+        ],
+        token,
+        position=position,
+    )
+    results = payload.get("results") or []
+    if not results:
+        raise SystemExit("Notion API did not return the inserted page link block")
+    return results[0]
+
+
+def resolve_insert_position(parent_page_id: str, token: str, insert_under_heading: str | None) -> dict | None:
+    if not insert_under_heading:
+        return None
+    heading = find_heading_block(parent_page_id, insert_under_heading, token)
+    if not heading:
+        raise SystemExit(f"Could not find Notion heading for insertion: {insert_under_heading}")
+    return {"type": "after_block", "after_block": {"id": heading["id"]}}
 
 
 def chunks(items: list[dict], size: int) -> list[list[dict]]:
@@ -440,6 +532,8 @@ def publish_file(
     dry_run: bool,
     replace_existing: bool,
     title_override: str | None = None,
+    insert_under_heading: str | None = None,
+    page_parent_page_id: str | None = None,
 ) -> dict:
     title, blocks = markdown_to_blocks(
         path.read_text(encoding="utf-8"),
@@ -450,29 +544,44 @@ def publish_file(
     if title_override:
         title = title_override
     block_chunks = chunks(blocks, MAX_CHILDREN_PER_REQUEST)
+    storage_parent_page_id = page_parent_page_id or parent_page_id
     result = {
         "source": str(path),
         "title": title,
         "block_count": len(blocks),
         "chunk_count": len(block_chunks),
+        "page_parent_page_id": storage_parent_page_id,
     }
+    if insert_under_heading:
+        result["insert_under_heading"] = insert_under_heading
 
     if replace_existing:
         result["replace_existing"] = archive_existing_child_pages(
-            parent_page_id=parent_page_id,
+            parent_page_id=storage_parent_page_id,
             title=title,
             token=token,
             dry_run=dry_run,
         )
+        if insert_under_heading:
+            result["replace_existing_links"] = archive_existing_page_links(
+                parent_page_id=parent_page_id,
+                title=title,
+                token=token,
+                dry_run=dry_run,
+            )
 
     if dry_run:
         result["status"] = "dry-run"
         return result
 
     initial = block_chunks[0] if block_chunks else []
-    page = create_page(parent_page_id, title, initial, token)
+    page = create_page(storage_parent_page_id, title, initial, token)
     for extra in block_chunks[1:]:
         append_children(page["id"], extra, token)
+    position = resolve_insert_position(parent_page_id, token, insert_under_heading)
+    if position:
+        link = append_page_link_at_position(parent_page_id, page["id"], token, position)
+        result["link_block_id"] = link["id"]
     result.update({"status": "published", "page_id": page["id"], "url": page.get("url")})
     return result
 
@@ -483,7 +592,9 @@ def main() -> None:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--env", type=Path, default=DEFAULT_ENV)
     parser.add_argument("--parent-page-id", help="Override the Notion parent page id")
+    parser.add_argument("--page-parent-page-id", help="Override where the actual daily page is created")
     parser.add_argument("--title", help="Override the Notion page title without changing the Markdown content")
+    parser.add_argument("--insert-under-heading", help="Insert the new child page directly under this heading in the parent page")
     parser.add_argument("--replace-existing", action="store_true", help="Archive child pages with the same title before publishing")
     parser.add_argument("--archive-existing-only", action="store_true", help="Archive matching child pages and do not create a new page")
     parser.add_argument("--dry-run", action="store_true")
@@ -499,6 +610,17 @@ def main() -> None:
     parent_page_id = args.parent_page_id or notion_config.get("dashboard_parent_page_id")
     if not parent_page_id:
         raise SystemExit("Missing dashboard_parent_page_id in config or --parent-page-id")
+    page_parent_page_id = (
+        args.page_parent_page_id
+        or os.environ.get("AUTOPARK_NOTION_PAGE_PARENT_PAGE_ID")
+        or notion_config.get("daily_page_parent_page_id")
+        or parent_page_id
+    )
+    insert_under_heading = (
+        args.insert_under_heading
+        or os.environ.get("AUTOPARK_NOTION_INSERT_UNDER_HEADING")
+        or notion_config.get("insert_under_heading")
+    )
 
     results = []
     for path in args.markdown:
@@ -518,11 +640,19 @@ def main() -> None:
                     "title": title,
                     "block_count": len(blocks),
                     "replace_existing": archive_existing_child_pages(
-                        parent_page_id=parent_page_id,
+                        parent_page_id=page_parent_page_id,
                         title=title,
                         token=token,
                         dry_run=args.dry_run,
                     ),
+                    "replace_existing_links": archive_existing_page_links(
+                        parent_page_id=parent_page_id,
+                        title=title,
+                        token=token,
+                        dry_run=args.dry_run,
+                    )
+                    if insert_under_heading
+                    else [],
                     "status": "dry-run" if args.dry_run else "archived-existing-only",
                 }
             )
@@ -536,6 +666,8 @@ def main() -> None:
                 dry_run=args.dry_run,
                 replace_existing=args.replace_existing,
                 title_override=args.title,
+                insert_under_heading=insert_under_heading,
+                page_parent_page_id=page_parent_page_id,
             )
         )
     print(json.dumps({"ok": True, "results": results}, ensure_ascii=False, indent=2))

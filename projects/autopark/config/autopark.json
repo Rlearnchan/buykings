@@ -226,6 +226,8 @@
       "mode": "api-first",
       "workspace_root_page_id": "33f468fb-878d-809d-9111-d7576f583c67",
       "dashboard_parent_page_id": "349468fb-878d-808a-bb7a-fbb542e9073e",
+      "daily_page_parent_page_id": "33f468fb-878d-809d-9111-d7576f583c67",
+      "insert_under_heading": "오늘의 자료",
       "example_page_id": "34f468fb-878d-808e-8fde-c09699d396c9",
       "notes": "Target path: Buykings Research > 아침방송 준비 대시보드 > 날짜별 페이지. Current connector can read pages; writing needs Notion API/write-capable tool."
     }
