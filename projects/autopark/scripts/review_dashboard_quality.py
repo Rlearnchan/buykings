@@ -786,6 +786,8 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
                 issue(findings, "format", "high", "COMPACT-035 미디어 포커스 순번 누락", f"자료명 `{title}`에 원형 숫자가 없습니다.", "미디어 포커스 자료명은 ①부터 순서대로 시작하세요.")
             if "- 출처:" not in block or "- 수집 시점:" not in block:
                 issue(findings, "format", "high", "COMPACT-036 미디어 카드 출처/수집 시점 누락", title, "각 미디어 포커스 카드에는 출처와 수집 시점을 렌더하세요.")
+            if re.search(r"^-\s+출처:\s+(?:Autopark|Market Focus|Pre-flight Agenda)\s*$", block, flags=re.M):
+                issue(findings, "format", "high", "COMPACT-052 미디어 카드 내부 단계 출처 노출", title, "미디어 포커스의 출처는 뉴스/자료 제공자/원자료 사이트명이어야 합니다.")
             if "- 내용:" not in block:
                 issue(findings, "format", "high", "COMPACT-037 미디어 카드 내용 누락", title, "각 미디어 포커스 카드에는 내용 블록을 렌더하세요.")
             content_part = block.split("- 내용:", 1)[1] if "- 내용:" in block else ""

@@ -3365,6 +3365,22 @@ def crop_bottom_whitespace(path: str | Path, target_date: str) -> str:
     return str(source)
 
 
+def image_has_enough_content(path: str | Path, *, min_non_white_ratio: float = 0.01) -> bool:
+    source = Path(path)
+    if not source.exists():
+        return False
+    try:
+        with Image.open(source) as image:
+            sample = image.convert("RGB").resize((160, 100))
+            pixels = list(sample.getdata())
+    except Exception:
+        return False
+    if not pixels:
+        return False
+    non_white = sum(1 for red, green, blue in pixels if min(red, green, blue) < 245)
+    return (non_white / len(pixels)) >= min_non_white_ratio
+
+
 def material_publish_order_key(card: dict) -> tuple[int, int, int, str]:
     section_rank = {
         "market_now": 0,
@@ -3558,9 +3574,26 @@ def build_compact_collection_cards(
 
     for label, source_id, pattern, url in MARKET_NOW_TRAILING_ORDER:
         images = screenshots_for(target_date, pattern)[:1]
+        if source_id == "cnn-fear-greed":
+            images = [image for image in images if image_has_enough_content(image)]
         if not images and source_id.startswith("fedwatch"):
             png = EXPORTS_DIR / f"{source_id}.png"
             images = [str(png)] if png.exists() else []
+        if not images and source_id == "cnn-fear-greed":
+            collection_cards.append(
+                {
+                    "section": "market_now",
+                    "asset_key": source_id,
+                    "label": label,
+                    "title": label,
+                    "source": source_id,
+                    "url": url,
+                    "item_id": source_id,
+                    "evidence_id": source_id,
+                    "missing_image": True,
+                    "allow_duplicate_url": False,
+                }
+            )
         for image in images:
             collection_cards.append(
                 {
@@ -3621,6 +3654,11 @@ def build_compact_collection_cards(
 
     for label, (section, story_rank, slide_rank) in story_label_order.items():
         row = story_label_source.get(label, {})
+        if not row:
+            continue
+        row_source = source_label(row.get("source") or row.get("source_name") or row.get("type"), row.get("url") or "")
+        if row_source in {"Autopark", "Market Focus", "Pre-flight Agenda"} and not row.get("url") and not material_visual_path(row):
+            continue
         collection_cards.append(
             {
                 **row,
@@ -3629,7 +3667,7 @@ def build_compact_collection_cards(
                 "slide_rank": slide_rank,
                 "label": label,
                 "kind": "article" if row.get("url") else "material",
-                "source": source_label(row.get("source") or row.get("source_name") or row.get("type"), row.get("url") or ""),
+                "source": row_source,
                 "url": row.get("url") or "",
                 "summary": summarize_material_text(row) or row.get("summary") or row.get("title") or label,
                 "image": material_visual_path(row),
@@ -3637,45 +3675,8 @@ def build_compact_collection_cards(
         )
 
     _ = finviz_features
-    events = economic.get("events") or []
-    if events:
-        collection_cards.append(
-            {
-                "section": "media_focus",
-                "story_rank": 0,
-                "slide_rank": 90,
-                "label": "실적·경제일정 표",
-                "title": "오늘 경제일정",
-                "source": "Trading Economics",
-                "url": "https://ko.tradingeconomics.com/calendar",
-                "summary": "; ".join(clean(item.get("event"), 40) for item in events[:5] if item.get("event")),
-            }
-        )
-
-    for gap in (market_focus.get("source_gaps") or [])[:8]:
-        collection_cards.append(
-            {
-                "section": "media_focus",
-                "story_rank": int(gap.get("related_focus_rank") or 99),
-                "slide_rank": 200 + len(collection_cards),
-                "label": "보강 후보 자료",
-                "source": "Market Focus",
-                "source_gap": gap.get("issue") or gap.get("why_needed") or "",
-                "summary": gap.get("search_hint") or "",
-            }
-        )
-    for item in (market_preflight.get("agenda_items") or [])[:5]:
-        collection_cards.append(
-            {
-                "section": "media_focus",
-                "story_rank": int(item.get("rank") or 99),
-                "slide_rank": 220 + len(collection_cards),
-                "label": "프리플라이트 보강 자료",
-                "source": "Pre-flight Agenda",
-                "source_gap": item.get("market_question") or "",
-                "summary": item.get("why_to_check") or "",
-            }
-        )
+    _ = economic
+    _ = market_preflight
 
     return collection_cards
 
@@ -3779,6 +3780,28 @@ def render_compact_feature_section(lines: list[str], target_date: str, finviz_fe
     feature_rows = [row for row in finviz_features.get("items", []) if row.get("status") == "ok"]
     for row in feature_rows[:6]:
         render_feature_stock(lines, row)
+    us_calendar_png = EXPORTS_DIR / "economic-calendar-us.png"
+    global_calendar_png = EXPORTS_DIR / "economic-calendar-global.png"
+    calendar_png = EXPORTS_DIR / "economic-calendar.png"
+    calendar_images = [path for path in [us_calendar_png, global_calendar_png] if path.exists()]
+    if not calendar_images and calendar_png.exists():
+        calendar_images = [calendar_png]
+    if calendar_images:
+        captured = captured_from_file(calendar_images[0])
+        lines.extend(
+            [
+                "### 실적·경제일정 표",
+                "",
+                "- 출처: [Trading Economics](https://ko.tradingeconomics.com/calendar)",
+                f"- 수집 시점: `{captured or '-'}`",
+                "",
+            ]
+        )
+        for image in calendar_images:
+            label = "오늘의 미국 경제 일정" if image.name.endswith("-us.png") else "오늘의 글로벌 경제 일정"
+            if image.name == "economic-calendar.png":
+                label = "오늘의 경제 일정"
+            lines.extend([notion_image(label, image), ""])
 
 
 def render_compact_publish_dashboard(target_date: str) -> str:

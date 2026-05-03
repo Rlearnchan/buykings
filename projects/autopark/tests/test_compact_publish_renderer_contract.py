@@ -298,7 +298,6 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertNotIn("US Jobs Report to Show Resilience", host)
         self.assertNotIn("상단에 나오면 안 되는 네 번째", host)
         self.assertIn("Fed 인플레이션 발언 기사", host)
-        self.assertIn("WTI·브렌트 가격 차트", host)
         news_bullets = re.findall(r"^-\s+(.+)$", quality.compact_section_body(host, "주요 뉴스"), flags=re.M)
         self.assertEqual(3, len(news_bullets))
         self.assertTrue(all(len(bullet) <= 80 for bullet in news_bullets))
@@ -338,6 +337,10 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertEqual(1, quality.image_count(market_blocks["FedWatch 장기 금리 확률"]))
         media_body = quality.compact_collection_section_body(collection, "2. 미디어 포커스")
         media_blocks = quality.compact_card_blocks(media_body)
+        self.assertNotIn("- 출처: Autopark", media_body)
+        self.assertNotIn("- 출처: Market Focus", media_body)
+        self.assertNotIn("- 출처: Pre-flight Agenda", media_body)
+        self.assertNotIn("실적·경제일정 표", media_body)
         self.assertTrue(all(re.match(r"^### [①②③④⑤⑥⑦⑧⑨⑩]", block.splitlines()[0]) for block in media_blocks[:3]))
         for block in media_blocks:
             self.assertIn("- 출처:", block)
