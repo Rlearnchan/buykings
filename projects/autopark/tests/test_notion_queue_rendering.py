@@ -41,8 +41,9 @@ class NotionQueueRenderingTest(unittest.TestCase):
         self.assertIn("10년물 금리", rendered)
         self.assertIn("X 반응", rendered)
         self.assertIn("차트는 반응 확인용", rendered)
-        self.assertIn("### 0. 타이틀", rendered)
-        self.assertIn("### 1. 시장은 지금", rendered)
+        self.assertIn("| 슬라이드 | 제목 | 자료 | 상태 | 작업 |", rendered)
+        self.assertIn("| 0 | 타이틀 |", rendered)
+        self.assertIn("| 1 | 시장은 지금 |", rendered)
 
     def test_compact_host_view_keeps_0421_shape_without_internal_labels(self) -> None:
         brief = {
@@ -108,11 +109,47 @@ class NotionQueueRenderingTest(unittest.TestCase):
         rendered = "\n".join(lines)
 
         self.assertLess(rendered.index("# 오늘 방송 순서"), rendered.index("# 첫 꼭지"))
-        self.assertLess(rendered.index("# 첫 꼭지"), rendered.index("# PPT로 바로 만들 자료"))
-        self.assertIn("오늘의 메인 thesis", rendered)
+        self.assertIn("## 오늘의 핵심 관점", rendered)
         self.assertIn("실적은 좋은데, 금리가 발목을 잡는다", rendered)
         for forbidden in ["source_role", "evidence_role", "drop_code", "supported_by_mixed_evidence"]:
             self.assertNotIn(forbidden, rendered)
+
+    def test_display_title_rewrites_unsupported_openai_claim(self) -> None:
+        story = {
+            "title": "OpenAI(AI) 숫자가 다시 AI 인프라 기대를 받치는가",
+            "evidence_to_use": [
+                {"title": "Anthropic cloud demand", "evidence_role": "analysis"},
+                {"title": "Microsoft Azure growth", "evidence_role": "data"},
+            ],
+        }
+
+        self.assertEqual("AI 인프라 수요는 아직 살아 있다", dashboard.story_display_title(story))
+
+    def test_sentiment_asset_defaults_to_talk_only_without_exception(self) -> None:
+        brief = {
+            "storylines": [
+                {
+                    "storyline_id": "storyline-1",
+                    "ppt_asset_queue": [
+                        {
+                            "asset_id": "x-1",
+                            "source_role": "sentiment_probe",
+                            "visual_asset_role": "x_post_screenshot",
+                            "use_as_slide": True,
+                            "caption": "X 반응 캡처",
+                            "why_this_visual": "분위기 참고",
+                        }
+                    ],
+                }
+            ]
+        }
+
+        lines: list[str] = []
+        dashboard.render_ppt_asset_queue(lines, brief)
+        rendered = "\n".join(lines)
+
+        self.assertNotIn("X 반응 캡처", rendered)
+        self.assertIn("X 반응 캡처", "\n".join(dashboard.evidence_title(item, {}) for item in dashboard.flatten_talk_only(brief)))
 
 
 if __name__ == "__main__":
