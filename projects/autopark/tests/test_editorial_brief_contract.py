@@ -1,15 +1,136 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 import json
+import shutil
 import sys
 import unittest
+import uuid
 from pathlib import Path
+from unittest import mock
 
 
 PROJECT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT / "scripts"))
 
 import build_editorial_brief as brief_builder
+
+
+def write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+@contextmanager
+def local_temp_root():
+    root = PROJECT / f".tmp-editorial-{uuid.uuid4().hex}"
+    root.mkdir()
+    try:
+        yield root
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def candidate(item_id: str, **extra: object) -> dict:
+    row = {
+        "id": item_id,
+        "item_id": item_id,
+        "title": f"Local evidence {item_id}",
+        "source": "Reuters",
+        "source_role": "fact_anchor",
+        "evidence_role": "fact",
+        "summary": f"Compact summary for {item_id}.",
+        "theme_keys": ["rates_macro"],
+        "score": 10,
+    }
+    row.update(extra)
+    return row
+
+
+def model_brief() -> dict:
+    stories = []
+    for index, item_id in enumerate(["c1", "c2", "c3"], start=1):
+        stories.append(
+            {
+                "storyline_id": f"story-{index}",
+                "rank": index,
+                "title": f"Editorial story {index}",
+                "recommendation_stars": 3 if index == 1 else 2,
+                "rating_reason": "usable",
+                "lead_candidate_reason": "Local evidence supports this segment.",
+                "hook": f"Hook {index}",
+                "why_now": "The local packet has a timely fact anchor.",
+                "core_argument": "Use local evidence, not web-only claims.",
+                "signal_or_noise": "signal",
+                "market_causality": "fact/data/analysis support present",
+                "expectation_gap": "check_if_relevant",
+                "prepricing_risk": "check_if_relevant",
+                "first_5min_fit": "high",
+                "korea_open_relevance": "medium",
+                "evidence_to_use": [
+                    {
+                        "item_id": item_id,
+                        "evidence_id": item_id,
+                        "title": f"Local evidence {item_id}",
+                        "source_role": "fact_anchor",
+                        "evidence_role": "fact",
+                        "reason": "Local packet fact anchor.",
+                    }
+                ],
+                "evidence_to_drop": [],
+                "drop_code": "",
+                "slide_order": [f"Slide {index}"],
+                "slide_plan": [f"Slide {index}"],
+                "ppt_asset_queue": [],
+                "talk_track": f"Talk track {index}.",
+                "counterpoint": "If the local evidence weakens, downgrade.",
+                "what_would_change_my_mind": "Contrary local data.",
+                "closing_line": f"Closing {index}.",
+            }
+        )
+    return {
+        "broadcast_mode": "normal",
+        "daily_thesis": "Use local evidence to choose the lead.",
+        "one_line_market_frame": "Rates and local evidence frame the morning.",
+        "market_map_summary": "Market map is mixed.",
+        "editorial_summary": "Three local-evidence segments are usable.",
+        "ppt_asset_queue": [],
+        "talk_only_queue": [],
+        "drop_list": [],
+        "retrospective_watchpoints": [],
+        "storylines": stories,
+    }
+
+
+def seed_editorial_inputs(root: Path, target_date: str = "2026-05-03", extra_candidate: dict | None = None) -> tuple[Path, Path]:
+    processed = root / "data" / "processed"
+    runtime = root / "runtime"
+    day = processed / target_date
+    rows = [candidate("c1"), candidate("c2"), candidate("c3")]
+    if extra_candidate:
+        rows.append(extra_candidate)
+    write_json(
+        day / "market-radar.json",
+        {
+            "candidates": rows,
+            "storylines": [
+                {"storyline_id": f"fallback-{idx}", "title": f"Fallback {idx}", "selected_item_ids": [item_id], "recommendation_stars": 2}
+                for idx, item_id in enumerate(["c1", "c2", "c3"], start=1)
+            ],
+        },
+    )
+    write_json(
+        day / "market-focus-brief.json",
+        {
+            "market_focus_summary": "Local focus available.",
+            "what_market_is_watching": [{"rank": 1, "focus": "Rates", "broadcast_use": "lead", "evidence_ids": ["c1"], "source_ids": ["c1"]}],
+            "source_gaps": [{"issue": "gap", "safe_for_public": False}],
+            "suggested_broadcast_order": [{"rank": 1, "focus_rank": 1, "suggested_story_title": "Rates", "broadcast_use": "lead", "evidence_ids": ["c1"]}],
+        },
+    )
+    write_json(day / "finviz-feature-stocks.json", {"items": []})
+    write_json(day / "visual-cards.json", {"cards": []})
+    return processed, runtime
 
 
 class EditorialBriefContractTest(unittest.TestCase):
@@ -299,6 +420,122 @@ class EditorialBriefContractTest(unittest.TestCase):
         selected = brief_builder.select_editorial_candidates(rows, 3)
 
         self.assertIn("isabelnet-valuation", {item["id"] for item in selected})
+
+    def test_editorial_timeout_fallback_records_debug_stats(self) -> None:
+        with local_temp_root() as root:
+            processed, runtime = seed_editorial_inputs(root)
+            env_path = root / ".env"
+            env_path.write_text("OPENAI_API_KEY=dummy\n", encoding="utf-8")
+            output = root / "editorial-brief.json"
+            argv = [
+                "build_editorial_brief.py",
+                "--date",
+                "2026-05-03",
+                "--env",
+                str(env_path),
+                "--output",
+                str(output),
+                "--api-timeout-seconds",
+                "1",
+            ]
+            with (
+                mock.patch.object(brief_builder, "PROCESSED_DIR", processed),
+                mock.patch.object(brief_builder, "RUNTIME_DIR", runtime),
+                mock.patch.object(sys, "argv", argv),
+                mock.patch.object(brief_builder, "call_openai", side_effect=TimeoutError("read timed out")),
+            ):
+                self.assertEqual(0, brief_builder.main())
+
+            brief = json.loads(output.read_text(encoding="utf-8"))
+            self.assertTrue(brief["fallback"])
+            self.assertEqual("editorial_api_timeout", brief["fallback_code"])
+            self.assertIn("first_attempt", brief["debug_stats"])
+            self.assertIn("retry_attempt", brief["debug_stats"])
+            self.assertEqual("editorial_timeout_retry_compact", brief["debug_stats"]["retry_attempt"]["retry_code"])
+            self.assertTrue(brief["storylines"])
+
+    def test_editorial_timeout_compact_retry_can_succeed(self) -> None:
+        with local_temp_root() as root:
+            processed, runtime = seed_editorial_inputs(root)
+            env_path = root / ".env"
+            env_path.write_text("OPENAI_API_KEY=dummy\n", encoding="utf-8")
+            output = root / "editorial-brief.json"
+            argv = [
+                "build_editorial_brief.py",
+                "--date",
+                "2026-05-03",
+                "--env",
+                str(env_path),
+                "--output",
+                str(output),
+                "--api-timeout-seconds",
+                "1",
+            ]
+            with (
+                mock.patch.object(brief_builder, "PROCESSED_DIR", processed),
+                mock.patch.object(brief_builder, "RUNTIME_DIR", runtime),
+                mock.patch.object(sys, "argv", argv),
+                mock.patch.object(brief_builder, "call_openai", side_effect=[TimeoutError("read timed out"), (model_brief(), "resp_retry", {"id": "resp_retry"})]),
+            ):
+                self.assertEqual(0, brief_builder.main())
+
+            brief = json.loads(output.read_text(encoding="utf-8"))
+            self.assertFalse(brief["fallback"])
+            self.assertEqual("resp_retry", brief["raw_response_id"])
+            self.assertEqual("editorial_timeout_retry_compact", brief["debug_stats"]["retry_attempt"]["retry_code"])
+            self.assertLessEqual(
+                brief["debug_stats"]["retry_attempt"]["candidate_count_sent"],
+                brief["debug_stats"]["first_attempt"]["candidate_count_sent"],
+            )
+
+    def test_compact_retry_prompt_excludes_raw_fields_but_keeps_evidence_roles(self) -> None:
+        raw_candidate = candidate(
+            "c-raw",
+            title="Local raw candidate",
+            source="X",
+            source_role="sentiment_probe",
+            evidence_role="sentiment",
+            url="https://example.com/article?X-Amz-Signature=secret",
+            visual_local_path=r"C:\Users\User1\screenshots\raw.png",
+            summary="Compact summary with https://example.com/path and C:\\temp\\raw.png",
+            body="FULL ARTICLE BODY SHOULD NOT APPEAR",
+            html="<html>SHOULD NOT APPEAR</html>",
+            text="FULL X TEXT SHOULD NOT APPEAR",
+        )
+        with local_temp_root() as root:
+            processed, runtime = seed_editorial_inputs(root, extra_candidate=raw_candidate)
+            day = processed / "2026-05-03"
+            write_json(
+                day / "finviz-feature-stocks.json",
+                {
+                    "items": [
+                        {
+                            "ticker": "RAW",
+                            "title": "Raw ticker",
+                            "screenshot_path": r"C:\Users\User1\finviz\raw.png",
+                            "news": [{"time": "now", "headline": "Headline", "url": "https://example.com/news"}],
+                        }
+                    ]
+                },
+            )
+            write_json(
+                day / "visual-cards.json",
+                {"cards": [{"id": "card-raw", "title": "Card", "summary": "See https://example.com/card", "local_path": r"C:\tmp\card.png"}]},
+            )
+            with mock.patch.object(brief_builder, "PROCESSED_DIR", processed), mock.patch.object(brief_builder, "RUNTIME_DIR", runtime):
+                payload = brief_builder.build_input_payload("2026-05-03", 28, compact_retry=True)
+                prompt = brief_builder.build_prompt(payload)
+
+        self.assertNotIn("https://", prompt)
+        self.assertNotIn("C:\\", prompt)
+        self.assertNotIn("X-Amz", prompt)
+        self.assertNotIn("FULL ARTICLE BODY SHOULD NOT APPEAR", prompt)
+        self.assertNotIn("<html>", prompt)
+        self.assertNotIn("FULL X TEXT SHOULD NOT APPEAR", prompt)
+        self.assertIn("c-raw", prompt)
+        self.assertIn("source_role", prompt)
+        self.assertIn("evidence_role", prompt)
+        self.assertIn("asset_status", prompt)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,11 @@ Editorial principles:
 - If an important market issue appears missing from the local packet, put it in source_gaps instead of promoting it as a public story.
 - If a story has no local evidence_id/source_id, mark broadcast_use as drop and explain the source gap.
 - Do not invent prices, dates, quotes, or claims. Use the local packet and, only when enabled, web search to identify gaps.
+- Treat market_preflight_agenda as a pre-collection hypothesis, not evidence.
+- If preflight and local evidence conflict, local evidence wins; leave the downgrade or unresolved item in source_gaps, missing_assets, or false_leads.
+- If preflight suggested an issue but local evidence did not confirm it, do not promote it to lead, supporting_story, or talk_only.
+- The input packet may be sanitized; use the provided item_id/evidence_id aliases exactly.
+- If web_search discovers something without local evidence, keep it as source_gap rather than public fact.
 - Prefer concise Korean phrasing that sounds like a human broadcast editor.
 
 Field guidance:

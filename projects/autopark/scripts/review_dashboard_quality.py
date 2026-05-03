@@ -16,6 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 RUNTIME_NOTION_DIR = PROJECT_ROOT / "runtime" / "notion"
 RUNTIME_REVIEW_DIR = PROJECT_ROOT / "runtime" / "reviews"
+RUNTIME_PROMPT_DIR = PROJECT_ROOT / "runtime" / "openai-prompts"
 
 
 @dataclass
@@ -291,6 +292,111 @@ def compact_top_markdown(markdown: str) -> str:
     return re.split(r"^#\s+(?:PPT 제작 큐|자료 수집 상세|📚\s*추천 스토리라인)\s*$", markdown, maxsplit=1, flags=re.M)[0]
 
 
+PUBLIC_USES = {"lead", "supporting_story", "talk_only"}
+
+
+def json_blob(payload: object) -> str:
+    try:
+        return json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    except TypeError:
+        return str(payload)
+
+
+def local_evidence_blob(radar: dict) -> str:
+    parts: list[str] = []
+    for item in radar.get("candidates") or []:
+        if not isinstance(item, dict):
+            continue
+        for key in ["id", "item_id", "source", "source_name", "title", "headline", "summary", "radar_question"]:
+            value = item.get(key)
+            if value:
+                parts.append(str(value))
+    for chart_id in ["us10y", "crude-oil-wti", "crude-oil-brent", "dollar-index", "usd-krw", "bitcoin"]:
+        title = chart_title(chart_id)
+        if title:
+            parts.extend([chart_id, title])
+    return normalize(" ".join(parts)).lower()
+
+
+def target_tokens(value: str) -> list[str]:
+    stopwords = {
+        "the",
+        "and",
+        "for",
+        "with",
+        "market",
+        "markets",
+        "reaction",
+        "news",
+        "latest",
+        "today",
+        "check",
+        "source",
+    }
+    tokens = re.findall(r"[A-Za-z0-9가-힣/.-]{3,}", value or "")
+    rows: list[str] = []
+    for token in tokens:
+        lowered = token.lower().strip(".-/")
+        if lowered and lowered not in stopwords and lowered not in rows:
+            rows.append(lowered)
+    return rows
+
+
+def target_collected(target: dict, collected_blob: str) -> bool:
+    query = normalize(target.get("query_or_asset") or "")
+    if not query:
+        return False
+    lowered = query.lower()
+    if lowered in collected_blob:
+        return True
+    tokens = target_tokens(query)
+    if not tokens:
+        return False
+    needed = 1 if len(tokens) <= 2 else 2
+    return sum(1 for token in tokens if token in collected_blob) >= needed
+
+
+def query_too_broad(query: str) -> bool:
+    text = normalize(query).lower()
+    if not text:
+        return True
+    generic = {
+        "stock market news",
+        "market news",
+        "latest market news",
+        "us market news",
+        "stocks today",
+        "business news",
+    }
+    if text in generic:
+        return True
+    tokens = target_tokens(text)
+    if len(tokens) <= 1:
+        return True
+    return len(tokens) <= 2 and not re.search(r"\b(fed|fomc|cpi|pce|jobs|dxy|us10y|wti|brent|ai|nvidia|oil|earnings|reuters|bloomberg|cnbc)\b", text, re.I)
+
+
+def raw_packet_violations(input_payload: dict) -> list[str]:
+    blob = json_blob(input_payload)
+    checks = {
+        "raw URL": r"https?://",
+        "signed URL": r"(X-Amz-Signature|Signature=|Expires=|AWSAccessKeyId)",
+        "local screenshot path": r"([A-Za-z]:\\|runtime[\\/](?:screenshots|assets)|exports[\\/]current|\.png\b|\.jpe?g\b|\.webp\b)",
+        "article/social body key": r'"(?:body|html|full_text|raw_text|article_body)"\s*:',
+    }
+    return [label for label, pattern in checks.items() if re.search(pattern, blob, flags=re.I)]
+
+
+def preflight_downgrade_blob(focus_brief: dict) -> str:
+    parts: list[str] = []
+    for section_name in ["source_gaps", "false_leads", "missing_assets"]:
+        parts.append(json_blob(focus_brief.get(section_name) or []))
+    for focus in focus_brief.get("what_market_is_watching") or []:
+        if isinstance(focus, dict) and focus.get("broadcast_use") in {"drop", "talk_only"}:
+            parts.append(json_blob(focus))
+    return normalize(" ".join(parts)).lower()
+
+
 def review_integrity(target_date: str, markdown: str) -> list[Finding]:
     findings: list[Finding] = []
     processed = PROCESSED_DIR / target_date
@@ -561,6 +667,10 @@ def review_format(markdown: str, target_date: str) -> list[Finding]:
     storyline = section(markdown, r"추천 스토리라인")
     story_count = len(re.findall(r"^#{2,3}\s+\d+\.", storyline, flags=re.M))
     quote_count = len(re.findall(r"^>\s+", storyline, flags=re.M))
+    compact_storyline_format = bool(
+        re.search(r"^#{3,4}\s+슬라이드 구성", storyline, flags=re.M)
+        and re.search(r"^#{3,4}\s+자료 태그", storyline, flags=re.M)
+    )
     if story_count < 3:
         issue(
             findings,
@@ -570,7 +680,7 @@ def review_format(markdown: str, target_date: str) -> list[Finding]:
             f"현재 감지된 스토리라인은 {story_count}개입니다.",
             "방송 제작자가 고를 수 있도록 서로 다른 각도의 스토리라인 3개를 유지하세요.",
         )
-    if quote_count < story_count:
+    if quote_count < story_count and not compact_storyline_format:
         issue(
             findings,
             "format",
@@ -579,7 +689,7 @@ def review_format(markdown: str, target_date: str) -> list[Finding]:
             f"스토리라인 {story_count}개 중 quote는 {quote_count}개입니다.",
             "각 스토리라인 바로 아래에 한 줄 angle을 quote block으로 넣으세요.",
         )
-    if "선정 이유" not in storyline and "왜 지금" not in storyline:
+    if "선정 이유" not in storyline and "왜 지금" not in storyline and not compact_storyline_format:
         issue(
             findings,
             "format",
@@ -832,13 +942,17 @@ def review_editorial_storylines(markdown: str) -> list[Finding]:
             "각 스토리라인 제목 아래에 `추천도: ★★★` 형식의 3점 척도를 넣으세요.",
         )
 
-    uses_editorial_format = bool(re.search(r"^#{3,4}\s+(선정 이유|왜 지금|쓸 자료|자료 배치|자료 태그)", storyline, flags=re.M))
+    uses_editorial_format = bool(re.search(r"^#{3,4}\s+(선정 이유|왜 지금|쓸 자료|자료 배치|자료 태그|슬라이드 구성)", storyline, flags=re.M))
+    compact_storyline_format = bool(
+        re.search(r"^#{3,4}\s+슬라이드 구성", storyline, flags=re.M)
+        and re.search(r"^#{3,4}\s+자료 태그", storyline, flags=re.M)
+    )
     required_slots = [
         ("hook", r"^>\s+"),
         ("why_now", r"^#{3,4}\s+(선정 이유|왜 지금)"),
         ("talk_track", r"^#{3,4}\s+(짧은 말문|방송 멘트 초안)"),
     ]
-    if uses_editorial_format:
+    if uses_editorial_format and not compact_storyline_format:
         for index, block in enumerate(blocks, start=1):
             for label, pattern in required_slots:
                 if not re.search(pattern, block, flags=re.M):
@@ -906,19 +1020,42 @@ def review_market_focus_contract(target_date: str, markdown: str) -> list[Findin
     findings: list[Finding] = []
     processed = PROCESSED_DIR / target_date
     focus_brief, focus_error = load_json(processed / "market-focus-brief.json")
+    preflight_agenda, _ = load_json(processed / "market-preflight-agenda.json")
     radar, _ = load_json(processed / "market-radar.json")
     if focus_error == "missing" and "Market Focus Brief" not in markdown:
         return findings
 
     storyline = section(markdown, r"추천 스토리라인|異붿쿇 ?ㅽ넗由щ씪")
     media_focus = section(markdown, r"미디어 포커스|誘몃뵒??포커스|蹂댁“ 瑗")
+    public = public_markdown(markdown)
+    public_before_media = public_before_media_focus(markdown)
+    if preflight_agenda:
+        raw_preflight_markers = [
+            "Market Pre-flight Agenda",
+            "Agenda Items",
+            "collection_targets",
+            "targeted_news_queries",
+            "do_not_use_publicly",
+            "source_gaps_to_watch",
+        ]
+        leaked = [marker for marker in raw_preflight_markers if marker in public_before_media]
+        if leaked:
+            issue(
+                findings,
+                "content",
+                "medium",
+                "PREFLIGHT-001 preflight 원문 public 노출",
+                "상단 public 영역에 preflight 원문/필드가 노출됐습니다: " + ", ".join(leaked[:6]),
+                "Pre-flight는 discovery layer이므로 상단에는 `Pre-flight Agenda: 정상/fallback` 상태 라벨만 남기고 원문은 audit/debug에 두세요.",
+            )
+
     if storyline:
         direct_urls = re.findall(r"(?<!\]\()https?://\S+", storyline)
         images = re.findall(r"!\[[^\]]*]\([^)]+\)", storyline)
         long_material_lines = [
             line
             for line in storyline.splitlines()
-            if len(normalize(line)) > 120 and re.search(r"https?://|Reuters|Bloomberg|CNBC|Yahoo|TradingView|Kobeissi|기사|원문", line, re.I)
+            if len(normalize(line)) > 120 and re.search(r"https?://|Reuters|Bloomberg|CNBC|Yahoo|TradingView|Kobeissi|기사|원문|source_role|evidence_role", line, re.I)
         ]
         if direct_urls or images or len(long_material_lines) >= 2:
             issue(
@@ -984,15 +1121,103 @@ def review_market_focus_contract(target_date: str, markdown: str) -> list[Findin
             )
 
     local_ids = item_ids(radar)
+    collected_blob = local_evidence_blob(radar)
+    if preflight_agenda:
+        for item in (preflight_agenda.get("agenda_items") or [])[:3]:
+            if not isinstance(item, dict):
+                continue
+            fact_targets = [
+                target
+                for target in item.get("collection_targets") or []
+                if isinstance(target, dict)
+                and target.get("target_type") in {"chart", "news_search", "official_source", "market_reaction"}
+            ]
+            if fact_targets and not any(target_collected(target, collected_blob) for target in fact_targets):
+                issue(
+                    findings,
+                    "integrity",
+                    "medium",
+                    "PREFLIGHT-003 상위 agenda fact/data 미수집",
+                    f"rank {item.get('rank')} `{item.get('agenda_id')}`의 fact/data collection target이 local evidence에서 확인되지 않았습니다.",
+                    "rank 1~3 preflight target의 차트, 뉴스, 공식 출처 중 최소 하나는 market-radar 또는 chart asset에 연결하세요.",
+                )
+        broad_queries = []
+        priorities = preflight_agenda.get("collection_priorities") or {}
+        for query in [*(priorities.get("targeted_news_queries") or []), *(priorities.get("targeted_x_queries") or [])]:
+            if query_too_broad(str(query)):
+                broad_queries.append(str(query))
+        for item in preflight_agenda.get("agenda_items") or []:
+            if not isinstance(item, dict):
+                continue
+            for target in item.get("collection_targets") or []:
+                if isinstance(target, dict) and target.get("target_type") in {"news_search", "x_search", "official_source"}:
+                    query = str(target.get("query_or_asset") or "")
+                    if query_too_broad(query):
+                        broad_queries.append(query)
+        if broad_queries:
+            issue(
+                findings,
+                "content",
+                "medium",
+                "PREFLIGHT-004 실행 불가능한 broad query",
+                "Pre-flight suggested query가 너무 넓습니다: " + ", ".join(sorted(set(broad_queries))[:6]),
+                "`stock market news` 같은 포괄 쿼리 대신 Fed/유가/기업명/출처/가격 반응을 포함한 실행 가능한 쿼리로 좁히세요.",
+            )
+
+        downgrade_blob = preflight_downgrade_blob(focus_brief)
+        focus_public_blob = normalize(
+            " ".join(
+                json_blob(focus)
+                for focus in focus_items
+                if isinstance(focus, dict) and focus.get("broadcast_use") in PUBLIC_USES
+            )
+        ).lower()
+        for item in (preflight_agenda.get("agenda_items") or [])[:3]:
+            if not isinstance(item, dict) or item.get("expected_broadcast_use") not in {"lead_candidate", "supporting_candidate"}:
+                continue
+            same_rank_public = any(
+                isinstance(focus, dict)
+                and int(focus.get("rank") or 0) == int(item.get("rank") or 0)
+                and focus.get("broadcast_use") in PUBLIC_USES
+                for focus in focus_items
+            )
+            if same_rank_public:
+                continue
+            agenda_id = normalize(item.get("agenda_id") or "").lower()
+            question_tokens = target_tokens(item.get("market_question") or "")
+            overlaps_public = agenda_id and agenda_id in focus_public_blob
+            overlaps_public = overlaps_public or sum(1 for token in question_tokens if token in focus_public_blob) >= 2
+            mentions_downgrade = agenda_id and agenda_id in downgrade_blob
+            mentions_downgrade = mentions_downgrade or sum(1 for token in question_tokens if token in downgrade_blob) >= 2
+            if not overlaps_public and not mentions_downgrade:
+                issue(
+                    findings,
+                    "integrity",
+                    "medium",
+                    "FOCUS-003 preflight 충돌 downgrade reason 없음",
+                    f"preflight rank {item.get('rank')} `{item.get('agenda_id')}`가 public focus로 확인되지 않았지만 source_gap/false_lead/drop 사유도 보이지 않습니다.",
+                    "preflight 가설이 local evidence와 충돌하거나 수집 실패했다면 Market Focus의 source_gap, false_leads, missing_assets 중 하나에 downgrade reason을 남기세요.",
+                )
+
     web_urls = {
         normalize(item.get("url"))
         for item in focus_brief.get("web_sources") or []
         if isinstance(item, dict) and item.get("url")
     }
     for focus in focus_items:
-        if focus.get("broadcast_use") not in {"lead", "supporting_story", "talk_only"}:
+        if focus.get("broadcast_use") not in PUBLIC_USES:
             continue
         ids = [*(focus.get("evidence_ids") or []), *(focus.get("source_ids") or [])]
+        local_hit = any(item_id in local_ids for item_id in ids)
+        if preflight_agenda and not local_hit:
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "PREFLIGHT-002 local evidence 없는 preflight 승격",
+                f"public broadcast_use={focus.get('broadcast_use')} focus가 local evidence_id/source_id 없이 승격됐습니다: {', '.join(ids[:5]) or 'no ids'}",
+                "Pre-flight는 가설일 뿐이므로 local evidence에 연결되지 않으면 source_gap/drop으로 내려야 합니다.",
+            )
         web_only = [item_id for item_id in ids if item_id in web_urls]
         no_local = ids and not any(item_id in local_ids for item_id in ids)
         has_related_gap = any(int(gap.get("related_focus_rank") or 0) == int(focus.get("rank") or 0) for gap in focus_brief.get("source_gaps") or [])
@@ -1004,6 +1229,45 @@ def review_market_focus_contract(target_date: str, markdown: str) -> list[Findin
                 "WEB-001 web_search-only 근거 public 노출",
                 f"public broadcast_use={focus.get('broadcast_use')} focus가 local evidence 없이 web_search 근거를 사용합니다: {', '.join((web_only or ids)[:5])}",
                 "web_search로 발견한 내용은 기존 evidence_id가 없으면 source_gap으로 표시하고 public fact/lead로 노출하지 마세요.",
+            )
+        if preflight_agenda.get("with_web") and not local_hit:
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "WEB-002 preflight web_search-only public 노출",
+                f"Pre-flight web_search가 켜진 상태에서 local evidence 없는 focus가 public 후보로 남았습니다: {focus.get('suggested_story_title') or focus.get('focus')}",
+                "Pre-flight web_search 결과는 discovery hint이며, local evidence_id가 생기기 전에는 public fact가 아니라 source_gap이어야 합니다.",
+            )
+
+    if preflight_agenda.get("with_web"):
+        web_titles = [
+            normalize(item.get("title") or item.get("source") or "")
+            for item in preflight_agenda.get("web_sources") or []
+            if isinstance(item, dict)
+        ]
+        exposed = [title for title in web_titles if len(title) >= 24 and title in public]
+        if exposed:
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "WEB-002 preflight web_search-only public 노출",
+                "Pre-flight web source title이 public 영역에 직접 노출됐습니다: " + ", ".join(exposed[:3]),
+                "Pre-flight web 발견은 evidence_id가 생길 때까지 source_gap/audit에만 둬야 합니다.",
+            )
+
+    prompt_payload, prompt_error = load_json(RUNTIME_PROMPT_DIR / f"{target_date}-market-focus-prompt.json")
+    if not prompt_error:
+        violations = raw_packet_violations(prompt_payload.get("input_payload") or {})
+        if violations:
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "SANITIZE-001 Market Focus input raw field 포함",
+                "Market Focus input packet에 sanitized policy 위반이 있습니다: " + ", ".join(violations),
+                "OpenAI로 보낼 packet에는 raw URL, signed URL, local screenshot path, full article/X body를 제외하세요.",
             )
     return findings
 

@@ -173,9 +173,12 @@ class MarketFocusBriefContractTest(unittest.TestCase):
     def test_synthetic_smoke_payload_has_local_ids_without_real_sources(self) -> None:
         payload = focus_builder.synthetic_smoke_payload("2026-05-03")
         ids = focus_builder.known_evidence_ids(payload)
+        aliases = payload[focus_builder.LOCAL_ALIAS_KEY]
 
-        self.assertIn("synthetic-fed-1", ids)
-        self.assertIn("synthetic-us10y-1", ids)
+        self.assertTrue(any(value == "synthetic-fed-1" for value in aliases.values()))
+        self.assertTrue(any(value == "synthetic-us10y-1" for value in aliases.values()))
+        self.assertTrue(any(item.startswith("ev_") for item in ids))
+        self.assertNotIn(focus_builder.LOCAL_ALIAS_KEY, focus_builder.prompt_payload(payload))
         self.assertTrue(payload["input_limits"]["synthetic_smoke"])
 
 
