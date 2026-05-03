@@ -25,7 +25,8 @@ DEFAULT_ENV = REPO_ROOT / ".env"
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_GROUP_SIZE = 30
 DEFAULT_FALLBACK = "deterministic"
-MAX_LINE_CHARS = 90
+MAX_TITLE_CHARS = 24
+MAX_CONTENT_CHARS = 300
 FORBIDDEN_TOKENS = [
     "source_role",
     "evidence_role",
@@ -36,7 +37,7 @@ FORBIDDEN_TOKENS = [
     "http://",
     "https://",
 ]
-GENERATED_FIELDS = ["content"]
+GENERATED_FIELDS = ["title", "content"]
 
 
 EVIDENCE_MICROCOPY_RESPONSE_SCHEMA: dict[str, Any] = {
@@ -132,7 +133,7 @@ def raw_body_like(text: str) -> bool:
     )
 
 
-def sanitize_line(value: object, limit: int = MAX_LINE_CHARS) -> str:
+def sanitize_line(value: object, limit: int = MAX_CONTENT_CHARS) -> str:
     text = strip_forbidden(str(value or ""))
     if not text or forbidden_hit(text) or raw_body_like(text):
         return ""
@@ -206,15 +207,15 @@ def fallback_content(item: dict) -> str:
     title = title_of(item)
     summary = summary_of(item)
     if summary and summary != title:
-        return sanitize_line(summary, MAX_LINE_CHARS) or sanitize_line(title, MAX_LINE_CHARS)
-    return sanitize_line(title, MAX_LINE_CHARS) or "자료의 핵심 내용을 한 줄로 정리했습니다."
+        return sanitize_line(summary, MAX_CONTENT_CHARS) or sanitize_line(title, MAX_CONTENT_CHARS)
+    return sanitize_line(title, MAX_CONTENT_CHARS) or "자료의 핵심 내용을 정리했습니다."
 
 
 def deterministic_item(item: dict, reason: str = "deterministic") -> dict:
     return {
         "item_id": item_id_of(item),
         "source_label": sanitize_line(source_label_of(item), 80) or "Autopark",
-        "title": sanitize_line(title_of(item), 90) or item_id_of(item),
+        "title": sanitize_line(title_of(item), MAX_TITLE_CHARS) or item_id_of(item),
         "content": fallback_content(item),
         "fallback": True,
         "fallback_reason": reason,
@@ -228,11 +229,11 @@ def validate_item(output: dict, source_item: dict) -> tuple[dict, list[str]]:
     if item_id != expected_id:
         errors.append("item_id_mismatch")
     source_label = sanitize_line(output.get("source_label") or source_label_of(source_item), 80)
-    title = sanitize_line(output.get("title") or title_of(source_item), 90)
+    title = sanitize_line(output.get("title") or title_of(source_item), MAX_TITLE_CHARS)
     content = sanitize_line(
         output.get("content")
         or " ".join(str(value) for value in (output.get("summary_bullets") or [])[:1]),
-        MAX_LINE_CHARS,
+        MAX_CONTENT_CHARS,
     )
     if not content:
         errors.append("missing_content")
@@ -267,9 +268,11 @@ def build_prompt(target_date: str, items: list[dict]) -> str:
     return f"""You write evidence-level Korean microcopy for Autopark.
 
 Task:
-- For each item, write exactly one Korean content sentence, <= 90 characters.
-- The sentence should say only what the news/material says.
-- Do not add interpretation, implications, PPT usage, cautions, or phrases like "자료입니다".
+- For each item, write a short public title around 20 Korean characters, hard max 24 characters.
+- For each item, write exactly one content paragraph, 120-300 characters when source detail allows.
+- The content should say what the news/material says, with enough context for a host to understand it quickly.
+- Korean should be the base language, but English market terms or quoted phrases are allowed when useful.
+- Do not add unsupported interpretation, PPT usage, cautions, or phrases like "자료입니다".
 
 Strict rules:
 - Do not change item_id, item order, ranking, selection, storyline, or material labels.

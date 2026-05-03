@@ -615,7 +615,7 @@ def render_fedwatch_heatmap(target_date: str, headers: list[str], rows: list[lis
     return str(out_path)
 
 
-def summarize_material_text(row: dict, limit: int = 220) -> str:
+def summarize_material_text(row: dict, limit: int = 300) -> str:
     if row.get("micro_content"):
         return public_complete_text(row.get("micro_content"), limit)
     text = clean(row.get("summary") or row.get("text") or row.get("headline") or row.get("title"))
@@ -1417,7 +1417,7 @@ def public_material_label(asset: dict, story: dict | None = None, focus: dict | 
         if explicit_id in PUBLIC_ITEM_LABELS:
             return PUBLIC_ITEM_LABELS[explicit_id]
 
-    for key in ["public_material_label", "host_facing_material_name", "label"]:
+    for key in ["micro_title", "public_title", "public_material_label", "host_facing_material_name", "label"]:
         candidate = asset.get(key) if isinstance(asset, dict) else ""
         candidate_text = markdown_plain(candidate)
         if candidate_text in PUBLIC_LABEL_ALIASES:
@@ -3331,10 +3331,12 @@ def material_dedupe_keys(card: dict) -> set[str]:
         if value:
             keys.add(f"{key}:{value.lower()}")
     label = clean(card.get("label"))
-    if label:
+    images = [clean(image) for image in (card.get("images") or []) if clean(image)]
+    has_visual = bool(clean(card.get("image") or card.get("local_path") or card.get("visual_local_path")) or images)
+    allow_same_label_visual = card.get("section") == "media_focus" and has_visual
+    if label and not allow_same_label_visual:
         keys.add(f"label:{label.lower()}")
-    for image in card.get("images") or []:
-        image_value = clean(image)
+    for image_value in images:
         if image_value:
             keys.add(f"image:{image_value.lower()}")
     return keys
@@ -3400,7 +3402,7 @@ def content_bullets(card: dict) -> list[str]:
     parts = [clean(part) for part in re.split(r"(?<=[.!?。])\s+|\n+", raw) if clean(part)]
     if not parts:
         parts = [raw]
-    return [clean(part, 90) for part in parts[:3]]
+    return [clean(part, 300) for part in parts[:1]]
 
 
 def circled_number(index: int) -> str:
@@ -3458,7 +3460,8 @@ def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str
     lines.append("- 내용:")
     bullets = (microcopy_card or {}).get("content_bullets") or content_bullets(card)
     for bullet in bullets[:3]:
-        lines.append(f"  - {compact_public_text(bullet, 90, '자료의 가격 반응과 방송 연결 포인트를 확인한다.')}")
+        text = clean(remove_host_forbidden(str(bullet or "")), 300) or "자료의 가격 반응과 방송 연결 포인트를 확인한다."
+        lines.append(f"  - {text}")
     image = clean(card.get("image") or card.get("visual_local_path") or card.get("local_path"))
     if image:
         lines.extend(["", notion_image(label, image)])
@@ -3756,9 +3759,10 @@ def attach_evidence_microcopy(rows: list[dict], payload: dict) -> list[dict]:
         item_id = clean(item.get("item_id") or item.get("id"))
         copy = lookup.get(item_id)
         if copy:
+            item["micro_title"] = compact_public_text(copy.get("title") or "", 28, "")
             item["micro_content"] = compact_public_text(
                 copy.get("content") or " ".join((copy.get("summary_bullets") or [])[:1]),
-                90,
+                300,
                 "",
             )
         enriched.append(item)

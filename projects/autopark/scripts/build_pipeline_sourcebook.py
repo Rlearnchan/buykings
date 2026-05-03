@@ -454,13 +454,14 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
             f"- fallback_count: `{evidence_microcopy.get('fallback_count') or 0}`",
             f"- invalid_output_count: `{evidence_microcopy.get('invalid_output_count') or 0}`",
             f"- estimated_tokens: `{evidence_microcopy.get('estimated_tokens') or 0}`",
-            f"- generated fields: `{', '.join(evidence_microcopy.get('generated_fields') or ['content'])}`",
+            f"- generated fields: `{', '.join(evidence_microcopy.get('generated_fields') or ['title', 'content'])}`",
             markdown_table(
-                ["item_id", "source", "content"],
+                ["item_id", "source", "title", "content"],
                 [
                     [
                         item.get("item_id"),
                         item.get("source_label"),
+                        item.get("title"),
                         item.get("content") or " / ".join((item.get("summary_bullets") or [])[:1]),
                     ]
                     for item in (evidence_microcopy.get("items") or [])[:30]

@@ -294,9 +294,10 @@ def attach_evidence_microcopy(rows: list[dict], microcopy: dict) -> list[dict]:
         item = dict(row)
         copy = lookup.get(item_id_of(item))
         if copy:
+            item["micro_title"] = compact_text(copy.get("title") or "", 28)
             item["micro_content"] = compact_text(
                 copy.get("content") or " ".join((copy.get("summary_bullets") or [])[:1]),
-                90,
+                300,
             )
         enriched.append(item)
     return enriched
@@ -321,7 +322,8 @@ def compact_candidate(item: dict) -> dict:
         "korea_open_relevance": compact_text(item.get("korea_open_relevance") or "", 120),
         "radar_question": compact_text(item.get("radar_question") or "", 180),
         "summary": compact_text(item.get("summary") or item.get("description") or "", 320),
-        "micro_content": compact_text(item.get("micro_content") or "", 90),
+        "micro_title": compact_text(item.get("micro_title") or "", 28),
+        "micro_content": compact_text(item.get("micro_content") or "", 300),
         "visual_local_path": item.get("visual_local_path") or "",
         "image_refs": [
             {
@@ -541,7 +543,8 @@ def sanitize_candidate(item: dict, aliases: dict[str, str]) -> dict:
         "prepricing_risk": sanitized_text(item.get("prepricing_risk") or "", 120),
         "korea_open_relevance": sanitized_text(item.get("korea_open_relevance") or "", 120),
         "radar_question": sanitized_text(item.get("radar_question") or "", 180),
-        "micro_content": sanitized_text(item.get("micro_content") or "", 90),
+        "micro_title": sanitized_text(item.get("micro_title") or "", 28),
+        "micro_content": sanitized_text(item.get("micro_content") or "", 300),
         "asset_status": "capture_candidate" if item.get("visual_local_path") or item.get("image_refs") else "no_capture",
     }
 
@@ -878,7 +881,7 @@ def build_prompt(payload: dict, with_web: bool = False) -> str:
 
 Runtime mode:
 - {web_note}
-- candidates[].micro_content is a one-line description of what the material says; do not let it change source order or promote unsupported stories.
+- candidates[].micro_title is a short public title; candidates[].micro_content is a 120-300 character description of what the material says; do not let either change source order or promote unsupported stories.
 
 Return JSON matching the provided schema. Do not wrap it in Markdown.
 

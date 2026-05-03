@@ -139,10 +139,22 @@ def review_evidence_microcopy_contract(target_date: str) -> list[Finding]:
             "Evidence microcopy is enabled but generated zero item summaries.",
             "Generate deterministic fallback rows when the API path is unavailable.",
         )
+    generated_fields = {str(field) for field in (payload.get("generated_fields") or [])}
+    requires_public_title = "title" in generated_fields
     for index, item in enumerate(payload.get("items") or [], start=1):
         if not isinstance(item, dict):
             issue(findings, "integrity", "high", "Invalid evidence microcopy row", f"Row {index} is not an object.", "Keep items as JSON objects.")
             continue
+        title = normalize(str(item.get("title") or ""))
+        if requires_public_title and (not title or len(title) > 28):
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "Evidence microcopy title invalid",
+                f"`{item.get('item_id') or index}` title is {len(title)} chars.",
+                "Keep evidence microcopy titles around 20 characters and under 28 characters.",
+            )
         content = normalize(str(item.get("content") or " ".join((item.get("summary_bullets") or [])[:1]) or ""))
         if not content:
             issue(
@@ -155,14 +167,14 @@ def review_evidence_microcopy_contract(target_date: str) -> list[Finding]:
             )
         for field, value in [("content", content)]:
             text = normalize(str(value or ""))
-            if len(text) > 90:
+            if len(text) > 300:
                 issue(
                     findings,
                     "integrity",
                     "high",
                     "Evidence microcopy line too long",
                     f"`{item.get('item_id') or index}` {field} is {len(text)} chars.",
-                    "Keep every generated evidence microcopy line within 90 characters.",
+                    "Keep generated evidence microcopy content within 300 characters.",
                 )
             lowered = text.lower()
             if any(token.lower() in lowered for token in EVIDENCE_MICROCOPY_FORBIDDEN):
@@ -581,8 +593,7 @@ def compact_raw_source_like(text: str) -> bool:
     lowered = normalize(text).lower()
     enum_like = re.fullmatch(r"[a-z0-9_.:-]{3,40}", lowered.strip() or "") is not None
     return bool(
-        compact_english_word_run_too_long(text)
-        or enum_like
+        enum_like
         or "_" in lowered
         or re.search(r"\b[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/|\b)", lowered)
         or re.search(r"@\w+|breaking:|trump on|says he will|등\s+\d+개\s+출처|source-count|same direction", lowered)
@@ -800,9 +811,9 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
             bullets = re.findall(r"^\s{2}-\s+(.+)$", content_part, flags=re.M)
             if len(bullets) != 1:
                 issue(findings, "format", "high", "COMPACT-038 미디어 내용 bullet 수 위반", f"{title}: {len(bullets)}개", "내용 bullet은 1개만 렌더하세요.")
-            long_bullets = [bullet for bullet in bullets if len(bullet) > 90 or compact_raw_source_like(bullet)]
+            long_bullets = [bullet for bullet in bullets if len(bullet) > 300 or compact_raw_source_like(bullet)]
             if long_bullets:
-                issue(findings, "format", "high", "COMPACT-039 미디어 내용 bullet 위반", f"{title}: " + ", ".join(long_bullets[:2]), "내용 bullet은 90자 이하 public 문장으로 렌더하세요.")
+                issue(findings, "format", "high", "COMPACT-039 미디어 내용 bullet 위반", f"{title}: " + ", ".join(long_bullets[:2]), "내용 bullet은 300자 이하 public 문장으로 렌더하세요.")
         if "3. 실적/특징주" not in sections:
             issue(findings, "format", "high", "COMPACT-046 실적/특징주 누락", "## 3. 실적/특징주 section이 없습니다.", "특징주와 실적 캘린더는 미디어 포커스가 아니라 3번 섹션에 렌더하세요.")
         feature_blocks = compact_card_blocks(feature_body)

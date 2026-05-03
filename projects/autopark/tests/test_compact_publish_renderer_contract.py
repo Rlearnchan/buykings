@@ -353,7 +353,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
             bullets = re.findall(r"^\s{2}-\s+(.+)$", block.split("- 내용:", 1)[1], flags=re.M)
             self.assertGreaterEqual(len(bullets), 1)
             self.assertLessEqual(len(bullets), 3)
-            self.assertTrue(all(len(bullet) <= 90 for bullet in bullets))
+            self.assertTrue(all(len(bullet) <= 300 for bullet in bullets))
         self.assertIn("https://example.com/rates-story", collection)
         feature_body = quality.compact_collection_section_body(collection, "3. 실적/특징주")
         feature_blocks = quality.compact_card_blocks(feature_body)
@@ -500,6 +500,30 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertGreaterEqual(invalid_count, 1)
         self.assertEqual(fallback["storylines"][0]["quote_lines"], payload["storylines"][0]["quote_lines"])
         self.assertEqual(["금리 부담을 90자 이내로 확인한다."], payload["media_focus_cards"][0]["content_bullets"])
+
+    def test_media_visual_with_same_label_as_market_card_is_not_deduped(self) -> None:
+        market_cards, media_cards = dashboard.prepare_compact_collection_cards(
+            [
+                {
+                    "section": "market_now",
+                    "asset_key": "us10y",
+                    "label": "10년물 국채금리",
+                    "item_id": "us10y",
+                    "image": "market-us10y.png",
+                },
+                {
+                    "section": "media_focus",
+                    "label": "10년물 국채금리",
+                    "item_id": "advanced-us10y-chart",
+                    "image": "advanced-us10y-chart.png",
+                    "source": "IsabelNet",
+                },
+            ]
+        )
+
+        self.assertEqual(1, len(market_cards))
+        self.assertEqual(1, len(media_cards))
+        self.assertEqual("advanced-us10y-chart.png", media_cards[0]["image"])
 
 
 if __name__ == "__main__":

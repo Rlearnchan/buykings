@@ -720,12 +720,14 @@ def compact_candidate(
     summary_source = item.get("summary") or item.get("selection_reason")
     if allow_text_fallback and not summary_source:
         summary_source = item.get("text")
-    micro_content = compact_text(item.get("micro_content") or "", 90)
+    micro_content = compact_text(item.get("micro_content") or "", 300)
+    micro_title = compact_text(item.get("micro_title") or "", 28)
     if minimal:
         return {
             "id": str(item.get("id") or ""),
             "item_id": str(item.get("item_id") or item.get("id") or ""),
             "title": compact_text(title_of(item), 140),
+            "micro_title": micro_title,
             "source": source_of(item),
             "source_role": source_role,
             "evidence_role": evidence_role,
@@ -734,13 +736,14 @@ def compact_candidate(
             "score": item.get("score") or item.get("final_score") or 0,
             "theme_keys": (item.get("theme_keys") or item.get("market_hooks") or [])[:5],
             "summary": sanitize_prompt_text(summary_source, summary_limit),
-            "micro_content": sanitize_prompt_text(micro_content, 90),
+            "micro_content": sanitize_prompt_text(micro_content, 300),
             "asset_status": "visual_available" if item.get("visual_local_path") else "no_local_visual",
         }
     row = {
         "id": str(item.get("id") or ""),
         "item_id": str(item.get("item_id") or item.get("id") or ""),
         "title": title_of(item),
+        "micro_title": micro_title,
         "source": source_of(item),
         "source_role": source_role,
         "evidence_role": evidence_role,
@@ -760,7 +763,7 @@ def compact_candidate(
         "drop_risk": item.get("drop_risk") or "",
         "talk_vs_slide": talk_vs_slide,
         "summary": sanitize_prompt_text(summary_source, summary_limit) if not include_url else compact_text(summary_source, summary_limit),
-        "micro_content": sanitize_prompt_text(micro_content, 90) if not include_url else micro_content,
+        "micro_content": sanitize_prompt_text(micro_content, 300) if not include_url else micro_content,
         "asset_status": "visual_available" if item.get("visual_local_path") else "no_local_visual",
     }
     if include_url:
@@ -828,9 +831,10 @@ def attach_evidence_microcopy(rows: list[dict], microcopy: dict) -> list[dict]:
         item_id = str(item.get("item_id") or item.get("id") or "")
         copy = lookup.get(item_id)
         if copy:
+            item["micro_title"] = compact_text(copy.get("title") or "", 28)
             item["micro_content"] = compact_text(
                 copy.get("content") or " ".join((copy.get("summary_bullets") or [])[:1]),
-                90,
+                300,
             )
         enriched.append(item)
     return enriched
@@ -1177,7 +1181,7 @@ Rules:
 - Use only the provided candidates and evidence IDs.
 - Do not invent facts, prices, dates, or claims outside the evidence.
 - Treat market_focus_brief as the upstream ranking prior for the lead and storyline order, not as standalone evidence.
-- Treat candidates[].micro_content as one-line material descriptions; they do not rank, select, or prove causality by themselves.
+- Treat candidates[].micro_title and candidates[].micro_content as public wording helpers; they do not rank, select, or prove causality by themselves.
 - If market_focus_brief marks an issue as source_gap or lacks local evidence_ids/source_ids, do not promote it as a public storyline.
 - When market_focus_brief conflicts with candidate evidence, evidence quality wins; explain the downgrade in evidence_to_drop or retrospective_watchpoints.
 - Select 3 to 5 storylines. Do not pad to 5 if only 3 are strong.

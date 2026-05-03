@@ -90,8 +90,10 @@ class EvidenceMicrocopyContractTest(unittest.TestCase):
         self.assertEqual("deterministic_missing_api_key", payload["source"])
         self.assertEqual(2, payload["item_count"])
         self.assertEqual(2, payload["fallback_count"])
+        self.assertTrue(all(item["title"] for item in payload["items"]))
+        self.assertTrue(all(len(item["title"]) <= 28 for item in payload["items"]))
         self.assertTrue(all(item["content"] for item in payload["items"]))
-        self.assertTrue(all(len(item["content"]) <= 90 for item in payload["items"]))
+        self.assertTrue(all(len(item["content"]) <= 300 for item in payload["items"]))
 
     def test_invalid_output_falls_back_for_that_item_only(self) -> None:
         source_item = {"id": "oil-1", "title": "Oil", "source": "Reuters", "summary": "Oil summary"}
@@ -156,12 +158,13 @@ class EvidenceMicrocopyContractTest(unittest.TestCase):
             {
                 "ok": True,
                 "enabled": True,
+                "generated_fields": ["title", "content"],
                 "items": [
                     {
                         "item_id": "oil-1",
                         "source_label": "Reuters",
                         "title": "Oil",
-                        "content": "x" * 91,
+                        "content": "x" * 301,
                     }
                 ],
             },

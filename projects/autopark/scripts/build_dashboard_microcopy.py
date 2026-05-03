@@ -118,6 +118,18 @@ def raw_source_like(text: str) -> bool:
     )
 
 
+def content_raw_source_like(text: str) -> bool:
+    lowered = (text or "").lower()
+    enum_like = re.fullmatch(r"[a-z0-9_.:-]{3,40}", lowered.strip() or "") is not None
+    return bool(
+        enum_like
+        or "_" in lowered
+        or re.search(r"\b[a-z0-9][a-z0-9.-]+\.[a-z]{2,}(?:/|\b)", lowered)
+        or re.search(r"@\w+|source-count|source_gap|false_lead|missing_assets", lowered)
+        or lowered.count("/") >= 2
+    )
+
+
 def sanitize_line(value: Any, limit: int = 90) -> str:
     text = strip_markdown(value)
     for token in FORBIDDEN_TOKENS:
@@ -133,6 +145,19 @@ def sanitize_line(value: Any, limit: int = 90) -> str:
     if end >= max(32, limit // 2):
         return clipped[: end + 1].rstrip()
     return clipped[: limit - 1].rstrip(" ,.;:") + "…"
+
+
+def sanitize_content_line(value: Any, limit: int = 300) -> str:
+    text = strip_markdown(value)
+    for token in FORBIDDEN_TOKENS:
+        text = re.sub(re.escape(token), "", text, flags=re.I)
+    text = re.sub(r"\b[A-Za-z]:\\\S+|/Users/\S+|/home/\S+", "", text)
+    text = re.sub(r"\s+", " ", text).strip(" -:/")
+    if not text or content_raw_source_like(text):
+        return ""
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip(" ,.;:") + "…"
 
 
 def sentence_parts(value: Any) -> list[str]:
@@ -357,13 +382,14 @@ def deterministic_card(card: dict[str, Any]) -> dict[str, Any]:
         card.get("label"),
     ]
     fallbacks = card_fallbacks(card)
-    bullets = pick_lines(
-        seeds,
-        limit=90,
-        minimum=1,
-        maximum=1,
-        fallbacks=fallbacks,
-    )
+    bullets: list[str] = []
+    for seed in [*seeds, *fallbacks]:
+        line = sanitize_content_line(seed, 300)
+        if line:
+            bullets.append(line)
+            break
+    if not bullets:
+        bullets = [fallbacks[0]]
     return {"card_key": clean(card.get("card_key")), "content_bullets": bullets[:1]}
 
 
@@ -428,8 +454,11 @@ def validate_card(item: dict[str, Any], expected: dict[str, dict[str, Any]]) -> 
     card_key = clean(item.get("card_key"))
     if card_key not in expected:
         return None
-    bullets = valid_lines(item.get("content_bullets"), minimum=1, maximum=1, limit=90)
-    if bullets is None:
+    raw_bullets = item.get("content_bullets")
+    if not isinstance(raw_bullets, list) or len(raw_bullets) != 1:
+        return None
+    bullets = [sanitize_content_line(raw_bullets[0], 300)]
+    if not bullets[0] or forbidden_hit(bullets[0]) or len(bullets[0]) > 300:
         return None
     return {"card_key": card_key, "content_bullets": bullets}
 
@@ -505,8 +534,8 @@ def build_prompt(context: dict[str, Any]) -> str:
             "- Korean, concise, presenter-friendly.",
             "- quote_lines: 1-3 lines, each <=90 Korean characters.",
             "- host_relevance_bullets: 2-3 bullets, each <=90 Korean characters.",
-            "- content_bullets: exactly 1 bullet, <=90 Korean characters.",
-            "- For media focus content, state only what the material says; do not add interpretation, usage, or caution.",
+            "- content_bullets: exactly 1 bullet, 120-300 characters when source detail allows.",
+            "- For media focus content, state what the material says with useful context; Korean base is preferred, but English market terms or short quoted phrases are allowed.",
             "- Never include URLs, source_role, evidence_role, item_id, evidence_id, asset_id, or MF hashes.",
             "- Storyline relevance must explain yesterday's market attention, why it fits the first 5 minutes, and the Korea/PPT/personal-investor connection.",
             "Return strict JSON only.",
