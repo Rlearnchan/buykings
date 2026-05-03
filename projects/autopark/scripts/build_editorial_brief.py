@@ -433,6 +433,81 @@ def referenced_candidate_ids_from_storylines(storylines: list[dict]) -> set[str]
     return ids
 
 
+def referenced_candidate_ids_from_market_focus(brief: dict) -> set[str]:
+    ids: set[str] = set()
+    for focus in brief.get("what_market_is_watching") or []:
+        for item_id in [*(focus.get("evidence_ids") or []), *(focus.get("source_ids") or [])]:
+            if item_id:
+                ids.add(str(item_id))
+    for item in brief.get("suggested_broadcast_order") or []:
+        for item_id in item.get("evidence_ids") or []:
+            if item_id:
+                ids.add(str(item_id))
+    return ids
+
+
+def compact_market_focus_brief(brief: dict) -> dict:
+    if not brief or not isinstance(brief.get("what_market_is_watching"), list):
+        return {}
+    return {
+        "available": True,
+        "fallback": bool(brief.get("fallback")),
+        "market_focus_summary": compact_text(brief.get("market_focus_summary"), 360),
+        "what_market_is_watching": [
+            {
+                "rank": item.get("rank"),
+                "focus": compact_text(item.get("focus"), 140),
+                "market_question": compact_text(item.get("market_question"), 220),
+                "why_it_matters": compact_text(item.get("why_it_matters"), 260),
+                "price_confirmation": compact_text(item.get("price_confirmation"), 180),
+                "broadcast_use": item.get("broadcast_use") or "",
+                "confidence": item.get("confidence") or 0,
+                "suggested_story_title": compact_text(item.get("suggested_story_title"), 120),
+                "one_sentence_for_host": compact_text(item.get("one_sentence_for_host"), 180),
+                "source_ids": item.get("source_ids") or [],
+                "evidence_ids": item.get("evidence_ids") or [],
+                "missing_assets": item.get("missing_assets") or [],
+            }
+            for item in (brief.get("what_market_is_watching") or [])[:8]
+            if isinstance(item, dict)
+        ],
+        "false_leads": [
+            {
+                "focus": compact_text(item.get("focus"), 140),
+                "reason": compact_text(item.get("reason"), 220),
+                "evidence_ids": item.get("evidence_ids") or [],
+                "drop_code": item.get("drop_code") or "",
+            }
+            for item in (brief.get("false_leads") or [])[:8]
+            if isinstance(item, dict)
+        ],
+        "missing_assets": [compact_text(item, 160) for item in (brief.get("missing_assets") or [])[:12]],
+        "source_gaps": [
+            {
+                "issue": compact_text(item.get("issue"), 140),
+                "why_needed": compact_text(item.get("why_needed"), 220),
+                "search_hint": compact_text(item.get("search_hint"), 180),
+                "safe_for_public": bool(item.get("safe_for_public")),
+                "related_focus_rank": item.get("related_focus_rank") or 0,
+            }
+            for item in (brief.get("source_gaps") or [])[:10]
+            if isinstance(item, dict)
+        ],
+        "suggested_broadcast_order": [
+            {
+                "rank": item.get("rank"),
+                "focus_rank": item.get("focus_rank"),
+                "suggested_story_title": compact_text(item.get("suggested_story_title"), 120),
+                "broadcast_use": item.get("broadcast_use") or "",
+                "one_sentence_for_host": compact_text(item.get("one_sentence_for_host"), 180),
+                "evidence_ids": item.get("evidence_ids") or [],
+            }
+            for item in (brief.get("suggested_broadcast_order") or [])[:8]
+            if isinstance(item, dict)
+        ],
+    }
+
+
 def editorial_support_candidates(rows: list[dict], limit: int = 10) -> list[dict]:
     positioning = []
     scored = []
@@ -824,8 +899,10 @@ def load_retrospective_learning(target_date: str) -> dict:
 def build_input_payload(target_date: str, max_candidates: int) -> dict:
     processed = PROCESSED_DIR / target_date
     radar = load_json(processed / "market-radar.json")
+    market_focus = load_optional_json(processed / "market-focus-brief.json")
     radar_storylines = radar.get("storylines") or []
     required_ids = referenced_candidate_ids_from_storylines(radar_storylines)
+    required_ids.update(referenced_candidate_ids_from_market_focus(market_focus))
     candidates = select_editorial_candidates(radar.get("candidates") or [], max_candidates, required_ids=required_ids)
     finviz = load_json(processed / "finviz-feature-stocks.json")
     visuals = load_json(processed / "visual-cards.json")
@@ -845,6 +922,7 @@ def build_input_payload(target_date: str, max_candidates: int) -> dict:
             "expected_broadcast": os.environ.get("AUTOPARK_EXPECTED_BROADCAST", "1") != "0",
             "operation_note": os.environ.get("AUTOPARK_OPERATION_NOTE") or "",
         },
+        "market_focus_brief": compact_market_focus_brief(market_focus),
         "market_radar_storylines": radar_storylines,
         "candidates": [compact_candidate(item) for item in candidates if item.get("id")],
         "finviz_feature_stocks": [compact_finviz_item(item) for item in (finviz.get("items") or [])[:10]],
@@ -876,6 +954,9 @@ You are not a news summarizer. You are the morning broadcast editor who prepares
 Rules:
 - Use only the provided candidates and evidence IDs.
 - Do not invent facts, prices, dates, or claims outside the evidence.
+- Treat market_focus_brief as the upstream ranking prior for the lead and storyline order, not as standalone evidence.
+- If market_focus_brief marks an issue as source_gap or lacks local evidence_ids/source_ids, do not promote it as a public storyline.
+- When market_focus_brief conflicts with candidate evidence, evidence quality wins; explain the downgrade in evidence_to_drop or retrospective_watchpoints.
 - Select 3 to 5 storylines. Do not pad to 5 if only 3 are strong.
 - Merge overlapping stories instead of splitting the same theme twice.
 - Each storyline must be a usable broadcast segment with a hook, why-now, argument, evidence, talk track, and counterpoint.
@@ -1165,9 +1246,23 @@ def normalize_brief(brief: dict, input_payload: dict) -> dict:
 
 def fallback_brief(target_date: str, reason: str, raw_response_id: str | None = None, raw_response_path: str = "") -> dict:
     radar = load_json(PROCESSED_DIR / target_date / "market-radar.json")
+    market_focus = load_optional_json(PROCESSED_DIR / target_date / "market-focus-brief.json")
     candidates = {item.get("id"): item for item in radar.get("candidates") or []}
     storylines = []
-    for index, story in enumerate((radar.get("storylines") or [])[:3], start=1):
+    focus_order_ids = [
+        item_id
+        for order in market_focus.get("suggested_broadcast_order") or []
+        for item_id in order.get("evidence_ids") or []
+        if item_id
+    ]
+    focus_rank = {item_id: index for index, item_id in enumerate(focus_order_ids)}
+    radar_storylines = list(radar.get("storylines") or [])
+    if focus_rank:
+        radar_storylines = sorted(
+            radar_storylines,
+            key=lambda story: min([focus_rank.get(item_id, 999) for item_id in story.get("selected_item_ids") or []] or [999]),
+        )
+    for index, story in enumerate(radar_storylines[:3], start=1):
         storyline_id = story.get("storyline_id") or f"fallback-{index}"
         evidence = []
         selected_items = []

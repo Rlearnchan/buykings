@@ -279,6 +279,11 @@ def public_markdown(markdown: str) -> str:
     return re.split(r"^#\s+검증 로그/회고용\s*$", markdown, maxsplit=1, flags=re.M)[0]
 
 
+def public_before_media_focus(markdown: str) -> str:
+    public = public_markdown(markdown)
+    return re.split(r"^##\s+\d+\.\s+미디어 포커스\s*$", public, maxsplit=1, flags=re.M)[0]
+
+
 def compact_top_markdown(markdown: str) -> str:
     host = section(markdown, r"진행자용 1페이지 요약")
     if host:
@@ -408,7 +413,7 @@ def review_integrity(target_date: str, markdown: str) -> list[Finding]:
         issue(findings, "integrity", "medium", "INT-007 전체 PPT 큐 없음", "대시보드 전체에 PPT asset queue가 없습니다.", "상단 PPT 제작 큐 섹션을 채우세요.")
     if "PPT 제작 큐" not in markdown or "말로만 처리할 자료" not in markdown:
         issue(findings, "integrity", "medium", "INT-008 대시보드 queue 섹션 없음", "Markdown에서 PPT 제작 큐와 talk-only 섹션을 찾지 못했습니다.", "Notion renderer에 두 큐 섹션을 유지하세요.")
-    public = public_markdown(markdown)
+    public = public_before_media_focus(markdown)
     leaked = [label for label in PUBLIC_FORBIDDEN_LABELS if re.search(rf"\b{re.escape(label)}\b", public)]
     if leaked:
         issue(
@@ -539,7 +544,7 @@ def review_format(markdown: str, target_date: str) -> list[Finding]:
         ("추천 스토리라인", r"추천 스토리라인"),
         ("자료 수집 상세", r"자료 수집 상세"),
         ("시장은 지금", r"시장은 지금"),
-        ("보조 꼭지 후보", r"보조 꼭지 후보|오늘의 이모저모"),
+        ("미디어 포커스", r"미디어 포커스|보조 꼭지 후보|오늘의 이모저모"),
         ("실적/특징주", r"실적/특징주"),
     ]
     for label, pattern in required_sections:
@@ -593,7 +598,7 @@ def review_format(markdown: str, target_date: str) -> list[Finding]:
             "`슬라이드 구성` 또는 `구성 제안` 아래에 자료 순서를 적으세요.",
         )
 
-    public_url_count = source_url_count(public)
+    public_url_count = source_url_count(public_before_media_focus(markdown))
     if public_url_count > 0:
         issue(
             findings,
@@ -621,7 +626,7 @@ def review_content_legacy_broad(markdown: str) -> list[Finding]:
     findings: list[Finding] = []
     text = markdown.lower()
     market_section = section(markdown, r"시장은 지금").lower()
-    misc_section = section(markdown, r"보조 꼭지 후보|오늘의 이모저모")
+    misc_section = section(markdown, r"미디어 포커스|보조 꼭지 후보|오늘의 이모저모")
     feature_section = section(markdown, r"실적/특징주")
     storyline = section(markdown, r"추천 스토리라인")
 
@@ -827,7 +832,7 @@ def review_editorial_storylines(markdown: str) -> list[Finding]:
             "각 스토리라인 제목 아래에 `추천도: ★★★` 형식의 3점 척도를 넣으세요.",
         )
 
-    uses_editorial_format = bool(re.search(r"^#{3,4}\s+(선정 이유|왜 지금|쓸 자료)", storyline, flags=re.M))
+    uses_editorial_format = bool(re.search(r"^#{3,4}\s+(선정 이유|왜 지금|쓸 자료|자료 배치|자료 태그)", storyline, flags=re.M))
     required_slots = [
         ("hook", r"^>\s+"),
         ("why_now", r"^#{3,4}\s+(선정 이유|왜 지금)"),
@@ -845,21 +850,21 @@ def review_editorial_storylines(markdown: str) -> list[Finding]:
                         f"{index}번 스토리라인에 `{label}` 역할의 문단이 보이지 않습니다.",
                         "상단 추천은 방송 글감이므로 훅, 왜 지금, 짧은 말문을 모두 유지하세요.",
                     )
-            use_match = re.search(r"^#{3,4}\s+(?:쓸 자료|자료 배치)\s*(.*?)(?=^#{3,4}\s+|\Z)", block, flags=re.M | re.S)
+            use_match = re.search(r"^#{3,4}\s+(?:쓸 자료|자료 배치|자료 태그)\s*(.*?)(?=^#{3,4}\s+|\Z)", block, flags=re.M | re.S)
             if not use_match or not re.search(r"`[^`]+`", use_match.group(1)):
                 issue(
                     findings,
                     "content",
                     "medium",
                     f"스토리라인 {index} 근거 자료 누락",
-                    f"{index}번 스토리라인에 `쓸 자료` 근거가 충분히 보이지 않습니다.",
-                    "각 주장은 실제 수집 후보 제목을 code text로 연결하세요.",
+                    f"{index}번 스토리라인에 `자료 태그`가 충분히 보이지 않습니다.",
+                    "`2. 미디어 포커스`의 asset_id/title_tag를 code text로 연결하세요.",
                 )
 
     evidence_usage: dict[str, set[int]] = {}
     if uses_editorial_format:
         for index, block in enumerate(blocks, start=1):
-            use_match = re.search(r"^#{3,4}\s+(?:쓸 자료|자료 배치)\s*(.*?)(?=^#{3,4}\s+|\Z)", block, flags=re.M | re.S)
+            use_match = re.search(r"^#{3,4}\s+(?:쓸 자료|자료 배치|자료 태그)\s*(.*?)(?=^#{3,4}\s+|\Z)", block, flags=re.M | re.S)
             if not use_match:
                 continue
             for ref in re.findall(r"`([^`]+)`", use_match.group(1)):
@@ -897,16 +902,122 @@ def review_editorial_storylines(markdown: str) -> list[Finding]:
     return findings
 
 
+def review_market_focus_contract(target_date: str, markdown: str) -> list[Finding]:
+    findings: list[Finding] = []
+    processed = PROCESSED_DIR / target_date
+    focus_brief, focus_error = load_json(processed / "market-focus-brief.json")
+    radar, _ = load_json(processed / "market-radar.json")
+    if focus_error == "missing" and "Market Focus Brief" not in markdown:
+        return findings
+
+    storyline = section(markdown, r"추천 스토리라인|異붿쿇 ?ㅽ넗由щ씪")
+    media_focus = section(markdown, r"미디어 포커스|誘몃뵒??포커스|蹂댁“ 瑗")
+    if storyline:
+        direct_urls = re.findall(r"(?<!\]\()https?://\S+", storyline)
+        images = re.findall(r"!\[[^\]]*]\([^)]+\)", storyline)
+        long_material_lines = [
+            line
+            for line in storyline.splitlines()
+            if len(normalize(line)) > 120 and re.search(r"https?://|Reuters|Bloomberg|CNBC|Yahoo|TradingView|Kobeissi|기사|원문", line, re.I)
+        ]
+        if direct_urls or images or len(long_material_lines) >= 2:
+            issue(
+                findings,
+                "content",
+                "medium",
+                "STORY-001 스토리라인 자료 원문 과다 노출",
+                f"스토리라인 섹션에 URL {len(direct_urls)}개, 이미지 {len(images)}개, 긴 자료 라인 {len(long_material_lines)}개가 노출됐습니다.",
+                "스토리라인에는 방송 흐름과 `MF-... / title_tag`만 남기고 원문 제목, URL, 캡처 설명은 `2. 미디어 포커스`로 이동하세요.",
+            )
+
+        refs = set(re.findall(r"`(MF-[a-f0-9]{8}|MF-source-gap)`", storyline))
+        media_ids = set(re.findall(r"`(MF-[a-f0-9]{8})`|^(?:#{2,4})\s+(MF-[a-f0-9]{8})", media_focus, flags=re.M))
+        media_ids = {item for pair in media_ids for item in pair if item}
+        missing = sorted(ref for ref in refs if ref not in media_ids)
+        if not refs:
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "STORY-002 스토리라인 자료 태그 누락",
+                "스토리라인 섹션에서 `MF-...` 자료 태그를 찾지 못했습니다.",
+                "`2. 미디어 포커스`의 asset_id와 같은 `MF-...` 태그만 스토리라인에 참조하세요.",
+            )
+        elif missing:
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "STORY-002 미디어 포커스 asset_id 매칭 실패",
+                "스토리라인 자료 태그가 하단 미디어 포커스 asset_id와 맞지 않습니다: " + ", ".join(missing[:8]),
+                "스토리라인의 자료 태그는 반드시 `2. 미디어 포커스`에 존재하는 asset_id만 사용하세요.",
+            )
+
+    if not focus_brief:
+        return findings
+
+    summary = normalize(focus_brief.get("market_focus_summary") or "")
+    if len(summary) > 80:
+        issue(
+            findings,
+            "content",
+            "medium",
+            "FOCUS-001 market_focus_summary 길이 초과",
+            f"market_focus_summary가 {len(summary)}자입니다.",
+            "상단 노출용 summary는 80자 이하로 줄이고, 긴 판단 근거는 audit/debug에 두세요.",
+        )
+
+    focus_items = focus_brief.get("what_market_is_watching") or []
+    lead = next((item for item in focus_items if item.get("broadcast_use") == "lead"), focus_items[0] if focus_items else {})
+    if lead:
+        lead_rank = int(lead.get("rank") or 1)
+        lead_ids = [*(lead.get("evidence_ids") or []), *(lead.get("source_ids") or [])]
+        has_gap = any(int(gap.get("related_focus_rank") or 0) == lead_rank for gap in focus_brief.get("source_gaps") or [])
+        if not lead_ids and not has_gap:
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "FOCUS-002 lead focus 근거 누락",
+                "lead focus에 evidence_id/source_id도 없고 연결된 source_gap도 없습니다.",
+                "lead는 local evidence_id/source_id를 갖거나, public 승격 전 source_gap으로 보류되어야 합니다.",
+            )
+
+    local_ids = item_ids(radar)
+    web_urls = {
+        normalize(item.get("url"))
+        for item in focus_brief.get("web_sources") or []
+        if isinstance(item, dict) and item.get("url")
+    }
+    for focus in focus_items:
+        if focus.get("broadcast_use") not in {"lead", "supporting_story", "talk_only"}:
+            continue
+        ids = [*(focus.get("evidence_ids") or []), *(focus.get("source_ids") or [])]
+        web_only = [item_id for item_id in ids if item_id in web_urls]
+        no_local = ids and not any(item_id in local_ids for item_id in ids)
+        has_related_gap = any(int(gap.get("related_focus_rank") or 0) == int(focus.get("rank") or 0) for gap in focus_brief.get("source_gaps") or [])
+        if web_only or (focus_brief.get("with_web") and no_local and not has_related_gap):
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "WEB-001 web_search-only 근거 public 노출",
+                f"public broadcast_use={focus.get('broadcast_use')} focus가 local evidence 없이 web_search 근거를 사용합니다: {', '.join((web_only or ids)[:5])}",
+                "web_search로 발견한 내용은 기존 evidence_id가 없으면 source_gap으로 표시하고 public fact/lead로 노출하지 마세요.",
+            )
+    return findings
+
+
 def review_content(markdown: str) -> list[Finding]:
     findings: list[Finding] = []
     market_section = section(markdown, r"시장은 지금")
-    misc_section = section(markdown, r"보조 꼭지 후보|오늘의 이모저모")
+    misc_section = section(markdown, r"미디어 포커스|보조 꼭지 후보|오늘의 이모저모")
     feature_section = section(markdown, r"실적/특징주")
 
     if not market_section:
         issue(findings, "content", "high", "시장 섹션 없음", "`시장은 지금` 섹션을 찾지 못했습니다.", "시장 캡처와 차트를 `시장은 지금` 아래에 배치하세요.")
     if not misc_section:
-        issue(findings, "content", "high", "보조 꼭지 후보 섹션 없음", "`보조 꼭지 후보` 섹션을 찾지 못했습니다.", "후보 자료 카드를 `보조 꼭지 후보` 아래에 배치하세요.")
+        issue(findings, "content", "high", "미디어 포커스 섹션 없음", "`미디어 포커스` 섹션을 찾지 못했습니다.", "기사, X, 캡처와 source/evidence role을 `2. 미디어 포커스` 아래에 모으세요.")
     if not feature_section:
         issue(findings, "content", "medium", "실적/특징주 섹션 없음", "`실적/특징주` 섹션을 찾지 못했습니다.", "실적 캘린더와 특징주 자료를 별도 섹션으로 유지하세요.")
 
@@ -1066,7 +1177,12 @@ def main() -> int:
 
     input_path = args.input or (RUNTIME_NOTION_DIR / args.date / f"{display_date_title(args.date)}.md")
     markdown = input_path.read_text(encoding="utf-8")
-    findings = review_format(markdown, args.date) + review_content(markdown) + review_integrity(args.date, markdown)
+    findings = (
+        review_format(markdown, args.date)
+        + review_content(markdown)
+        + review_integrity(args.date, markdown)
+        + review_market_focus_contract(args.date, markdown)
+    )
     format_score = score(findings, "format")
     content_score = score(findings, "content")
     integrity_score = score(findings, "integrity")

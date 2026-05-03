@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 from collections import Counter
@@ -1256,6 +1257,132 @@ def valid_editorial_brief(brief: dict) -> bool:
     )
 
 
+def valid_market_focus_brief(brief: dict) -> bool:
+    return bool(
+        brief
+        and brief.get("market_focus_summary")
+        and isinstance(brief.get("what_market_is_watching"), list)
+        and brief.get("what_market_is_watching")
+        and isinstance(brief.get("suggested_broadcast_order"), list)
+    )
+
+
+def market_focus_for_host(brief: dict) -> dict:
+    return brief if valid_market_focus_brief(brief) else {}
+
+
+def market_focus_ids(item: dict) -> list[str]:
+    ids = []
+    for value in [*(item.get("evidence_ids") or []), *(item.get("source_ids") or [])]:
+        text = clean(str(value), 120)
+        if text and text not in ids:
+            ids.append(text)
+    return ids
+
+
+def media_asset_id(item_id: str) -> str:
+    digest = hashlib.sha1(str(item_id or "").encode("utf-8")).hexdigest()[:8]
+    return f"MF-{digest}"
+
+
+def media_title_tag(row: dict, fallback: str = "") -> str:
+    blob = row_blob(row)
+    source = source_label(row.get("source") or row.get("source_name") or row.get("type"), row.get("url") or "")
+    if is_fed_material(row) or any(token in blob for token in ["rate", "fed", "inflation", "dollar", "treasury"]):
+        axis = "rates"
+    elif any(token in blob for token in ["oil", "wti", "brent", "iran", "hormuz", "opec"]):
+        axis = "oil"
+    elif any(token in blob for token in ["ai", "nvidia", "cloud", "capex", "semiconductor", "data center"]):
+        axis = "ai"
+    elif any(token in blob for token in ["earnings", "eps", "revenue", "guidance"]):
+        axis = "earnings"
+    else:
+        axis = "market"
+    return clean(f"{axis}/{source}", 40) or clean(fallback, 40) or "market/source"
+
+
+def source_role_of(row: dict) -> str:
+    if row.get("source_role"):
+        return clean(row.get("source_role"), 60)
+    blob = f"{row.get('source') or row.get('source_name') or ''} {row.get('url') or ''} {row.get('type') or ''}".lower()
+    if "x.com" in blob or "twitter.com" in blob:
+        return "sentiment_probe"
+    if any(token in blob for token in ["finviz", "chart", "datawrapper", "market-data"]):
+        return "market_reaction"
+    if "reuters" in blob:
+        return "fact_anchor"
+    if any(token in blob for token in ["bloomberg", "cnbc", "yahoo", "tradingview"]):
+        return "analysis_anchor"
+    return "weak_or_unverified"
+
+
+def evidence_role_of(row: dict) -> str:
+    if row.get("evidence_role"):
+        return clean(row.get("evidence_role"), 60)
+    role = source_role_of(row)
+    if role == "sentiment_probe":
+        return "sentiment"
+    if role == "market_reaction":
+        return "market_reaction"
+    if role == "fact_anchor":
+        return "fact"
+    if role == "analysis_anchor":
+        return "analysis"
+    return "context"
+
+
+def media_asset_ref_for_item(item_id: str, radar_by_id: dict) -> str:
+    row = radar_by_id.get(item_id) or {"id": item_id, "title": item_id}
+    return f"`{media_asset_id(item_id)}` / `{media_title_tag(row, item_id)}`"
+
+
+def media_asset_ref_for_evidence(item: dict, radar_by_id: dict) -> str:
+    item_id = clean(item.get("item_id") or item.get("evidence_id") or "", 140)
+    return media_asset_ref_for_item(item_id, radar_by_id) if item_id else "`MF-missing` / `source_gap`"
+
+
+def storyline_slide_flow(storyline: dict) -> list[str]:
+    axis = story_axis(storyline)
+    if axis == "rates":
+        return ["시장은 지금", "금리·달러 제약", "위험자산 가격 반응", "한국장 연결"]
+    if axis == "oil":
+        return ["시장은 지금", "유가 가격 반응", "에너지주 확인", "리스크는 보조로 처리"]
+    if axis == "ai":
+        return ["시장은 지금", "AI 인프라 보조", "실적·가이던스 확인", "반도체/클라우드 연결"]
+    if axis == "earnings":
+        return ["시장은 지금", "실적 기대와 실제 숫자", "가이던스 확인", "특징주 반응"]
+    return ["시장은 지금", "핵심 질문", "가격 반응", "다음 확인 포인트"]
+
+
+def compact_market_focus_host_view(lines: list[str], market_focus: dict) -> None:
+    status = "fallback 사용" if market_focus.get("fallback") else "정상"
+    summary = public_complete_text(market_focus.get("market_focus_summary"), 80)
+    order_items = market_focus.get("suggested_broadcast_order") or []
+    lines.extend(["# 진행자용 1페이지 요약", ""])
+    lines.extend(["## 주요 뉴스 요약", ""])
+    lines.append(f"- Market Focus Brief: {status}")
+    if summary:
+        lines.append(f"- 핵심: {summary}")
+    lines.extend(["", "## 오늘 방송 순서", ""])
+    lines.append("- 시장은 지금: 지수와 금리·달러의 온도")
+    for item in order_items[:3]:
+        label = {"lead": "리드", "supporting_story": "보조", "talk_only": "말로만"}.get(item.get("broadcast_use"), "보류")
+        title = public_editorial_text(item.get("suggested_story_title"), 60)
+        if title:
+            lines.append(f"- {label}: {title}")
+    lead_line = next(
+        (
+            public_complete_text(item.get("one_sentence_for_host"), 90)
+            for item in order_items
+            if item.get("broadcast_use") == "lead" and item.get("one_sentence_for_host")
+        ),
+        "",
+    )
+    if lead_line:
+        lines.append(f"- 첫 말문: {lead_line}")
+    lines.append("")
+
+
 def stars_text(value: int | str | None) -> str:
     try:
         stars = max(1, min(3, int(value or 1)))
@@ -1904,6 +2031,18 @@ def flatten_drop_items(brief: dict) -> list[dict]:
 
 
 def compact_broadcast_order(brief: dict, storylines: list[dict]) -> list[str]:
+    market_focus = market_focus_for_host(brief.get("market_focus_brief") or {})
+    if market_focus:
+        order = ["시장은 지금: 지수와 금리·달러의 온도"]
+        for item in (market_focus.get("suggested_broadcast_order") or [])[:4]:
+            title = clean(item.get("suggested_story_title"), 64)
+            if not title:
+                continue
+            use = item.get("broadcast_use") or "supporting_story"
+            label = {"lead": "리드", "supporting_story": "보조 꼭지", "talk_only": "말로만"}.get(use, "보류")
+            order.append(f"{label}: {title}")
+        order.append("특징주: 실적과 종목 반응")
+        return order[:5]
     lead = storylines[0] if storylines else {}
     order = [
         "시장은 지금: 지수와 금리·달러의 온도",
@@ -1946,7 +2085,19 @@ def operational_bullet(value: str) -> bool:
 
 
 def compact_news_bullets(brief: dict, fallback: list[str], storylines: list[dict] | None = None) -> list[str]:
-    bullets = editorial_summary_bullets(brief)
+    market_focus = market_focus_for_host(brief.get("market_focus_brief") or {})
+    if market_focus:
+        bullets = [clean_complete(market_focus.get("market_focus_summary"), 180)]
+        for item in market_focus.get("what_market_is_watching") or []:
+            if item.get("broadcast_use") == "drop":
+                continue
+            line = clean_complete(item.get("one_sentence_for_host") or item.get("market_question"), 160)
+            if line and line not in bullets:
+                bullets.append(line)
+            if len(bullets) >= 3:
+                break
+    else:
+        bullets = editorial_summary_bullets(brief)
     if not bullets:
         bullets = [clean_complete(item, 160) for item in fallback[:3]]
     public_bullets = []
@@ -2016,6 +2167,11 @@ def render_compact_host_view(
     market_map_summary: str,
     summary_fallback: list[str],
 ) -> None:
+    market_focus = market_focus_for_host(brief.get("market_focus_brief") or {})
+    if market_focus:
+        compact_market_focus_host_view(lines, market_focus)
+        return
+
     lead = storylines[0] if storylines else {}
     lead_status = lead_requirement_status(lead) if lead else {"present": [], "missing": [], "met": True, "label": ""}
     lead_assets = [
@@ -2069,9 +2225,9 @@ def render_compact_host_view(
 def render_host_storyline(lines: list[str], index: int, storyline: dict, radar_by_id: dict) -> None:
     title = story_display_title(storyline)
     quote = story_quote_text(storyline)
-    slide_titles = story_slide_titles(storyline, radar_by_id, 5)
-    evidence_titles = [
-        f"`{evidence_public_line(item, radar_by_id, 90)}`"
+    slide_titles = storyline_slide_flow(storyline)
+    media_refs = [
+        media_asset_ref_for_evidence(item, radar_by_id)
         for item in (storyline.get("evidence_to_use") or [])[:4]
     ]
     check_items = lead_requirement_status(storyline).get("missing", [])[:3]
@@ -2096,9 +2252,9 @@ def render_host_storyline(lines: list[str], index: int, storyline: dict, radar_b
             lines.append(f"- {item}")
     else:
         lines.append("- 훅 → 시장 지도 → 핵심 근거 → 반론/주의점")
-    lines.extend(["", "#### 자료 배치", ""])
-    if evidence_titles:
-        for item in evidence_titles:
+    lines.extend(["", "#### 자료 태그", ""])
+    if media_refs:
+        for item in media_refs:
             lines.append(f"- {item}")
     else:
         lines.append("- 방송 전 fact/data/analysis 근거를 추가 확인")
@@ -2167,12 +2323,184 @@ def render_drop_queue(lines: list[str], brief: dict, radar_by_id: dict) -> None:
         lines.append(f"- {title} / {drop_code}: {reason}")
 
 
-def render_audit_log(lines: list[str], brief: dict, radar_by_id: dict, target_date: str | None = None) -> None:
+def material_visual_path(row: dict) -> str:
+    if row.get("visual_local_path"):
+        return str(row.get("visual_local_path"))
+    refs = row.get("image_refs") or []
+    for ref in refs:
+        if isinstance(ref, dict) and ref.get("local_path"):
+            return str(ref["local_path"])
+    return ""
+
+
+def market_focus_material_row(item_id: str, radar_by_id: dict, candidate_by_id: dict) -> dict:
+    if item_id in radar_by_id:
+        return radar_by_id[item_id]
+    if item_id in candidate_by_id:
+        row = candidate_by_id[item_id]
+        return {
+            **row,
+            "id": item_id,
+            "title": row.get("title") or row.get("headline") or item_id,
+            "source": row.get("source") or row.get("source_name") or row.get("source_id") or "",
+            "summary": row.get("summary") or row.get("why_it_matters") or "",
+        }
+    return {}
+
+
+def storyline_media_ids(storylines: list[dict]) -> list[str]:
+    ids: list[str] = []
+    for story in storylines:
+        for item in [*(story.get("evidence_to_use") or []), *(story.get("evidence_to_drop") or [])]:
+            item_id = clean(item.get("item_id") or item.get("evidence_id") or "", 160)
+            if item_id and item_id not in ids:
+                ids.append(item_id)
+    return ids
+
+
+def render_market_focus_media(
+    lines: list[str],
+    market_focus: dict,
+    radar_by_id: dict,
+    candidate_by_id: dict,
+    storylines: list[dict] | None = None,
+) -> int:
+    rendered = 0
+    seen_ids: set[str] = set()
+    focus_by_id: dict[str, dict] = {}
+    if valid_market_focus_brief(market_focus):
+        for focus in market_focus.get("what_market_is_watching") or []:
+            for item_id in market_focus_ids(focus):
+                focus_by_id.setdefault(item_id, focus)
+
+    ordered_ids: list[str] = []
+    for focus in market_focus.get("what_market_is_watching") or []:
+        if focus.get("broadcast_use") == "drop":
+            continue
+        for item_id in market_focus_ids(focus):
+            if item_id not in ordered_ids:
+                ordered_ids.append(item_id)
+    for item_id in storyline_media_ids(storylines or []):
+        if item_id not in ordered_ids:
+            ordered_ids.append(item_id)
+
+    for item_id in ordered_ids:
+        row = market_focus_material_row(item_id, radar_by_id, candidate_by_id)
+        if not row or item_id in seen_ids:
+            continue
+        seen_ids.add(item_id)
+        rendered += 1
+        focus = focus_by_id.get(item_id) or {}
+        asset_id = media_asset_id(item_id)
+        tag = media_title_tag(row, item_id)
+        source_role = source_role_of(row)
+        evidence_role = evidence_role_of(row)
+        source = source_label(row.get("source") or row.get("source_name") or row.get("type"), row.get("url") or "")
+        title_text = compact_radar_title(row)
+        lines.extend([f"### {asset_id} · {tag}", ""])
+        lines.append(f"- asset_id: `{asset_id}` / title_tag: `{tag}`")
+        lines.append(f"- source_role: `{source_role}` / evidence_role: `{evidence_role}`")
+        lines.append(f"- 출처: {link(source, row.get('url') or '')}")
+        lines.append(f"- 원문 제목: {clean(row.get('title') or row.get('headline') or title_text, 140)}")
+        needs_original = "yes" if evidence_role in {"sentiment", "context"} or source_role in {"sentiment_probe", "weak_or_unverified"} else "no"
+        lines.append(f"- 원문 확인 필요: `{needs_original}`")
+        if focus:
+            lines.append(f"- 연결 focus: {public_editorial_text(focus.get('suggested_story_title') or focus.get('focus'), 100)}")
+        summary = summarize_material_text(row)
+        if summary:
+            lines.append(f"- 요약: {summary}")
+        visual = material_visual_path(row)
+        if visual:
+            lines.extend(["", notion_image(title_text, visual), ""])
+        else:
+            lines.append("- 캡처: `없음 또는 별도 확인 필요`")
+        lines.append("")
+    return rendered
+
+
+def render_market_focus_audit(lines: list[str], market_focus: dict | None) -> None:
+    if not valid_market_focus_brief(market_focus or {}):
+        return
+    market_focus = market_focus or {}
+    status = "fallback 사용" if market_focus.get("fallback") else "정상"
+    lines.extend(
+        [
+            "## Market Focus Brief Audit",
+            "",
+            f"- status: `{status}`",
+            f"- model: `{clean(market_focus.get('model') or 'unknown', 80)}`",
+            f"- with_web: `{bool(market_focus.get('with_web'))}`",
+        ]
+    )
+    summary = clean(market_focus.get("market_focus_summary"), 240)
+    if summary:
+        lines.append(f"- market_focus_summary: {summary}")
+    order = [
+        clean(item.get("title") or item.get("focus") or item.get("reason"), 100)
+        for item in market_focus.get("suggested_broadcast_order") or []
+        if isinstance(item, dict)
+    ]
+    if order:
+        lines.append("- suggested_broadcast_order: " + " -> ".join(order[:7]))
+    lines.append("")
+
+    for focus in market_focus.get("what_market_is_watching") or []:
+        rank = focus.get("rank") or "-"
+        title = clean(focus.get("suggested_story_title") or focus.get("focus"), 120)
+        lines.extend([f"### focus_rank {rank}: {title}", ""])
+        lines.append(f"- broadcast_use: `{focus.get('broadcast_use')}` / confidence: `{focus.get('confidence')}`")
+        for key in ["market_question", "why_it_matters", "price_confirmation", "one_sentence_for_host"]:
+            value = clean(focus.get(key), 260)
+            if value:
+                lines.append(f"- {key}: {value}")
+        ids = market_focus_ids(focus)
+        if ids:
+            lines.append("- evidence/source ids: `" + "`, `".join(ids[:10]) + "`")
+        missing = [clean(item, 120) for item in focus.get("missing_assets") or [] if clean(item)]
+        if missing:
+            lines.append("- missing_assets: " + ", ".join(missing[:6]))
+        lines.append("")
+
+    false_leads = market_focus.get("false_leads") or []
+    if false_leads:
+        lines.extend(["### false_leads", ""])
+        for item in false_leads[:8]:
+            if not isinstance(item, dict):
+                continue
+            lines.append(
+                "- "
+                + clean(item.get("headline_or_focus") or item.get("focus"), 120)
+                + f" / why_not_lead: {clean(item.get('why_not_lead'), 180)}"
+            )
+        lines.append("")
+
+    source_gaps = market_focus.get("source_gaps") or []
+    if source_gaps:
+        lines.extend(["### source_gaps", ""])
+        for item in source_gaps[:10]:
+            if not isinstance(item, dict):
+                continue
+            safety = "public-ok" if item.get("safe_for_public") else "hold"
+            lines.append(
+                f"- `{safety}` rank `{item.get('related_focus_rank')}` "
+                f"{clean(item.get('issue'), 140)} / {clean(item.get('why_needed'), 180)}"
+            )
+        lines.append("")
+
+
+def render_audit_log(
+    lines: list[str],
+    brief: dict,
+    radar_by_id: dict,
+    target_date: str | None = None,
+    market_focus: dict | None = None,
+) -> None:
     lines.extend(["# 검증 로그/회고용", "", "이 섹션은 진행자용 상단 화면이 아니라 품질검수와 방송 후 회고를 위한 내부 장부입니다.", ""])
     if target_date:
         status_table = source_status_table(target_date)
         if status_table:
             lines.extend(["## 수집 현황 표", "", *status_table, ""])
+    render_market_focus_audit(lines, market_focus)
     for index, story in enumerate(brief.get("storylines") or [], start=1):
         story_id = clean(story.get("storyline_id") or f"storyline-{index}", 80)
         lines.extend([f"## {index}. {clean(story.get('title'), 90)}", "", f"- storyline_id: `{story_id}`"])
@@ -2328,7 +2656,9 @@ def render_dashboard(target_date: str) -> str:
     batch_b = load_json(processed / "today-misc-batch-b-candidates.json")
     side_dish = load_json(processed / "side-dish-candidates.json")
     market_radar = load_json(processed / "market-radar.json")
+    market_focus = load_json(processed / "market-focus-brief.json")
     editorial_brief = load_json(processed / "editorial-brief.json")
+    x_timeline = load_json(processed / "x-timeline-posts.json")
     economic = load_json(processed / "economic-calendar.json")
     ledger = live_pack.get("ledger", [])
     now = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M")
@@ -2352,13 +2682,16 @@ def render_dashboard(target_date: str) -> str:
     radar_by_id = {row.get("id"): row for row in radar_candidates}
     candidate_by_id = {
         row.get("id"): row
-        for row in (batch_a.get("candidates") or []) + (batch_b.get("candidates") or [])
+        for row in (batch_a.get("candidates") or []) + (batch_b.get("candidates") or []) + (x_timeline.get("posts") or [])
         if row.get("id")
     }
     use_editorial = valid_editorial_brief(editorial_brief)
+    use_market_focus = valid_market_focus_brief(market_focus)
     display_storylines = editorial_brief.get("storylines", []) if use_editorial else filtered_storylines(radar_storylines or storylines, radar_by_id)
     today_axis = (
-        clean_complete(editorial_brief.get("one_line_market_frame") or editorial_brief.get("daily_thesis"), 220)
+        clean_complete(market_focus.get("market_focus_summary"), 220)
+        if use_market_focus
+        else clean_complete(editorial_brief.get("one_line_market_frame") or editorial_brief.get("daily_thesis"), 220)
         if use_editorial
         else infer_today_axis(display_storylines, radar_candidates)
     )
@@ -2375,10 +2708,13 @@ def render_dashboard(target_date: str) -> str:
         f"시장 차트: {code_meta(market_chart_basis())}",
         "",
     ]
-    summary_bullets = editorial_summary_bullets(editorial_brief) if use_editorial else selection.get("dashboard_summary_bullets", [])
+    host_brief = editorial_brief if use_editorial else {"editorial_summary": "\n".join(selection.get("dashboard_summary_bullets", []))}
+    if use_market_focus:
+        host_brief = {**host_brief, "market_focus_brief": market_focus}
+    summary_bullets = compact_news_bullets(host_brief, selection.get("dashboard_summary_bullets", []), display_storylines)
     render_compact_host_view(
         lines,
-        editorial_brief if use_editorial else {"editorial_summary": "\n".join(summary_bullets)},
+        host_brief,
         display_storylines,
         radar_by_id,
         today_axis,
@@ -2540,7 +2876,8 @@ def render_dashboard(target_date: str) -> str:
             next_title = compact_radar_title(fed_rows[index]) if index < len(fed_rows) else ""
             render_radar_card(lines, row, index, next_title)
 
-    lines.extend(["", f"## {misc_section_number}. 보조 꼭지 후보", ""])
+    lines.extend(["", f"## {misc_section_number}. 미디어 포커스", ""])
+    market_focus_media_count = render_market_focus_media(lines, market_focus, radar_by_id, candidate_by_id, display_storylines)
     radar_misc_rows = []
     seen_radar_ids = set()
     seen_radar_titles = set()
@@ -2571,12 +2908,14 @@ def render_dashboard(target_date: str) -> str:
                 radar_misc_rows.append(row)
                 seen_radar_ids.add(item_id)
                 seen_radar_titles.add(title_key)
+    if radar_misc_rows and market_focus_media_count:
+        lines.extend(["### 추가 보조 후보", ""])
     if radar_misc_rows:
         visible_rows = radar_misc_rows[:6]
         for index, row in enumerate(visible_rows, start=1):
             next_title = compact_radar_title(visible_rows[index]) if index < len(visible_rows) else ""
             render_radar_card(lines, row, index, next_title)
-    misc_rows = [] if radar_misc_rows else selected[:4]
+    misc_rows = [] if (radar_misc_rows or market_focus_media_count) else selected[:4]
     side_dish_rows = side_dish.get("candidates", [])
     for index, row in enumerate(misc_rows, start=1):
         render_material_card(lines, row, index)
@@ -2675,6 +3014,16 @@ def render_dashboard(target_date: str) -> str:
         for row in feature_rows[:5]:
             render_feature_stock(lines, row)
     lines.extend(["", "## 방송 후 회고 입력용 메모", ""])
+    if use_market_focus:
+        lines.append("- market-focus-brief의 lead/supporting_story/talk_only/drop 판단과 실제 첫 꼭지, PPT 사용 여부를 비교.")
+        for item in (market_focus.get("suggested_broadcast_order") or [])[:4]:
+            title = public_editorial_text(item.get("suggested_story_title"), 120)
+            if title:
+                lines.append(f"- focus_rank `{item.get('focus_rank')}`: {title} / 실제 사용 여부 기록")
+        for gap in (market_focus.get("source_gaps") or [])[:3]:
+            issue = public_editorial_text(gap.get("issue"), 120)
+            if issue:
+                lines.append(f"- source_gap 확인: {issue}")
     if use_editorial:
         watchpoints = editorial_brief.get("retrospective_watchpoints") or []
         if watchpoints:
@@ -2688,7 +3037,7 @@ def render_dashboard(target_date: str) -> str:
         lines.append("- editorial brief fallback 또는 누락 상태입니다. 실제 방송 사용 여부를 수동 기록하세요.")
     if use_editorial:
         lines.extend([""])
-        render_audit_log(lines, editorial_brief, radar_by_id, target_date)
+        render_audit_log(lines, editorial_brief, radar_by_id, target_date, market_focus)
     return "\n".join(lines).rstrip() + "\n"
 
 
