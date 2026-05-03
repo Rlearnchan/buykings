@@ -344,7 +344,19 @@ def row_blob(row: dict) -> str:
     return clean(
         " ".join(
             str(row.get(key) or "")
-            for key in ["title", "headline", "summary", "text", "source", "type", "radar_question"]
+            for key in [
+                "title",
+                "headline",
+                "summary",
+                "micro_title",
+                "micro_content",
+                "text",
+                "source",
+                "source_name",
+                "type",
+                "url",
+                "radar_question",
+            ]
         )
     ).lower()
 
@@ -1291,6 +1303,8 @@ PUBLIC_MATERIAL_FALLBACKS = {
     "earnings": "실적 확인 자료",
     "market": "시장 반응 확인 자료",
 }
+MEDIA_FOCUS_MAX_CARDS = 20
+INTERNAL_MEDIA_SOURCES = {"Autopark", "Market Focus", "Pre-flight Agenda"}
 
 CHART_PUBLIC_LABELS = {
     "us10y": "10년물 국채금리",
@@ -1407,6 +1421,45 @@ def fallback_public_material_label(axis: str, role_blob: str = "") -> str:
     return PUBLIC_MATERIAL_FALLBACKS.get(axis, "시장 반응 확인 자료")
 
 
+def supplemental_public_material_label(row: dict) -> str:
+    blob = row_blob(row)
+    title = markdown_plain(row.get("title") or row.get("headline") or "")
+    source = source_label(row.get("source") or row.get("source_name") or row.get("type"), row.get("url") or "")
+    lowered = f"{blob} {source.lower()}"
+    rules = [
+        ("Kashkari 인플레 리스크", ["kashkari", "inflation risk"]),
+        ("Kashkari 금리 발언", ["kashkari", "rate guidance"]),
+        ("Goolsbee 물가 발언", ["goolsbee", "bad news"]),
+        ("미 증시 랠리와 유가", ["stocks rally", "earnings", "oil"]),
+        ("주간 고용·실적 프리뷰", ["jobs and earnings", "week"]),
+        ("JOLTS·고용 이벤트", ["jolts", "jobs report"]),
+        ("FactSet 실적 시즌", ["factset", "earnings season"]),
+        ("반도체 실적 주간", ["semiconductor", "earnings"]),
+        ("AI 랠리와 강한 실적", ["ai trade", "strong earnings"]),
+        ("Big Tech 투자 보상", ["big tech", "spend", "reward"]),
+        ("Palantir·AMD 실적", ["palantir", "advanced micro devices"]),
+        ("Amazon 실적 반응", ["amazon", "earnings"]),
+        ("Microsoft 클라우드 성장", ["microsoft", "cloud"]),
+        ("실질 WTI 유가", ["wti", "real terms"]),
+        ("OPEC+ 증산 발표", ["opec", "output"]),
+        ("미국 휘발유 가격", ["gas", "price"]),
+        ("미 원유 수출 급증", ["crude oil exports"]),
+        ("TGA 유동성 변수", ["treasury general account"]),
+        ("재무부 차입계획", ["bond dealers"]),
+        ("재무부 차입계획", ["groundhog day"]),
+        ("재무부 차입계획", ["treasury", "borrowing"]),
+        ("Treasury debt playbook", ["debt playbook"]),
+        ("이란 에너지 가격", ["iran", "energy prices"]),
+    ]
+    for label, tokens in rules:
+        if all(token in lowered for token in tokens) and valid_public_material_label(label):
+            return label
+    if valid_public_material_label(title):
+        return title
+    axis = topic_axis_from_blob(lowered)
+    return fallback_public_material_label(axis, f"{source} {title}")
+
+
 def public_material_label(asset: dict, story: dict | None = None, focus: dict | None = None) -> str:
     """Return a host-safe public material label, never an internal id/title dump."""
     explicit_ids = [
@@ -1417,7 +1470,7 @@ def public_material_label(asset: dict, story: dict | None = None, focus: dict | 
         if explicit_id in PUBLIC_ITEM_LABELS:
             return PUBLIC_ITEM_LABELS[explicit_id]
 
-    for key in ["micro_title", "public_title", "public_material_label", "host_facing_material_name", "label"]:
+    for key in ["public_title", "public_material_label", "host_facing_material_name", "label", "micro_title"]:
         candidate = asset.get(key) if isinstance(asset, dict) else ""
         candidate_text = markdown_plain(candidate)
         if candidate_text in PUBLIC_LABEL_ALIASES:
@@ -2965,10 +3018,10 @@ def public_material_labels_for_story(storyline: dict, radar_by_id: dict, used_la
     axis = story_public_axis(storyline)
     used = used_labels if used_labels is not None else set()
 
-    def add(label: str, *, allow_reuse: bool = False) -> None:
+    def add(label: str, *, allow_reuse: bool = False, respect_axis: bool = True) -> None:
         if not valid_public_material_label(label) or label in labels:
             return
-        if label_axis(label) not in {axis, "market"}:
+        if respect_axis and label_axis(label) not in {axis, "market"}:
             return
         if label in used and not allow_reuse:
             return
@@ -2982,7 +3035,10 @@ def public_material_labels_for_story(storyline: dict, radar_by_id: dict, used_la
             continue
         item_id = item.get("item_id") or item.get("evidence_id") or ""
         row = radar_by_id.get(item_id) or {}
-        add(public_material_label({**row, **item}, storyline))
+        if row:
+            add(supplemental_public_material_label({**row, **item}), respect_axis=False)
+        else:
+            add(public_material_label({**row, **item}, storyline))
 
     fallback_pool = {
         "rates": ["10년물 국채금리", "달러인덱스 차트", "Fed 인플레이션 발언 기사"],
@@ -3515,6 +3571,133 @@ def ordered_material_ids(market_focus: dict, storylines: list[dict]) -> list[str
     return ids
 
 
+SUPPLEMENTAL_MEDIA_TERMS = [
+    "fed",
+    "inflation",
+    "rate",
+    "kashkari",
+    "goolsbee",
+    "oil",
+    "wti",
+    "brent",
+    "iran",
+    "opec",
+    "earnings",
+    "jobs",
+    "jolts",
+    "treasury",
+    "bond",
+    "ai",
+    "semiconductor",
+    "nvidia",
+    "amazon",
+    "microsoft",
+    "palantir",
+    "amd",
+    "gas",
+    "tga",
+    "liquidity",
+]
+
+
+def supplemental_media_priority(market_focus: dict, storylines: list[dict]) -> dict[str, int]:
+    priority: dict[str, int] = {}
+    for story_index, story in enumerate(storylines[:3], start=1):
+        for evidence_index, item in enumerate(story.get("evidence_to_use") or [], start=1):
+            if not isinstance(item, dict):
+                continue
+            item_id = clean(item.get("item_id") or item.get("evidence_id") or "", 160)
+            if item_id:
+                priority[item_id] = min(priority.get(item_id, 999), story_index * 10 + evidence_index)
+    for focus_index, focus in enumerate(market_focus.get("what_market_is_watching") or [], start=1):
+        for item_id in market_focus_ids(focus):
+            if item_id:
+                priority[item_id] = min(priority.get(item_id, 999), focus_index)
+    return priority
+
+
+def supplemental_media_term_score(row: dict) -> int:
+    blob = row_blob(row)
+    return sum(1 for term in SUPPLEMENTAL_MEDIA_TERMS if term in blob)
+
+
+def supplemental_media_candidate_key(row: dict) -> str:
+    url = clean(row.get("url"), 200).lower()
+    if url:
+        return f"url:{url}"
+    item_id = clean(row.get("id") or row.get("item_id") or row.get("evidence_id"), 200).lower()
+    if item_id:
+        return f"id:{item_id}"
+    title = re.sub(r"\W+", " ", markdown_plain(row.get("title") or row.get("headline")).lower()).strip()
+    return f"title:{title[:80]}"
+
+
+def supplemental_media_candidates(
+    market_focus: dict,
+    storylines: list[dict],
+    radar_by_id: dict,
+    used_item_ids: set[str],
+    used_urls: set[str],
+    used_labels: set[str],
+    limit: int,
+) -> list[dict]:
+    if limit <= 0:
+        return []
+    priority = supplemental_media_priority(market_focus, storylines)
+    rows = []
+    for row in radar_by_id.values():
+        if not isinstance(row, dict):
+            continue
+        item_id = clean(row.get("id") or row.get("item_id") or row.get("evidence_id"), 200)
+        url = clean(row.get("url"), 300)
+        if item_id in used_item_ids or url.lower() in used_urls:
+            continue
+        row_source = source_label(row.get("source") or row.get("source_name") or row.get("type"), url)
+        if row_source in INTERNAL_MEDIA_SOURCES:
+            continue
+        if not (url or material_visual_path(row)):
+            continue
+        score = supplemental_media_term_score(row)
+        if score <= 0 and item_id not in priority:
+            continue
+        label = supplemental_public_material_label(row)
+        if label in used_labels:
+            continue
+        rows.append((priority.get(item_id, 999), -score, -float(row.get("score") or row.get("final_score") or 0), label, row_source, row))
+
+    selected = []
+    seen_keys = set()
+    for _, _, _, label, row_source, row in sorted(rows, key=lambda item: item[:4]):
+        if label in used_labels:
+            continue
+        key = supplemental_media_candidate_key(row)
+        if key in seen_keys:
+            continue
+        seen_keys.add(key)
+        selected.append(
+            {
+                **row,
+                "section": "media_focus",
+                "story_rank": 90,
+                "slide_rank": len(selected) + 1,
+                "label": label,
+                "public_title": label,
+                "kind": "article" if row.get("url") else "material",
+                "source": row_source,
+                "url": row.get("url") or "",
+                "summary": summarize_material_text(row) or row.get("summary") or row.get("title") or label,
+                "image": material_visual_path(row),
+            }
+        )
+        used_item_ids.add(clean(row.get("id") or row.get("item_id") or row.get("evidence_id"), 200))
+        if row.get("url"):
+            used_urls.add(clean(row.get("url"), 300).lower())
+        used_labels.add(label)
+        if len(selected) >= limit:
+            break
+    return selected
+
+
 def build_compact_collection_cards(
     target_date: str,
     market_focus: dict,
@@ -3684,7 +3867,7 @@ def build_compact_collection_cards(
                 continue
             item_id = item.get("item_id") or item.get("evidence_id") or ""
             row = market_focus_material_row(item_id, radar_by_id, candidate_by_id) or item
-            label = public_material_label({**row, **item}, story, focus_by_id.get(item_id) or {})
+            label = supplemental_public_material_label({**row, **item}) if row else public_material_label({**row, **item}, story, focus_by_id.get(item_id) or {})
             story_label_source.setdefault(label, {**row, **item, "item_id": item_id, "evidence_id": item_id})
 
     for label, (section, story_rank, slide_rank) in story_label_order.items():
@@ -3692,7 +3875,7 @@ def build_compact_collection_cards(
         if not row:
             continue
         row_source = source_label(row.get("source") or row.get("source_name") or row.get("type"), row.get("url") or "")
-        if row_source in {"Autopark", "Market Focus", "Pre-flight Agenda"} and not row.get("url") and not material_visual_path(row):
+        if row_source in INTERNAL_MEDIA_SOURCES and not row.get("url") and not material_visual_path(row):
             continue
         collection_cards.append(
             {
@@ -3708,6 +3891,26 @@ def build_compact_collection_cards(
                 "image": material_visual_path(row),
             }
         )
+
+    existing_media = [card for card in collection_cards if card.get("section") == "media_focus"]
+    used_item_ids = {
+        clean(card.get("id") or card.get("item_id") or card.get("evidence_id"), 200)
+        for card in existing_media
+        if clean(card.get("id") or card.get("item_id") or card.get("evidence_id"), 200)
+    }
+    used_urls = {clean(card.get("url"), 300).lower() for card in existing_media if clean(card.get("url"), 300)}
+    used_labels = {public_material_label(card) for card in existing_media}
+    collection_cards.extend(
+        supplemental_media_candidates(
+            market_focus,
+            storylines,
+            radar_by_id,
+            used_item_ids,
+            used_urls,
+            used_labels,
+            MEDIA_FOCUS_MAX_CARDS - len(existing_media),
+        )
+    )
 
     _ = finviz_features
     _ = economic
