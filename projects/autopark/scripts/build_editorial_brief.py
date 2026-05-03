@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 from collections import Counter
@@ -23,7 +24,19 @@ CONFIG_DIR = PROJECT_ROOT / "config"
 DEFAULT_ENV = REPO_ROOT / ".env"
 OPENAI_API = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5-mini"
+DEFAULT_API_TIMEOUT_SECONDS = 120
+DEFAULT_MAX_OUTPUT_TOKENS = 16384
+COMPACT_RETRY_CODE = "editorial_timeout_retry_compact"
+COMPACT_OUTPUT_RETRY_CODE = "editorial_output_retry_compact"
 RETROSPECTIVE_LEARNING_CONFIG = CONFIG_DIR / "retrospective_learning.json"
+
+
+class OpenAIResponseDecodeError(ValueError):
+    def __init__(self, original: json.JSONDecodeError, response_id: str | None, raw_response: dict) -> None:
+        super().__init__(str(original))
+        self.original = original
+        self.response_id = response_id
+        self.raw_response = raw_response
 
 TEXT_THEME_HINTS = {
     "ai_infra": (
@@ -329,6 +342,34 @@ def compact_text(value: object, limit: int = 420) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
+def sanitize_prompt_text(value: object, limit: int = 420) -> str:
+    text = compact_text(value, limit * 2)
+    text = re.sub(r"https?\s*:\s*/\s*/\s+", "http://", text, flags=re.I)
+    text = re.sub(r"https?://\S+", "[link]", text, flags=re.I)
+    text = re.sub(r"\bwww\.\S+", "[link]", text, flags=re.I)
+    text = re.sub(r"[A-Za-z]:\\[^\s]+", "[path]", text)
+    text = re.sub(r"(?:runtime|exports|screenshots?)[\\/][^\s]+", "[path]", text, flags=re.I)
+    text = re.sub(r"X-Amz-[A-Za-z0-9_-]+=[^\s&]+", "[signed-url-param]", text)
+    text = re.sub(r"Signature=[^\s&]+", "[signed-url-param]", text, flags=re.I)
+    return compact_text(text, limit)
+
+
+def estimate_prompt_tokens(prompt: str) -> int:
+    return max(1, int((len(prompt or "") + 3) / 4))
+
+
+def now_iso() -> str:
+    return datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds")
+
+
+def positive_int(value: object, default: int) -> int:
+    try:
+        parsed = int(value or default)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
 def parse_date(value: str) -> date:
     return datetime.strptime(value, "%Y-%m-%d").date()
 
@@ -446,29 +487,73 @@ def referenced_candidate_ids_from_market_focus(brief: dict) -> set[str]:
     return ids
 
 
-def compact_market_focus_brief(brief: dict) -> dict:
+def compact_market_focus_brief(brief: dict, compact_retry: bool = False) -> dict:
     if not brief or not isinstance(brief.get("what_market_is_watching"), list):
         return {}
+    if compact_retry:
+        return {
+            "available": True,
+            "fallback": bool(brief.get("fallback")),
+            "market_focus_summary": compact_text(brief.get("market_focus_summary"), 140),
+            "what_market_is_watching": [
+                {
+                    "rank": item.get("rank"),
+                    "focus": compact_text(item.get("focus"), 80),
+                    "broadcast_use": item.get("broadcast_use") or "",
+                    "confidence": item.get("confidence") or 0,
+                    "source_ids": (item.get("source_ids") or [])[:6],
+                    "evidence_ids": (item.get("evidence_ids") or [])[:6],
+                    "missing_assets": (item.get("missing_assets") or [])[:2],
+                }
+                for item in (brief.get("what_market_is_watching") or [])[:4]
+                if isinstance(item, dict)
+            ],
+            "source_gaps": [
+                {
+                    "issue": compact_text(item.get("issue"), 80),
+                    "safe_for_public": bool(item.get("safe_for_public")),
+                    "related_focus_rank": item.get("related_focus_rank") or 0,
+                }
+                for item in (brief.get("source_gaps") or [])[:4]
+                if isinstance(item, dict)
+            ],
+            "suggested_broadcast_order": [
+                {
+                    "rank": item.get("rank"),
+                    "focus_rank": item.get("focus_rank"),
+                    "suggested_story_title": compact_text(item.get("suggested_story_title"), 80),
+                    "broadcast_use": item.get("broadcast_use") or "",
+                    "evidence_ids": (item.get("evidence_ids") or [])[:6],
+                }
+                for item in (brief.get("suggested_broadcast_order") or [])[:4]
+                if isinstance(item, dict)
+            ],
+        }
+    focus_limit = 4 if compact_retry else 8
+    gap_limit = 5 if compact_retry else 10
+    order_limit = 4 if compact_retry else 8
+    summary_limit = 180 if compact_retry else 360
+    detail_limit = 140 if compact_retry else 220
     return {
         "available": True,
         "fallback": bool(brief.get("fallback")),
-        "market_focus_summary": compact_text(brief.get("market_focus_summary"), 360),
+        "market_focus_summary": compact_text(brief.get("market_focus_summary"), summary_limit),
         "what_market_is_watching": [
             {
                 "rank": item.get("rank"),
-                "focus": compact_text(item.get("focus"), 140),
-                "market_question": compact_text(item.get("market_question"), 220),
-                "why_it_matters": compact_text(item.get("why_it_matters"), 260),
-                "price_confirmation": compact_text(item.get("price_confirmation"), 180),
+                "focus": compact_text(item.get("focus"), 100 if compact_retry else 140),
+                "market_question": compact_text(item.get("market_question"), detail_limit),
+                "why_it_matters": compact_text(item.get("why_it_matters"), detail_limit),
+                "price_confirmation": compact_text(item.get("price_confirmation"), 120 if compact_retry else 180),
                 "broadcast_use": item.get("broadcast_use") or "",
                 "confidence": item.get("confidence") or 0,
-                "suggested_story_title": compact_text(item.get("suggested_story_title"), 120),
-                "one_sentence_for_host": compact_text(item.get("one_sentence_for_host"), 180),
-                "source_ids": item.get("source_ids") or [],
-                "evidence_ids": item.get("evidence_ids") or [],
-                "missing_assets": item.get("missing_assets") or [],
+                "suggested_story_title": compact_text(item.get("suggested_story_title"), 100 if compact_retry else 120),
+                "one_sentence_for_host": compact_text(item.get("one_sentence_for_host"), 120 if compact_retry else 180),
+                "source_ids": (item.get("source_ids") or [])[:8 if compact_retry else 40],
+                "evidence_ids": (item.get("evidence_ids") or [])[:8 if compact_retry else 40],
+                "missing_assets": (item.get("missing_assets") or [])[:4 if compact_retry else 20],
             }
-            for item in (brief.get("what_market_is_watching") or [])[:8]
+            for item in (brief.get("what_market_is_watching") or [])[:focus_limit]
             if isinstance(item, dict)
         ],
         "false_leads": [
@@ -478,31 +563,31 @@ def compact_market_focus_brief(brief: dict) -> dict:
                 "evidence_ids": item.get("evidence_ids") or [],
                 "drop_code": item.get("drop_code") or "",
             }
-            for item in (brief.get("false_leads") or [])[:8]
+            for item in (brief.get("false_leads") or [])[:4 if compact_retry else 8]
             if isinstance(item, dict)
         ],
-        "missing_assets": [compact_text(item, 160) for item in (brief.get("missing_assets") or [])[:12]],
+        "missing_assets": [compact_text(item, 120 if compact_retry else 160) for item in (brief.get("missing_assets") or [])[:6 if compact_retry else 12]],
         "source_gaps": [
             {
-                "issue": compact_text(item.get("issue"), 140),
-                "why_needed": compact_text(item.get("why_needed"), 220),
-                "search_hint": compact_text(item.get("search_hint"), 180),
+                "issue": compact_text(item.get("issue"), 100 if compact_retry else 140),
+                "why_needed": compact_text(item.get("why_needed"), detail_limit),
+                "search_hint": compact_text(item.get("search_hint"), 120 if compact_retry else 180),
                 "safe_for_public": bool(item.get("safe_for_public")),
                 "related_focus_rank": item.get("related_focus_rank") or 0,
             }
-            for item in (brief.get("source_gaps") or [])[:10]
+            for item in (brief.get("source_gaps") or [])[:gap_limit]
             if isinstance(item, dict)
         ],
         "suggested_broadcast_order": [
             {
                 "rank": item.get("rank"),
                 "focus_rank": item.get("focus_rank"),
-                "suggested_story_title": compact_text(item.get("suggested_story_title"), 120),
+                "suggested_story_title": compact_text(item.get("suggested_story_title"), 100 if compact_retry else 120),
                 "broadcast_use": item.get("broadcast_use") or "",
-                "one_sentence_for_host": compact_text(item.get("one_sentence_for_host"), 180),
-                "evidence_ids": item.get("evidence_ids") or [],
+                "one_sentence_for_host": compact_text(item.get("one_sentence_for_host"), 120 if compact_retry else 180),
+                "evidence_ids": (item.get("evidence_ids") or [])[:8 if compact_retry else 40],
             }
-            for item in (brief.get("suggested_broadcast_order") or [])[:8]
+            for item in (brief.get("suggested_broadcast_order") or [])[:order_limit]
             if isinstance(item, dict)
         ],
     }
@@ -620,19 +705,43 @@ def support_candidates_for_story(story: dict, selected_items: list[dict], candid
     return [item for _, _, _, item in sorted(rows, key=lambda row: (row[0], row[1], row[2]), reverse=True)[:limit]]
 
 
-def compact_candidate(item: dict) -> dict:
+def compact_candidate(
+    item: dict,
+    summary_limit: int = 520,
+    include_url: bool = True,
+    include_paths: bool = True,
+    allow_text_fallback: bool = True,
+    minimal: bool = False,
+) -> dict:
     source_role = resolved_source_role(item)
     evidence_role = resolved_evidence_role(item, source_role)
     asset_type = resolved_asset_type(item)
     talk_vs_slide = resolved_talk_vs_slide(item, asset_type, evidence_role)
-    return {
+    summary_source = item.get("summary") or item.get("selection_reason")
+    if allow_text_fallback and not summary_source:
+        summary_source = item.get("text")
+    if minimal:
+        return {
+            "id": str(item.get("id") or ""),
+            "item_id": str(item.get("item_id") or item.get("id") or ""),
+            "title": compact_text(title_of(item), 140),
+            "source": source_of(item),
+            "source_role": source_role,
+            "evidence_role": evidence_role,
+            "asset_type": asset_type,
+            "talk_vs_slide": talk_vs_slide,
+            "score": item.get("score") or item.get("final_score") or 0,
+            "theme_keys": (item.get("theme_keys") or item.get("market_hooks") or [])[:5],
+            "summary": sanitize_prompt_text(summary_source, summary_limit),
+            "asset_status": "visual_available" if item.get("visual_local_path") else "no_local_visual",
+        }
+    row = {
         "id": str(item.get("id") or ""),
         "item_id": str(item.get("item_id") or item.get("id") or ""),
         "title": title_of(item),
         "source": source_of(item),
         "source_role": source_role,
         "evidence_role": evidence_role,
-        "url": item.get("url") or "",
         "published_at": item.get("published_at") or item.get("captured_at") or "",
         "score": item.get("score") or item.get("final_score") or 0,
         "theme_keys": item.get("theme_keys") or item.get("market_hooks") or [],
@@ -648,25 +757,55 @@ def compact_candidate(item: dict) -> dict:
         "ppt_asset_candidate": is_visual_candidate(item),
         "drop_risk": item.get("drop_risk") or "",
         "talk_vs_slide": talk_vs_slide,
-        "summary": compact_text(item.get("summary") or item.get("text") or item.get("selection_reason"), 520),
-        "visual_local_path": item.get("visual_local_path") or "",
+        "summary": sanitize_prompt_text(summary_source, summary_limit) if not include_url else compact_text(summary_source, summary_limit),
+        "asset_status": "visual_available" if item.get("visual_local_path") else "no_local_visual",
     }
+    if include_url:
+        row["url"] = item.get("url") or ""
+    if include_paths:
+        row["visual_local_path"] = item.get("visual_local_path") or ""
+    return row
 
 
-def compact_finviz_item(item: dict) -> dict:
-    return {
+def compact_finviz_item(item: dict, news_limit: int = 4, include_urls: bool = True, include_paths: bool = True) -> dict:
+    row = {
         "ticker": item.get("ticker") or "",
         "title": title_of(item),
-        "screenshot_path": item.get("screenshot_path") or "",
         "quote_summary": [compact_text(row, 160) for row in (item.get("quote_summary") or [])[:3]],
         "news": [
             {
                 "time": compact_text(row.get("time"), 30),
                 "headline": compact_text(row.get("headline"), 160),
-                "url": row.get("url") or "",
+                **({"url": row.get("url") or ""} if include_urls else {}),
             }
-            for row in (item.get("news") or [])[:4]
+            for row in (item.get("news") or [])[:news_limit]
         ],
+        "asset_status": "screenshot_available" if item.get("screenshot_path") else "no_screenshot",
+    }
+    if include_paths:
+        row["screenshot_path"] = item.get("screenshot_path") or ""
+    return row
+
+
+def compact_radar_storyline(story: dict) -> dict:
+    return {
+        "storyline_id": story.get("storyline_id") or story.get("id") or "",
+        "title": compact_text(story.get("title"), 120),
+        "hook": compact_text(story.get("hook"), 160),
+        "why_now": compact_text(story.get("why_now"), 160),
+        "selected_item_ids": (story.get("selected_item_ids") or [])[:8],
+        "material_refs": [
+            {
+                "id": ref.get("id") or ref.get("item_id") or "",
+                "source_role": ref.get("source_role") or "",
+                "evidence_role": ref.get("evidence_role") or "",
+                "asset_status": ref.get("asset_status") or ref.get("capture_status") or "",
+            }
+            for ref in (story.get("material_refs") or [])[:8]
+            if isinstance(ref, dict)
+        ],
+        "recommendation_stars": story.get("recommendation_stars") or 0,
+        "drop_code": story.get("drop_code") or "",
     }
 
 
@@ -896,18 +1035,54 @@ def load_retrospective_learning(target_date: str) -> dict:
     }
 
 
-def build_input_payload(target_date: str, max_candidates: int) -> dict:
+def compact_retrospective_learning(payload: dict, max_days: int = 2) -> dict:
+    if not isinstance(payload, dict) or not payload:
+        return {}
+    return {
+        "available": bool(payload.get("available")),
+        "lookback_days": min(int(payload.get("lookback_days") or max_days), max_days),
+        "hard_rules": (payload.get("hard_rules") or [])[:6],
+        "aggregate_label_counts": payload.get("aggregate_label_counts") or {},
+        "aggregate_actions": (payload.get("aggregate_actions") or [])[:5],
+        "days": (payload.get("days") or [])[:max_days],
+    }
+
+
+def build_input_payload(target_date: str, max_candidates: int, compact_retry: bool = False) -> dict:
     processed = PROCESSED_DIR / target_date
     radar = load_json(processed / "market-radar.json")
     market_focus = load_optional_json(processed / "market-focus-brief.json")
     radar_storylines = radar.get("storylines") or []
     required_ids = referenced_candidate_ids_from_storylines(radar_storylines)
     required_ids.update(referenced_candidate_ids_from_market_focus(market_focus))
+    all_candidates = radar.get("candidates") or []
+    if compact_retry:
+        max_candidates = min(max_candidates, 8)
+    summary_limit = 120 if compact_retry else 520
+    finviz_limit = 3 if compact_retry else 10
+    finviz_news_limit = 1 if compact_retry else 4
+    visual_limit = 8 if compact_retry else 16
+    recent_days = 3 if compact_retry else 7
     candidates = select_editorial_candidates(radar.get("candidates") or [], max_candidates, required_ids=required_ids)
+    if compact_retry:
+        candidates = candidates[:max_candidates]
     finviz = load_json(processed / "finviz-feature-stocks.json")
     visuals = load_json(processed / "visual-cards.json")
+    retrospective_learning = load_retrospective_learning(target_date)
+    if compact_retry:
+        retrospective_learning = compact_retrospective_learning(retrospective_learning)
     return {
         "date": target_date,
+        "input_limits": {
+            "compact_retry": compact_retry,
+            "candidate_count_total": len(all_candidates),
+            "candidate_count_sent": len(candidates),
+            "max_candidates": max_candidates,
+            "candidate_summary_limit": summary_limit,
+            "finviz_feature_stock_limit": finviz_limit,
+            "finviz_news_limit": finviz_news_limit,
+            "recent_days": recent_days,
+        },
         "policy": {
             "selection_style": "strong_selective",
             "minimum_storylines": 3,
@@ -922,22 +1097,39 @@ def build_input_payload(target_date: str, max_candidates: int) -> dict:
             "expected_broadcast": os.environ.get("AUTOPARK_EXPECTED_BROADCAST", "1") != "0",
             "operation_note": os.environ.get("AUTOPARK_OPERATION_NOTE") or "",
         },
-        "market_focus_brief": compact_market_focus_brief(market_focus),
-        "market_radar_storylines": radar_storylines,
-        "candidates": [compact_candidate(item) for item in candidates if item.get("id")],
-        "finviz_feature_stocks": [compact_finviz_item(item) for item in (finviz.get("items") or [])[:10]],
+        "market_focus_brief": compact_market_focus_brief(market_focus, compact_retry=compact_retry),
+        "market_radar_storylines": [compact_radar_storyline(story) for story in radar_storylines[:8]] if compact_retry else radar_storylines,
+        "candidates": [
+            compact_candidate(
+                item,
+                summary_limit=summary_limit,
+                include_url=not compact_retry,
+                include_paths=not compact_retry,
+                allow_text_fallback=not compact_retry,
+                minimal=compact_retry,
+            )
+            for item in candidates
+            if item.get("id")
+        ],
+        "finviz_feature_stocks": [
+            compact_finviz_item(item, news_limit=finviz_news_limit, include_urls=not compact_retry, include_paths=not compact_retry)
+            for item in (finviz.get("items") or [])[:finviz_limit]
+        ],
         "visual_cards": [
             {
                 "id": item.get("id") or item.get("title") or "",
                 "title": title_of(item),
-                "summary": compact_text(item.get("summary") or item.get("caption") or "", 220),
-                "path": item.get("local_path") or item.get("visual_local_path") or "",
+                "summary": sanitize_prompt_text(item.get("summary") or item.get("caption") or "", 160 if compact_retry else 220)
+                if compact_retry
+                else compact_text(item.get("summary") or item.get("caption") or "", 220),
+                "asset_status": "visual_available" if (item.get("local_path") or item.get("visual_local_path")) else "no_local_visual",
+                **({} if compact_retry else {"path": item.get("local_path") or item.get("visual_local_path") or ""}),
             }
-            for item in (visuals.get("cards") or visuals.get("items") or [])[:16]
+            for item in (visuals.get("cards") or visuals.get("items") or [])[:visual_limit]
         ],
-        "recent_briefs": load_recent_briefs(target_date),
-        "recent_broadcast_feedback": load_recent_broadcast_feedback(target_date),
-        "retrospective_learning": load_retrospective_learning(target_date),
+        "recent_briefs": load_recent_briefs(target_date, days=recent_days),
+        "recent_broadcast_feedback": load_recent_broadcast_feedback(target_date, days=recent_days),
+        "retrospective_learning": retrospective_learning,
     }
 
 
@@ -1011,10 +1203,11 @@ def extract_output_text(raw: dict) -> str:
     ).strip()
 
 
-def call_openai(prompt: str, token: str, model: str, timeout: int) -> tuple[dict, str | None]:
+def call_openai(prompt: str, token: str, model: str, timeout: int, max_output_tokens: int) -> tuple[dict, str | None, dict]:
     payload = {
         "model": model,
         "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
+        "max_output_tokens": max_output_tokens,
         "text": {
             "format": {
                 "type": "json_schema",
@@ -1035,7 +1228,147 @@ def call_openai(prompt: str, token: str, model: str, timeout: int) -> tuple[dict
     text = extract_output_text(raw)
     if not text:
         raise RuntimeError("OpenAI response did not contain output_text")
-    return json.loads(text), raw.get("id")
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise OpenAIResponseDecodeError(exc, raw.get("id"), raw) from exc
+    return parsed, raw.get("id"), raw
+
+
+def is_timeout_exception(exc: BaseException) -> bool:
+    if isinstance(exc, TimeoutError):
+        return True
+    reason = getattr(exc, "reason", None)
+    if isinstance(reason, TimeoutError):
+        return True
+    return "timed out" in str(exc).lower() or "timeout" in str(exc).lower()
+
+
+def is_output_limit_exception(exc: BaseException) -> bool:
+    raw = getattr(exc, "raw_response", {}) or {}
+    incomplete = raw.get("incomplete_details") if isinstance(raw, dict) else {}
+    return isinstance(exc, OpenAIResponseDecodeError) and (incomplete or {}).get("reason") == "max_output_tokens"
+
+
+def compact_retry_code_for_exception(exc: BaseException) -> str | None:
+    if is_timeout_exception(exc):
+        return COMPACT_RETRY_CODE
+    if is_output_limit_exception(exc):
+        return COMPACT_OUTPUT_RETRY_CODE
+    return None
+
+
+def error_code_for_exception(exc: BaseException) -> str:
+    if is_timeout_exception(exc):
+        return "editorial_api_timeout"
+    if isinstance(exc, OpenAIResponseDecodeError):
+        return "json_decode_error"
+    if isinstance(exc, urllib.error.HTTPError):
+        return f"http_{exc.code}"
+    if isinstance(exc, urllib.error.URLError):
+        return "url_error"
+    if isinstance(exc, json.JSONDecodeError):
+        return "json_decode_error"
+    if isinstance(exc, ValueError):
+        return "validation_error"
+    if isinstance(exc, RuntimeError) and "missing_openai_api_key" in str(exc):
+        return "missing_openai_api_key"
+    return type(exc).__name__
+
+
+def prompt_debug_stats(
+    *,
+    attempt: str,
+    input_payload: dict,
+    prompt: str,
+    model: str,
+    timeout_seconds: int,
+    max_output_tokens: int,
+    request_started_at: str | None = None,
+    request_finished_at: str | None = None,
+    elapsed_seconds: float | None = None,
+    raw_response_id: str | None = None,
+    raw_response: dict | None = None,
+    error: BaseException | None = None,
+    retry_code: str | None = None,
+) -> dict:
+    market_focus = input_payload.get("market_focus_brief") or {}
+    limits = input_payload.get("input_limits") or {}
+    stats = {
+        "attempt": attempt,
+        "retry_code": retry_code,
+        "model": model,
+        "timeout_seconds": timeout_seconds,
+        "request_started_at": request_started_at,
+        "request_finished_at": request_finished_at,
+        "elapsed_seconds": round(elapsed_seconds, 3) if elapsed_seconds is not None else None,
+        "candidate_count_total": limits.get("candidate_count_total"),
+        "candidate_count_sent": limits.get("candidate_count_sent", len(input_payload.get("candidates") or [])),
+        "market_focus_available": bool(market_focus.get("available") or market_focus.get("what_market_is_watching")),
+        "market_focus_focus_count": len(market_focus.get("what_market_is_watching") or []),
+        "market_focus_source_gap_count": len(market_focus.get("source_gaps") or []),
+        "prompt_chars": len(prompt or ""),
+        "estimated_prompt_tokens": estimate_prompt_tokens(prompt),
+        "max_output_tokens": max_output_tokens,
+        "raw_response_id": raw_response_id or getattr(error, "response_id", None),
+        "incomplete_details": (raw_response or getattr(error, "raw_response", {}) or {}).get("incomplete_details")
+        if isinstance(raw_response or getattr(error, "raw_response", {}) or {}, dict)
+        else None,
+        "fallback_code": error_code_for_exception(error) if error else None,
+        "fallback_reason": f"{type(error).__name__}: {error}" if error else None,
+        "error_code": error_code_for_exception(error) if error else None,
+    }
+    return {key: value for key, value in stats.items() if value is not None}
+
+
+def run_openai_attempt(
+    *,
+    attempt: str,
+    input_payload: dict,
+    token: str,
+    model: str,
+    timeout_seconds: int,
+    max_output_tokens: int,
+    retry_code: str | None = None,
+) -> tuple[dict | None, str | None, dict]:
+    prompt = build_prompt(input_payload)
+    started_at = now_iso()
+    monotonic = time.monotonic()
+    try:
+        brief, response_id, raw = call_openai(prompt, token, model, timeout_seconds, max_output_tokens)
+        elapsed = time.monotonic() - monotonic
+        stats = prompt_debug_stats(
+            attempt=attempt,
+            input_payload=input_payload,
+            prompt=prompt,
+            model=model,
+            timeout_seconds=timeout_seconds,
+            max_output_tokens=max_output_tokens,
+            request_started_at=started_at,
+            request_finished_at=now_iso(),
+            elapsed_seconds=elapsed,
+            raw_response_id=response_id,
+            raw_response=raw,
+            retry_code=retry_code,
+        )
+        return brief, response_id, stats
+    except (urllib.error.URLError, TimeoutError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        elapsed = time.monotonic() - monotonic
+        stats = prompt_debug_stats(
+            attempt=attempt,
+            input_payload=input_payload,
+            prompt=prompt,
+            model=model,
+            timeout_seconds=timeout_seconds,
+            max_output_tokens=max_output_tokens,
+            request_started_at=started_at,
+            request_finished_at=now_iso(),
+            elapsed_seconds=elapsed,
+            error=exc,
+            retry_code=retry_code,
+        )
+        stats["_exception"] = exc
+        return None, None, stats
 
 
 def load_fixture_response(path: Path) -> tuple[dict, str | None]:
@@ -1244,7 +1577,14 @@ def normalize_brief(brief: dict, input_payload: dict) -> dict:
     }
 
 
-def fallback_brief(target_date: str, reason: str, raw_response_id: str | None = None, raw_response_path: str = "") -> dict:
+def fallback_brief(
+    target_date: str,
+    reason: str,
+    raw_response_id: str | None = None,
+    raw_response_path: str = "",
+    fallback_code: str = "editorial_openai_unavailable",
+    debug_stats: dict | None = None,
+) -> dict:
     radar = load_json(PROCESSED_DIR / target_date / "market-radar.json")
     market_focus = load_optional_json(PROCESSED_DIR / target_date / "market-focus-brief.json")
     candidates = {item.get("id"): item for item in radar.get("candidates") or []}
@@ -1342,12 +1682,14 @@ def fallback_brief(target_date: str, reason: str, raw_response_id: str | None = 
     return {
         "ok": True,
         "fallback": True,
+        "fallback_code": fallback_code,
         "fallback_reason": reason,
         "target_date": target_date,
         "created_at": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds"),
         "model": None,
         "raw_response_id": raw_response_id,
         "raw_response_path": raw_response_path,
+        "debug_stats": debug_stats or {},
         "broadcast_mode": "normal",
         "daily_thesis": compact_text((storylines[0]["hook"] if storylines else "") or "오늘 시장의 핵심 질문을 선별합니다.", 140),
         "one_line_market_frame": compact_text((storylines[0]["hook"] if storylines else "") or "오늘 시장의 핵심 질문을 선별합니다.", 140),
@@ -1412,7 +1754,9 @@ def main() -> int:
     parser.add_argument("--env", type=Path, default=DEFAULT_ENV)
     parser.add_argument("--model", default=None)
     parser.add_argument("--max-candidates", type=int, default=28)
-    parser.add_argument("--timeout", type=int, default=120)
+    parser.add_argument("--timeout", type=int, default=DEFAULT_API_TIMEOUT_SECONDS)
+    parser.add_argument("--api-timeout-seconds", type=int, default=None)
+    parser.add_argument("--max-output-tokens", type=int, default=None)
     parser.add_argument("--response-fixture", type=Path, help="Read a saved OpenAI response or brief JSON instead of calling the API.")
     parser.add_argument("--output", type=Path, help="Write the generated brief to a custom path instead of data/processed/<date>/editorial-brief.json.")
     parser.add_argument("--prompt-output", type=Path, help="Write the exact local prompt payload to a JSON file without printing secrets.")
@@ -1421,10 +1765,24 @@ def main() -> int:
 
     env = {**load_env(args.env.resolve()), **os.environ}
     model = args.model or env.get("AUTOPARK_EDITORIAL_MODEL") or env.get("AUTOPARK_OPENAI_MODEL") or DEFAULT_MODEL
+    api_timeout_seconds = positive_int(
+        args.api_timeout_seconds or env.get("AUTOPARK_EDITORIAL_API_TIMEOUT_SECONDS") or args.timeout,
+        DEFAULT_API_TIMEOUT_SECONDS,
+    )
+    max_output_tokens = positive_int(args.max_output_tokens or env.get("AUTOPARK_EDITORIAL_MAX_OUTPUT_TOKENS"), DEFAULT_MAX_OUTPUT_TOKENS)
     fixture_meta = load_optional_json(args.response_fixture) if args.response_fixture else {}
     fixture_model = fixture_meta.get("model") if isinstance(fixture_meta, dict) else None
     input_payload = build_input_payload(args.date, args.max_candidates)
+    prompt = build_prompt(input_payload)
     output_path = args.output or (PROCESSED_DIR / args.date / "editorial-brief.json")
+    first_prompt_stats = prompt_debug_stats(
+        attempt="first_attempt",
+        input_payload=input_payload,
+        prompt=prompt,
+        model=model,
+        timeout_seconds=api_timeout_seconds,
+        max_output_tokens=max_output_tokens,
+    )
     if args.prompt_output:
         write_json(
             args.prompt_output,
@@ -1433,7 +1791,8 @@ def main() -> int:
                 "target_date": args.date,
                 "model": model,
                 "input_payload": input_payload,
-                "prompt": build_prompt(input_payload),
+                "prompt": prompt,
+                "prompt_stats": first_prompt_stats,
             },
         )
 
@@ -1446,12 +1805,14 @@ def main() -> int:
             "output": str(output_path),
             "candidate_count": len(input_payload.get("candidates") or []),
             "prompt_payload": input_payload,
+            "prompt_stats": first_prompt_stats,
         }
         print_json(preview)
         return 0
 
     response_id = None
     raw_response_path = ""
+    debug_stats: dict = {"first_attempt": first_prompt_stats}
     try:
         if args.response_fixture:
             brief, response_id = load_fixture_response(args.response_fixture)
@@ -1460,7 +1821,38 @@ def main() -> int:
             token = env.get("OPENAI_API_KEY")
             if not token:
                 raise RuntimeError("missing_openai_api_key")
-            brief, response_id = call_openai(build_prompt(input_payload), token, model, args.timeout)
+            brief, response_id, first_stats = run_openai_attempt(
+                attempt="first_attempt",
+                input_payload=input_payload,
+                token=token,
+                model=model,
+                timeout_seconds=api_timeout_seconds,
+                max_output_tokens=max_output_tokens,
+            )
+            debug_stats["first_attempt"] = {key: value for key, value in first_stats.items() if key != "_exception"}
+            first_exception = first_stats.get("_exception")
+            retry_code = compact_retry_code_for_exception(first_exception) if first_exception else None
+            if brief is None and first_exception and retry_code:
+                retry_payload = build_input_payload(args.date, args.max_candidates, compact_retry=True)
+                retry_timeout_seconds = min(api_timeout_seconds, 40 if retry_code == COMPACT_RETRY_CODE else 75)
+                retry_brief, retry_response_id, retry_stats = run_openai_attempt(
+                    attempt="retry_attempt",
+                    input_payload=retry_payload,
+                    token=token,
+                    model=model,
+                    timeout_seconds=retry_timeout_seconds,
+                    max_output_tokens=max_output_tokens,
+                    retry_code=retry_code,
+                )
+                debug_stats["retry_attempt"] = {key: value for key, value in retry_stats.items() if key != "_exception"}
+                if retry_brief is None:
+                    retry_exception = retry_stats.get("_exception") or first_exception
+                    raise retry_exception
+                brief = retry_brief
+                response_id = retry_response_id
+                input_payload = retry_payload
+            elif brief is None and first_exception:
+                raise first_exception
             response_source = "openai_responses_api"
         if args.response_fixture and args.response_fixture.resolve().parent == (RUNTIME_DIR / "openai-responses").resolve():
             raw_response_path = str(args.response_fixture.resolve())
@@ -1479,6 +1871,7 @@ def main() -> int:
             "raw_response_id": response_id,
             "raw_response_path": raw_response_path,
             **brief,
+            "debug_stats": debug_stats,
             "retrospective_learning_applied": {
                 "available": bool((input_payload.get("retrospective_learning") or {}).get("available")),
                 "aggregate_label_counts": (input_payload.get("retrospective_learning") or {}).get("aggregate_label_counts") or {},
@@ -1486,7 +1879,24 @@ def main() -> int:
             },
         }
     except (urllib.error.URLError, TimeoutError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
-        brief = fallback_brief(args.date, f"{type(exc).__name__}: {exc}", raw_response_id=response_id, raw_response_path=raw_response_path)
+        fallback_reason = f"{type(exc).__name__}: {exc}"
+        first_attempt = debug_stats.get("first_attempt") or {}
+        retry_attempt = debug_stats.get("retry_attempt") or {}
+        if first_attempt.get("prompt_chars"):
+            fallback_reason += f"; first_attempt_prompt_chars={first_attempt.get('prompt_chars')}"
+        if retry_attempt.get("prompt_chars"):
+            fallback_reason += f"; retry_attempt_prompt_chars={retry_attempt.get('prompt_chars')}"
+        fallback_code = "editorial_api_timeout" if (
+            is_timeout_exception(exc) or first_attempt.get("fallback_code") == "editorial_api_timeout"
+        ) else error_code_for_exception(exc)
+        brief = fallback_brief(
+            args.date,
+            fallback_reason,
+            raw_response_id=response_id,
+            raw_response_path=raw_response_path,
+            fallback_code=fallback_code,
+            debug_stats=debug_stats,
+        )
 
     write_json(output_path, brief)
     print_json(
@@ -1497,7 +1907,9 @@ def main() -> int:
             "model": brief.get("model"),
             "raw_response_path": brief.get("raw_response_path"),
             "storyline_count": len(brief.get("storylines") or []),
+            "fallback_code": brief.get("fallback_code"),
             "fallback_reason": brief.get("fallback_reason"),
+            "debug_stats": brief.get("debug_stats"),
         }
     )
     return 0

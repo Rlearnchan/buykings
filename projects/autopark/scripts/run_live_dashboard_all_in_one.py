@@ -61,6 +61,14 @@ def load_env_file(path: Path) -> dict[str, str]:
     return values
 
 
+def positive_int(value: object, default: int) -> int:
+    try:
+        parsed = int(value or default)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed > 0 else default
+
+
 def resolve_python() -> str:
     env_value = os.environ.get("AUTOPARK_PYTHON") or os.environ.get("PYTHON")
     if env_value:
@@ -627,6 +635,7 @@ def main() -> int:
     parser.add_argument("--skip-state-mirror", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--timeout", type=int, default=240)
+    parser.add_argument("--editorial-api-timeout-seconds", type=int, default=None)
     args = parser.parse_args()
 
     file_env = load_env_file(REPO_ROOT / ".env")
@@ -652,6 +661,14 @@ def main() -> int:
     run_env["AUTOPARK_OPERATION_MODE"] = str(operation.get("mode") or "daily_broadcast")
     run_env["AUTOPARK_EXPECTED_BROADCAST"] = "1" if operation.get("expected_broadcast") else "0"
     run_env["AUTOPARK_OPERATION_NOTE"] = str(operation.get("note") or "")
+    editorial_api_timeout = positive_int(
+        args.editorial_api_timeout_seconds
+        or run_env.get("AUTOPARK_EDITORIAL_API_TIMEOUT_SECONDS")
+        or file_env.get("AUTOPARK_EDITORIAL_API_TIMEOUT_SECONDS")
+        or "120",
+        120,
+    )
+    editorial_stage_timeout = editorial_api_timeout + 90
     preflight_enabled = flag_enabled(run_env, "AUTOPARK_PREFLIGHT_ENABLED", True) and not args.skip_preflight_agenda
     market_focus_with_web = args.market_focus_with_web or flag_enabled(run_env, "AUTOPARK_MARKET_FOCUS_WITH_WEB_DEFAULT", False)
 
@@ -788,6 +805,8 @@ def main() -> int:
                         "market_focus_output": str(PROJECT_ROOT / "data" / "processed" / args.date / "market-focus-brief.json"),
                         "step": "build editorial brief",
                         "fallback": "unknown_until_run",
+                        "api_timeout_seconds": editorial_api_timeout,
+                        "stage_timeout_seconds": editorial_stage_timeout,
                         "output": str(PROJECT_ROOT / "data" / "processed" / args.date / "editorial-brief.json"),
                     },
                     "browser_arg_violations": browser_arg_violations,
@@ -1210,9 +1229,16 @@ def main() -> int:
     append_step(results, result)
 
     result, editorial_payload = run(
-        [py, "projects/autopark/scripts/build_editorial_brief.py", "--date", args.date],
+        [
+            py,
+            "projects/autopark/scripts/build_editorial_brief.py",
+            "--date",
+            args.date,
+            "--api-timeout-seconds",
+            str(editorial_api_timeout),
+        ],
         "build editorial brief",
-        180,
+        editorial_stage_timeout,
         allow_fail=True,
         env=run_env,
     )
@@ -1358,10 +1384,12 @@ def main() -> int:
         "editorial_fallback": bool(editorial_payload.get("fallback")),
         "editorial": {
             "fallback": bool(editorial_payload.get("fallback")),
+            "fallback_code": editorial_payload.get("fallback_code"),
             "fallback_reason": editorial_payload.get("fallback_reason"),
             "model": editorial_payload.get("model"),
             "storyline_count": editorial_payload.get("storyline_count"),
             "output": editorial_payload.get("output"),
+            "debug_stats": editorial_payload.get("debug_stats"),
         },
         "quality_gate": review_payload.get("gate"),
         "publish": publish_info(publish_payload),
