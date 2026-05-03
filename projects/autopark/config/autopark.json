@@ -25,6 +25,11 @@
       "description": "Draft three morning story line candidates."
     },
     {
+      "id": "market_focus_brief",
+      "enabled": false,
+      "description": "Use local collected sources and an OpenAI editor pass to rank what the prior US market was watching before rendering editorial/storyline outputs."
+    },
+    {
       "id": "review",
       "enabled": false,
       "description": "Run format/content dashboard quality checks before Notion publish; write runtime/reviews/YYYY-MM-DD/dashboard-quality.md."

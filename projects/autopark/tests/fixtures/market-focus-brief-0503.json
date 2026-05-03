@@ -1,0 +1,99 @@
+{
+  "market_focus_summary": "금리·달러 제약을 먼저 보고, 유가 리스크는 가격 반응으로 확인한다.",
+  "what_market_is_watching": [
+    {
+      "rank": 1,
+      "focus": "인플레이션 재경계가 금리와 달러를 다시 시장의 발목으로 만드는가",
+      "market_question": "Fed 인사의 인플레이션 경계 발언이 지수 반등보다 금리와 달러 민감도를 더 크게 만들고 있는가?",
+      "why_it_matters": "같은 주식 호재라도 금리와 달러가 버티면 밸류에이션이 높은 기술주와 한국장 성장주에는 부담으로 번질 수 있다.",
+      "price_confirmation": "10년물, 달러인덱스, USD/KRW 차트가 주식 반응과 같은 방향인지 확인해야 한다.",
+      "broadcast_use": "lead",
+      "confidence": 0.78,
+      "suggested_story_title": "좋은 뉴스보다 금리와 달러가 먼저 보이는 장",
+      "one_sentence_for_host": "오늘은 헤드라인보다 금리와 달러가 위험자산의 상단을 어디까지 누르는지부터 보겠습니다.",
+      "source_ids": [
+        "tradingview-com-news-064",
+        "finance-yahoo-com-source-010"
+      ],
+      "evidence_ids": [
+        "tradingview-com-news-064",
+        "finance-yahoo-com-source-010"
+      ],
+      "missing_assets": [
+        "10Y/DXY chart export"
+      ]
+    },
+    {
+      "rank": 2,
+      "focus": "이란/유가 헤드라인은 시장을 흔드는 원인인가, 말거리인가",
+      "market_question": "지정학 뉴스 반복이 유가와 에너지주 가격 반응으로 확인되는가?",
+      "why_it_matters": "유가가 따라오지 않으면 지정학 뉴스는 첫 꼭지보다 리스크 체크용 보조 꼭지에 가깝다.",
+      "price_confirmation": "WTI/Brent와 XLE 반응이 함께 움직이는지 확인해야 한다.",
+      "broadcast_use": "supporting_story",
+      "confidence": 0.62,
+      "suggested_story_title": "유가가 확인해줘야 진짜 리스크다",
+      "one_sentence_for_host": "이란 뉴스는 크지만, 방송에서는 유가와 에너지주가 따라오는지를 먼저 따져보겠습니다.",
+      "source_ids": [
+        "cnbc-com-world-040",
+        "https://x.com/KobeissiLetter/status/2050710022938558611"
+      ],
+      "evidence_ids": [
+        "cnbc-com-world-040",
+        "https://x.com/KobeissiLetter/status/2050710022938558611"
+      ],
+      "missing_assets": [
+        "WTI/Brent chart export"
+      ]
+    }
+  ],
+  "false_leads": [
+    {
+      "focus": "X의 지정학 속보만으로 유가 급등을 단정",
+      "reason": "소셜 반복은 시장 관심을 보여주지만 사실 확정이나 가격 원인으로 쓰기에는 부족하다.",
+      "source_ids": [
+        "https://x.com/KobeissiLetter/status/2050710022938558611"
+      ],
+      "evidence_ids": [
+        "https://x.com/KobeissiLetter/status/2050710022938558611"
+      ],
+      "drop_code": "sentiment_only_not_fact"
+    }
+  ],
+  "missing_assets": [
+    "10Y/DXY chart export",
+    "WTI/Brent chart export"
+  ],
+  "source_gaps": [
+    {
+      "issue": "전날 미국장 지수 종가와 섹터별 실제 반응",
+      "why_needed": "리드가 금리/달러 압력인지 확인하려면 지수와 섹터 반응이 함께 필요하다.",
+      "search_hint": "S&P 500 Nasdaq sector performance prior US session rates dollar",
+      "safe_for_public": false,
+      "related_focus_rank": 1
+    }
+  ],
+  "suggested_broadcast_order": [
+    {
+      "rank": 1,
+      "focus_rank": 1,
+      "suggested_story_title": "좋은 뉴스보다 금리와 달러가 먼저 보이는 장",
+      "broadcast_use": "lead",
+      "one_sentence_for_host": "오늘은 헤드라인보다 금리와 달러가 위험자산의 상단을 어디까지 누르는지부터 보겠습니다.",
+      "evidence_ids": [
+        "tradingview-com-news-064",
+        "finance-yahoo-com-source-010"
+      ]
+    },
+    {
+      "rank": 2,
+      "focus_rank": 2,
+      "suggested_story_title": "유가가 확인해줘야 진짜 리스크다",
+      "broadcast_use": "supporting_story",
+      "one_sentence_for_host": "이란 뉴스는 크지만, 방송에서는 유가와 에너지주가 따라오는지를 먼저 따져보겠습니다.",
+      "evidence_ids": [
+        "cnbc-com-world-040",
+        "https://x.com/KobeissiLetter/status/2050710022938558611"
+      ]
+    }
+  ]
+}
