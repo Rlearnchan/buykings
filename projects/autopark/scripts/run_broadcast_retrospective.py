@@ -31,6 +31,15 @@ def now_kst() -> str:
     return datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds")
 
 
+def default_local_transcript_path(target_date: str) -> Path | None:
+    mmdd = datetime.fromisoformat(target_date).strftime("%m%d")
+    for suffix in ("rtf", "txt", "md"):
+        matches = sorted(PROJECT_ROOT.glob(f"*{mmdd}*.{suffix}"))
+        if matches:
+            return matches[0]
+    return None
+
+
 def run(cmd: list[str], timeout: int, allow_fail: bool = False) -> tuple[dict, str]:
     completed = subprocess.run(
         cmd,
@@ -76,6 +85,11 @@ def main() -> int:
     parser.add_argument("--video-id")
     parser.add_argument("--operation-mode", choices=["auto", "daily_broadcast", "monday_catchup", "no_broadcast"], default="auto")
     parser.add_argument("--broadcast-calendar", type=Path, default=DEFAULT_CALENDAR)
+    parser.add_argument("--ppt", type=Path)
+    parser.add_argument("--local-transcript", type=Path)
+    parser.add_argument("--skip-ppt-outline", action="store_true")
+    parser.add_argument("--skip-actual-outline", action="store_true")
+    parser.add_argument("--skip-asset-comparison", action="store_true")
     parser.add_argument("--skip-retrospective", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--python", default=sys.executable)
@@ -84,6 +98,7 @@ def main() -> int:
     py = args.python
     started_at = now_kst()
     operation = resolve_operation(args.date, calendar_path=args.broadcast_calendar, requested_mode=args.operation_mode)
+    local_transcript = args.local_transcript or default_local_transcript_path(args.date)
     log_path = PROJECT_ROOT / "runtime" / "logs" / f"{args.date}-broadcast-retrospective.json"
     if not operation.get("retrospective_enabled", True):
         payload = {
@@ -158,8 +173,42 @@ def main() -> int:
                 )
             time.sleep(sleep_seconds)
 
-    if not args.skip_retrospective and (args.dry_run or fetch_payload.get("status") == "downloaded"):
+    if not args.skip_ppt_outline:
+        cmd = [py, "projects/autopark/scripts/extract_ppt_outline.py", "--date", args.date]
+        if args.ppt:
+            cmd.extend(["--ppt", str(args.ppt)])
+        if args.dry_run:
+            cmd.append("--dry-run")
+        outline_payload, output = run(cmd, 120, allow_fail=True)
+        steps.append({"name": "extract ppt outline", "optional": True, "payload": outline_payload, "output_tail": output[-1200:]})
+    else:
+        steps.append({"name": "extract ppt outline", "optional": True, "payload": {"status": "skipped"}, "output_tail": ""})
+
+    if not args.skip_actual_outline:
+        cmd = [py, "projects/autopark/scripts/build_actual_broadcast_outline.py", "--date", args.date]
+        if local_transcript:
+            cmd.extend(["--transcript", str(local_transcript)])
+        if args.dry_run:
+            cmd.append("--dry-run")
+        actual_payload, output = run(cmd, 120, allow_fail=True)
+        steps.append({"name": "build actual broadcast outline", "optional": True, "payload": actual_payload, "output_tail": output[-1200:]})
+    else:
+        steps.append({"name": "build actual broadcast outline", "optional": True, "payload": {"status": "skipped"}, "output_tail": ""})
+
+    if not args.skip_asset_comparison:
+        cmd = [py, "projects/autopark/scripts/compare_dashboard_to_broadcast_assets.py", "--date", args.date]
+        if args.dry_run:
+            cmd.append("--dry-run")
+        comparison_payload, output = run(cmd, 120, allow_fail=True)
+        steps.append({"name": "compare dashboard to broadcast assets", "optional": True, "payload": comparison_payload, "output_tail": output[-1200:]})
+    else:
+        steps.append({"name": "compare dashboard to broadcast assets", "optional": True, "payload": {"status": "skipped"}, "output_tail": ""})
+
+    can_review = args.dry_run or fetch_payload.get("status") == "downloaded" or bool(local_transcript)
+    if not args.skip_retrospective and can_review:
         cmd = [py, "projects/autopark/scripts/build_broadcast_retrospective.py", "--date", args.date]
+        if local_transcript:
+            cmd.extend(["--transcript", str(local_transcript)])
         if args.dry_run:
             cmd.append("--dry-run")
         review_payload, output = run(cmd, 180, allow_fail=True)
@@ -168,11 +217,12 @@ def main() -> int:
         steps.append({"name": "build broadcast retrospective", "payload": {"status": "skipped"}, "output_tail": ""})
 
     payload = {
-        "ok": not any(step.get("payload", {}).get("ok") is False for step in steps),
+        "ok": not any(step.get("payload", {}).get("ok") is False and not step.get("optional") for step in steps),
         "date": args.date,
         "started_at": started_at,
         "ended_at": now_kst(),
         "operation": operation,
+        "local_transcript": str(local_transcript) if local_transcript else "",
         "fetch": fetch_payload,
         "retrospective": review_payload,
         "steps": steps,

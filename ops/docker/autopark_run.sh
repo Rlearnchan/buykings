@@ -8,16 +8,12 @@ timeout_seconds="${AUTOPARK_STEP_TIMEOUT:-120}"
 
 if [[ "${AUTOPARK_CDP_ENDPOINT:-}" == *host.docker.internal* ]]; then
   resolved_host="$(
-    getent hosts host.docker.internal \
-      | awk 'index($1, ":") == 0 {print $1; found=1; exit} END {if (!found && NR > 0) print first} NR == 1 {first=$1}'
+    getent ahostsv4 host.docker.internal \
+      | awk 'index($1, ".") > 0 {print $1; exit}'
   )"
   if [[ -n "$resolved_host" ]]; then
     endpoint_path="${AUTOPARK_CDP_ENDPOINT#*host.docker.internal}"
-    if [[ "$resolved_host" == *:* ]]; then
-      export AUTOPARK_CDP_ENDPOINT="http://[${resolved_host}]${endpoint_path}"
-    else
-      export AUTOPARK_CDP_ENDPOINT="http://${resolved_host}${endpoint_path}"
-    fi
+    export AUTOPARK_CDP_ENDPOINT="http://${resolved_host}${endpoint_path}"
   fi
 fi
 
@@ -53,5 +49,5 @@ else
   args+=("--publish-policy" "${AUTOPARK_PUBLISH_POLICY:-gate}")
 fi
 
-echo "Autopark container run: date=${run_date} cdp=${AUTOPARK_CDP_ENDPOINT:-unset} publish_skipped=${AUTOPARK_SKIP_PUBLISH:-1}"
+echo "Autopark container run: date=${run_date} use_cdp=${AUTOPARK_USE_CDP:-1} cdp=${AUTOPARK_CDP_ENDPOINT:-unset} publish_skipped=${AUTOPARK_SKIP_PUBLISH:-1}"
 python3 "${args[@]}"

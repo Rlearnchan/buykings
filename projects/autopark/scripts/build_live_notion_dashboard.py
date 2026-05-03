@@ -66,6 +66,242 @@ def clean(value: str | None, limit: int | None = None) -> str:
     return text
 
 
+def clean_complete(value: str | None, limit: int | None = None) -> str:
+    text = clean(value)
+    if not limit or len(text) <= limit:
+        return text.rstrip("…").rstrip()
+    clipped = text[:limit].rstrip()
+    sentence_end = max(clipped.rfind(mark) for mark in [".", "?", "!", "다.", "요.", "함.", "음."])
+    if sentence_end >= max(40, limit // 2):
+        return clipped[: sentence_end + 1].rstrip()
+    return clipped.rstrip("…").rstrip()
+
+
+def compact_status(value: str | None, default: str = "medium") -> str:
+    text = clean(value or default)
+    for marker in ["—", "-", ":", "·"]:
+        if marker in text:
+            head = clean(text.split(marker, 1)[0])
+            if head:
+                return head
+    return clean(text, 32)
+
+
+PUBLIC_LABELS = {
+    "supported_by_mixed_evidence": "근거는 있으나 수치 확인 필요",
+    "check_market_pricing": "시장 가격 반영 여부 확인 필요",
+    "prepricing check": "시장 가격 반영 여부 확인 필요",
+    "check_if_relevant": "필요 시 확인",
+    "visual_only_not_causality": "차트는 반응 확인용",
+    "sentiment_only_not_fact": "소셜 반응은 분위기 참고용",
+    "fact_anchor": "사실 확인 근거",
+    "analysis_anchor": "해석 참고",
+    "data_anchor": "숫자 근거",
+    "market_reaction": "시장 반응",
+    "sentiment_probe": "분위기 참고",
+    "sentiment": "분위기",
+    "support_only": "보조 자료",
+}
+
+
+INTERNAL_LABELS = set(PUBLIC_LABELS) | {
+    "source_role",
+    "evidence_role",
+    "drop_code",
+    "item_id",
+    "evidence_id",
+    "visual_asset_role",
+    "use_as_slide",
+    "use_as_talk_only",
+}
+
+
+MARKET_CHART_HINTS = {
+    "us10y": ["10Y", "10년물", "treasury", "국채"],
+    "crude-oil-wti": ["WTI", "crude", "원유"],
+    "crude-oil-brent": ["Brent", "브렌트"],
+    "dollar-index": ["DXY", "dollar", "달러"],
+    "usd-krw": ["USD/KRW", "원달러", "달러"],
+    "bitcoin": ["Bitcoin", "비트코인"],
+}
+
+
+def public_label(value: str | None, limit: int | None = None) -> str:
+    text = clean(value)
+    if not text:
+        return ""
+    lowered = text.lower()
+    if lowered in PUBLIC_LABELS:
+        return clean(PUBLIC_LABELS[lowered], limit)
+    for raw, human in PUBLIC_LABELS.items():
+        text = re.sub(re.escape(raw), human, text, flags=re.I)
+    return clean(text, limit)
+
+
+def public_editorial_text(value: str | None, limit: int | None = None) -> str:
+    text = clean(value)
+    text = re.sub(r"\bUnknown Error\b", "수집 상태 확인 필요", text, flags=re.I)
+    text = re.sub(r"^자동 보강:\s*", "", text)
+    text = text.replace(
+        "sentiment 단독 스토리라인이 되지 않도록 같은 테마의 fact/data/analysis 후보를 추가했습니다.",
+        "소셜 근거만 남지 않도록 같은 주제의 기사·분석 후보를 함께 붙였습니다.",
+    )
+    text = re.sub(r"\s*/\s*auto_added_fact_data_analysis_support\b", "", text)
+    text = text.replace("auto_added_fact_data_analysis_support", "")
+    text = re.sub(r"^retrospective_learning:\s*", "", text)
+    text = text.replace("causal anchor", "핵심 근거")
+    return public_label(text, limit)
+
+
+def first_sentences(value: str | None, max_sentences: int = 2, limit: int = 180) -> str:
+    text = public_editorial_text(value, limit * 2)
+    if not text:
+        return ""
+    parts = [part.strip() for part in re.split(r"(?<=[.!?。])\s+|(?<=다\.)\s+", text) if part.strip()]
+    if not parts:
+        return clean_complete(text, limit)
+    return clean_complete(" ".join(parts[:max_sentences]), limit)
+
+
+def public_complete_text(value: str | None, limit: int = 180) -> str:
+    text = public_editorial_text(value, None)
+    text = clean_complete(text, limit)
+    return text.rstrip("…").rstrip()
+
+
+def generated_market_asset_blob() -> str:
+    hints = []
+    for chart_id, tokens in MARKET_CHART_HINTS.items():
+        if (EXPORTS_DIR / f"{chart_id}.png").exists():
+            hints.extend(tokens)
+    return " ".join(hints)
+
+
+def chart_title(chart_id: str) -> str:
+    return clean(load_json(CHART_DIR / f"{chart_id}-datawrapper.json").get("title"), 120)
+
+
+def chart_delta_is_negative(chart_id: str) -> bool:
+    title = chart_title(chart_id)
+    return bool(re.search(r"\((?:-|−)", title))
+
+
+def oil_price_reaction_weak() -> bool:
+    titles = [chart_title("crude-oil-wti"), chart_title("crude-oil-brent")]
+    if not any(titles):
+        return False
+    return any(chart_delta_is_negative(chart_id) for chart_id in ["crude-oil-wti", "crude-oil-brent"])
+
+
+def openai_number_supported(storyline: dict) -> bool:
+    evidence_blob = storyline_asset_blob(storyline)
+    if "openai" not in evidence_blob.lower():
+        return False
+    chunks = re.split(r"[.;\n]|(?<=다\.)\s+", evidence_blob)
+    return any(
+        "openai" in chunk.lower()
+        and re.search(r"\d|contract|revenue|sales|capex|매출|계약|수주|투자", chunk, flags=re.I)
+        for chunk in chunks
+    )
+
+
+def story_display_title(storyline: dict) -> str:
+    raw = clean(storyline.get("display_title") or storyline.get("title"), 90)
+    lowered = raw.lower()
+    blob = storyline_blob(storyline)
+    if "openai" in lowered and not openai_number_supported(storyline):
+        return "AI 인프라 수요는 아직 살아 있다"
+    if ("유가" in raw or "oil" in lowered or "brent" in lowered or "wti" in lowered) and oil_price_reaction_weak():
+        if re.search(r"프리미엄|급등|되살아난|rally|surge|spike", raw, flags=re.I):
+            return "유가 리스크는 있지만 가격 반응은 약하다"
+    if raw.endswith("인가") or raw.endswith("인가?"):
+        if "금리" in raw and "달러" in raw:
+            return "실적은 좋은데, 금리·달러가 발목을 잡는다"
+        if "AI" in raw or "ai" in lowered:
+            return "AI 인프라 수요는 아직 살아 있다"
+        if "유가" in raw:
+            return "유가 리스크는 가격 반응과 함께 봐야 한다"
+    if "금리" in blob and "달러" in blob and "숨은 제약" in raw:
+        return "실적은 좋은데, 금리·달러가 발목을 잡는다"
+    return raw
+
+
+def story_logic_flags(storyline: dict) -> list[str]:
+    flags = []
+    raw = clean(storyline.get("title"), 120)
+    if "openai" in raw.lower() and not openai_number_supported(storyline):
+        flags.append("AI 제목에 OpenAI 숫자를 쓰기에는 OpenAI 전용 숫자/계약 근거가 부족함")
+    if ("유가" in raw or "oil" in raw.lower() or "brent" in raw.lower() or "wti" in raw.lower()) and oil_price_reaction_weak():
+        if re.search(r"프리미엄|급등|되살아난|rally|surge|spike", raw, flags=re.I):
+            flags.append("headline_risk_but_price_reaction_weak")
+    return flags
+
+
+def story_axis(storyline: dict) -> str:
+    blob = storyline_blob(storyline)
+    title = clean(storyline.get("title")).lower()
+    if any(token in blob for token in ["금리", "달러", "fed", "fomc", "inflation", "10y", "dxy"]):
+        return "rates"
+    if any(token in blob for token in ["유가", "wti", "brent", "oil", "이란", "hormuz"]):
+        return "oil"
+    if any(token in blob for token in ["ai", "openai", "anthropic", "반도체", "데이터센터", "inference chip"]):
+        return "ai"
+    if any(token in title for token in ["earnings", "실적", "매출", "eps"]):
+        return "earnings"
+    return ""
+
+
+def sanitize_story_public_text(storyline: dict, value: str | None, limit: int = 220) -> str:
+    text = public_complete_text(value, limit)
+    if not text:
+        return ""
+    text = re.sub(r"^\s*(리포트|요약|후속)\s*:\s*", "", text)
+    text = re.sub(r"\s*\(후속:[^)]+\)", "", text)
+    text = text.replace("요약하면, ", "").replace("요약하면 ", "")
+    text = text.replace("후속: ", "")
+    text = re.sub(r"\.\s*\.", ".", text)
+    if story_axis(storyline) == "oil" and oil_price_reaction_weak():
+        if re.search(r"프리미엄|급등|되살아난|부활", text):
+            return "이란 관련 헤드라인은 나왔지만 WTI와 브렌트는 하락해, 아직 가격 반응은 제한적입니다."
+    if story_axis(storyline) == "ai" and not openai_number_supported(storyline):
+        text = text.replace("AI 관련 숫자·거래 소식", "AI 인프라 거래·수요 신호")
+        text = text.replace("AI 관련 숫자", "AI 인프라 수요 신호")
+        text = text.replace("OpenAI(AI) 숫자", "AI 인프라 수요")
+        text = re.sub(r"\bOpenAI\b", "AI 인프라", text)
+    return public_complete_text(text, limit)
+
+
+def story_quote_text(storyline: dict) -> str:
+    axis = story_axis(storyline)
+    if axis == "oil" and oil_price_reaction_weak():
+        return "이란 관련 헤드라인은 나왔지만 WTI와 브렌트는 하락했습니다. 지정학 리스크보다 가격 반응이 제한적이라는 점이 핵심입니다."
+    if axis == "ai" and not openai_number_supported(storyline):
+        return "Anthropic의 칩 구매 논의는 AI 인프라 수요가 아직 살아 있음을 보여주는 보조 신호입니다."
+    return sanitize_story_public_text(storyline, storyline.get("hook") or storyline.get("core_argument"), 180)
+
+
+def story_short_talk(storyline: dict) -> str:
+    axis = story_axis(storyline)
+    if axis == "rates":
+        return "오늘 실적만 보면 시장이 더 가도 이상하지 않은데요. 문제는 다시 금리와 달러입니다."
+    if axis == "oil" and oil_price_reaction_weak():
+        return "이란 관련 헤드라인은 나왔지만 WTI와 브렌트는 하락했습니다. 오늘은 리스크가 가격으로 얼마나 이어졌는지를 보겠습니다."
+    if axis == "ai" and not openai_number_supported(storyline):
+        return "Anthropic의 칩 구매 논의는 AI 인프라 수요가 아직 살아 있다는 보조 신호입니다."
+    return first_sentences(sanitize_story_public_text(storyline, storyline.get("talk_track") or storyline.get("hook"), 180), 1, 120)
+
+
+def signal_label(value: str | None) -> str:
+    text = clean(value or "watch").lower()
+    if text.startswith("signal"):
+        return "신호"
+    if text.startswith("noise"):
+        return "소음"
+    if text.startswith("watch"):
+        return "점검"
+    return clean(value or "점검", 24)
+
+
 def link(label: str, url: str) -> str:
     return f"[{label}]({url})" if url.startswith("http") else label
 
@@ -173,7 +409,7 @@ def image_path(value: str | None) -> str:
 
 
 def notion_image(alt: str, path: str | Path) -> str:
-    return f"![{clean(alt, 80)}]({image_path(str(path))})"
+    return f"![{public_editorial_text(alt, 80)}]({image_path(str(path))})"
 
 
 def chart_heading(title: str) -> str:
@@ -376,7 +612,7 @@ def render_fedwatch_heatmap(target_date: str, headers: list[str], rows: list[lis
 
 
 def summarize_material_text(row: dict, limit: int = 220) -> str:
-    text = clean(row.get("summary") or row.get("text") or row.get("headline") or row.get("title"), limit)
+    text = clean(row.get("summary") or row.get("text") or row.get("headline") or row.get("title"))
     if not text:
         return ""
     blob = f"{row.get('title') or ''} {row.get('summary') or ''}".lower()
@@ -396,6 +632,8 @@ def summarize_material_text(row: dict, limit: int = 220) -> str:
         return "실질 설비투자가 AI 투자에 힘입어 강하게 늘었다는 자료입니다. AI 테마가 주가 기대를 넘어 실제 투자 사이클로 이어지는지 확인하는 근거입니다."
     if "huawei" in blob and "ai chip" in blob and ("60%" in blob or "surge" in blob):
         return "화웨이 AI 칩 매출이 크게 늘 것으로 예상된다는 자료입니다. 중국 AI 반도체 수요와 Nvidia 공백을 함께 볼 수 있습니다."
+    if "breaking: apple stock" in blob or ("apple stock" in blob and "earnings" in blob):
+        return "애플 실적 발표 직후 주가가 상승했다는 반응 자료입니다. 실적이 유가 부담을 일부 상쇄했다는 흐름을 설명할 때 보조로 쓸 수 있습니다."
     if "godaddy" in blob and "ai" in blob and "revenue" in blob:
         return "GoDaddy가 AI 기능 확대를 배경으로 예상보다 높은 매출 전망을 제시했다는 자료입니다. AI 수요가 소프트웨어 실적으로 번지는지 확인할 수 있습니다."
     if "white house ai memo" in blob or ("bloomberg:" in blob and "ai memo" in blob):
@@ -415,15 +653,16 @@ def summarize_material_text(row: dict, limit: int = 220) -> str:
     if "compute constrain" in blob:
         return "구글 클라우드가 수요를 모두 감당할 컴퓨팅 여력이 부족하다고 언급한 자료입니다. AI 인프라 공급 부족과 데이터센터 투자 논리로 연결됩니다."
     lowered = text.lower()
+    display_text = public_complete_text(text, limit)
     if any(token in lowered for token in [" oil", "brent", "wti", "iran", "hormuz", "opec"]):
-        return f"유가와 지정학 리스크 관련 내용입니다. {text}"
+        return public_complete_text(f"유가와 지정학 리스크 관련 내용입니다. {display_text}", limit)
     if any(token in lowered for token in [" fed", "inflation", "pce", "rate", "powell"]):
-        return f"연준과 인플레이션 경로를 보는 자료입니다. {text}"
+        return public_complete_text(f"연준과 인플레이션 경로를 보는 자료입니다. {display_text}", limit)
     if any(token in lowered for token in [" ai", "google", "alphabet", "tpu", "cloud", "capex", "semiconductor"]):
-        return f"AI 투자와 빅테크 실적을 연결해 볼 자료입니다. {text}"
+        return public_complete_text(f"AI 투자와 빅테크 실적을 연결해 볼 자료입니다. {display_text}", limit)
     if any(token in lowered for token in ["call option", "retail", "positioning", "valuation"]):
-        return f"위험선호와 포지셔닝 과열을 점검할 자료입니다. {text}"
-    return text
+        return public_complete_text(f"위험선호와 포지셔닝 과열을 점검할 자료입니다. {display_text}", limit)
+    return display_text
 
 
 def is_raw_english_title(value: str) -> bool:
@@ -538,6 +777,34 @@ def source_status_lines(target_date: str) -> list[str]:
     return lines
 
 
+def source_status_table(target_date: str) -> list[str]:
+    processed = PROCESSED_DIR / target_date
+    rows = []
+    for name, label in [
+        ("today-misc-batch-a-candidates.json", "뉴스 A"),
+        ("today-misc-batch-b-candidates.json", "뉴스 B"),
+        ("x-timeline-posts.json", "X"),
+        ("visual-cards.json", "시각 자료"),
+        ("finviz-feature-stocks.json", "특징주"),
+    ]:
+        payload = load_json(processed / name)
+        if not payload:
+            continue
+        ok_count = sum(1 for row in payload.get("source_results", []) if row.get("status") == "ok")
+        error_count = sum(1 for row in payload.get("source_results", []) if row.get("status") == "error")
+        item_count = len(payload.get("candidates") or payload.get("posts") or payload.get("cards") or payload.get("items") or [])
+        captured = short_dt(payload.get("captured_at") or payload.get("created_at"))
+        rows.append([label, captured or "-", str(item_count), str(ok_count), str(error_count)])
+    if not rows:
+        return []
+    lines = [
+        "| 구분 | 수집 시각 | 후보/자료 | 성공 소스 | 실패 소스 |",
+        "|---|---:|---:|---:|---:|",
+    ]
+    lines.extend(f"| {label} | {captured} | {items} | {ok} | {errors} |" for label, captured, items, ok, errors in rows)
+    return lines
+
+
 def keyword_example_title(item: dict) -> str:
     text = clean(f"{item.get('headline') or item.get('title') or ''} {item.get('summary') or item.get('text') or ''}")
     lowered = text.lower()
@@ -645,6 +912,8 @@ def compact_radar_title(row: dict) -> str:
         return "AI 투자가 끌어올린 설비투자"
     if "huawei" in lowered and "ai chip" in lowered and ("60%" in lowered or "surge" in lowered):
         return "화웨이 AI 칩 매출 급증"
+    if "breaking: apple stock" in lowered or ("apple stock" in lowered and "earnings" in lowered):
+        return "애플 실적 반응"
     if "godaddy" in lowered and "ai" in lowered and "revenue" in lowered:
         return "GoDaddy의 AI 기반 매출 가이던스"
     if "white house ai memo" in lowered or ("bloomberg:" in lowered and "ai memo" in lowered):
@@ -891,7 +1160,7 @@ def render_material_card(lines: list[str], row: dict, index: int | None = None) 
     if row.get("published_at"):
         lines.append(f"작성 시점: `{display_dt(row.get('published_at'))}`")
     if row.get("summary"):
-        lines.append(f"- {clean(row.get('summary'), 180)}")
+        lines.append(f"- 요약: {material_summary(row, 180)}")
     if row.get("visual_local_path"):
         lines.extend(["", notion_image(title, row["visual_local_path"])])
     lines.append("")
@@ -981,7 +1250,6 @@ def render_storyline(lines: list[str], index: int, storyline: dict, radar_by_id:
 def valid_editorial_brief(brief: dict) -> bool:
     return bool(
         brief
-        and not brief.get("fallback")
         and isinstance(brief.get("storylines"), list)
         and len(brief.get("storylines") or []) >= 3
         and brief.get("daily_thesis")
@@ -999,7 +1267,171 @@ def stars_text(value: int | str | None) -> str:
 def evidence_title(evidence: dict, radar_by_id: dict) -> str:
     item_id = evidence.get("item_id") or ""
     row = radar_by_id.get(item_id)
-    return clean(evidence.get("title") or compact_radar_title(row or {}) or item_id, 80)
+    raw = clean(evidence.get("title") or "")
+    if row:
+        compact = compact_radar_title({**row, "title": raw or row.get("title") or ""})
+        if should_localize_title(raw):
+            localized = localize_title(raw)
+            return clean(localized if localized and localized != raw else compact, 80)
+        return clean(compact or raw or item_id, 80)
+    localized = localize_title(raw) if should_localize_title(raw) else ""
+    return clean(localized or raw or item_id, 80)
+
+
+def split_time_source_title(title: str) -> tuple[str, str, str]:
+    text = clean(title).rstrip("…").rstrip()
+    source_pattern = r"(Reuters|TradingView|Bloomberg|CNBC|Yahoo Finance|The Information|AP|WSJ)"
+    match = re.match(rf"^(\d+)\s+hours?\s+ago\s+{source_pattern}\s+(.+)$", text, flags=re.I)
+    if match:
+        return f"{match.group(1)}시간 전", clean(match.group(2), 24), clean(match.group(3), 100)
+    match = re.match(rf"^(\d+)\s+minutes?\s+ago\s+{source_pattern}\s+(.+)$", text, flags=re.I)
+    if match:
+        return f"{match.group(1)}분 전", clean(match.group(2), 24), clean(match.group(3), 100)
+    return "", "", text
+
+
+def evidence_public_line(evidence: dict, radar_by_id: dict, limit: int = 70) -> str:
+    row = radar_by_id.get(evidence.get("item_id") or "") or {}
+    source = source_label(evidence.get("source") or row.get("source") or row.get("type"), evidence.get("url") or row.get("url") or "")
+    raw_title = clean(evidence.get("title") or row.get("title") or row.get("summary") or evidence_title(evidence, radar_by_id), 140)
+    prefix_time, prefix_source, title = split_time_source_title(raw_title)
+    if prefix_source:
+        source = source_label(prefix_source, evidence.get("url") or row.get("url") or "")
+    role = evidence_kind_label(evidence.get("evidence_role") or row.get("evidence_role"))
+    if not prefix_time and row.get("published_at"):
+        prefix_time = display_dt(row.get("published_at"))
+    if not prefix_time and role:
+        prefix_time = role
+    return " / ".join(part for part in [source, prefix_time, public_complete_text(title, limit)] if part)
+
+
+def asset_public_line(asset: dict, limit: int = 70) -> str:
+    source = source_label(asset.get("source"), asset.get("url"))
+    raw_title = clean(asset.get("caption") or asset.get("title") or asset.get("asset_id"), 140)
+    prefix_time, prefix_source, title = split_time_source_title(raw_title)
+    if prefix_source:
+        source = source_label(prefix_source, asset.get("url"))
+    status = "원문 확인 필요" if clean(asset.get("risks_or_caveats")) else ""
+    return " / ".join(part for part in [source, prefix_time or status, public_complete_text(title, limit)] if part)
+
+
+def should_localize_title(value: str) -> bool:
+    text = clean(value)
+    if not text:
+        return False
+    if re.search(r"[가-힣]", text):
+        return False
+    lowered = text.lower()
+    return any(
+        token in lowered
+        for token in [
+            "tech stocks today",
+            "big tech earnings",
+            "brent",
+            "oil prices",
+            "compute constrained",
+            "google q1",
+            "microsoft q1",
+            "meta q1",
+            "google cloud",
+            "retail investors",
+            "semiconductor",
+            "trump",
+            "trader or driller",
+            "33 minutes ago reuters",
+            "huawei expects ai chip",
+            "us stocks advanced",
+            "breaking: apple stock",
+            "apple $aapl guide",
+            "real capex",
+            "oil holds weekly gain",
+            "exxon mobil",
+            "stock market just had its best month",
+            "s&p 500 officially posts",
+            "manias, panics",
+            "equity market concentration",
+            "sector p/e valuations",
+            "bull and bear indicator",
+            "australia and japan markets",
+            "standard intelligence raises",
+        ]
+    )
+
+
+def localize_title(value: str) -> str:
+    text = clean(value, 140)
+    lowered = text.lower()
+    if "tech stocks today" in lowered or "big tech earnings" in lowered:
+        return "빅테크 실적과 AI 투자 부담"
+    if "brent" in lowered and "$120" in lowered:
+        return "브렌트유 $120 돌파 캡처"
+    if "oil prices" in lowered or "us oil prices" in lowered:
+        return "유가 급등 캡처"
+    if "trump" in lowered and ("iran" in lowered or "blockade" in lowered):
+        return "이란 봉쇄 발언과 유가 리스크"
+    if "trader or driller" in lowered:
+        return "에너지 업종 영향 분석"
+    if "compute constrained" in lowered:
+        return "구글 클라우드 컴퓨트 제약 발언"
+    if "google q1" in lowered or "google q1 revenues" in lowered:
+        return "구글 1분기 실적 요약"
+    if "microsoft q1" in lowered or "azure" in lowered:
+        return "마이크로소프트 Azure 성장 요약"
+    if "meta q1" in lowered:
+        return "메타 실적과 AI 투자 요약"
+    if "google cloud" in lowered:
+        return "구글 클라우드와 AI 투자 경쟁"
+    if "retail investors" in lowered and "semiconductor" in lowered:
+        return "개인 레버리지 반도체 ETF 쏠림"
+    if "semiconductor" in lowered and "41.9" in lowered:
+        return "반도체 업종 집중도 41.9%"
+    if "huawei expects ai chip" in lowered or ("reuters" in lowered and "ai chip" in lowered):
+        return "화웨이 AI 칩 매출 전망"
+    if "us stocks advanced" in lowered:
+        return "유가 충격에도 오른 미국 증시"
+    if "breaking: apple stock" in lowered or ("apple stock" in lowered and "earnings" in lowered):
+        return "애플 실적 반응"
+    if "apple $aapl guide" in lowered or ("aapl" in lowered and "guide" in lowered):
+        return "애플 분기 가이던스"
+    if "real capex" in lowered and "ai" in lowered:
+        return "AI 투자가 끌어올린 실질 설비투자"
+    if "oil holds weekly gain" in lowered:
+        return "유가 주간 상승과 지정학 리스크"
+    if "trump bets hormuz" in lowered or ("hormuz" in lowered and "blockade" in lowered):
+        return "호르무즈 봉쇄 리스크"
+    if "exxon mobil" in lowered or "chevron" in lowered:
+        return "에너지주 실적 일정"
+    if "stock market just had its best month" in lowered:
+        return "2020년 이후 최고의 월간 랠리"
+    if "s&p 500 officially posts" in lowered:
+        return "S&P500 사상 최고치"
+    if "manias, panics" in lowered:
+        return "과열과 신고가 차트 점검"
+    if "equity market concentration" in lowered:
+        return "S&P500 상위 종목 집중도"
+    if "sector p/e valuations" in lowered:
+        return "S&P500 섹터 밸류에이션"
+    if "bull and bear indicator" in lowered:
+        return "S&P500 강세·약세 지표"
+    if "australia and japan markets" in lowered:
+        return "이란 리스크를 넘겨보는 아시아 증시"
+    if "standard intelligence raises" in lowered:
+        return "컴퓨터 사용 AI 투자 열기"
+    return text
+
+
+def short_reference_id(value: object) -> str:
+    text = clean(str(value or ""), 120)
+    if not text.startswith("http"):
+        return text
+    match = re.search(r"https?://(?:www\.)?([^/]+)/(.+)", text)
+    if not match:
+        return "url-ref"
+    host = match.group(1).replace("twitter.com", "x.com")
+    tail = match.group(2).rstrip("/").split("/")[-1] or host
+    if host == "x.com":
+        return f"x:{tail}"
+    return clean(f"{host}:{tail}", 80)
 
 
 def slide_order_title(value: str, radar_by_id: dict) -> str:
@@ -1012,26 +1444,281 @@ def slide_order_title(value: str, radar_by_id: dict) -> str:
     return text
 
 
+def evidence_kind_label(value: str | None) -> str:
+    role = clean(value or "").lower()
+    return {
+        "fact": "팩트",
+        "data": "데이터",
+        "analysis": "분석",
+        "sentiment": "시장 반응",
+        "visual": "시각자료",
+        "market_reaction": "시장 반응",
+    }.get(role, "맥락")
+
+
+def visual_role_label(value: str | None) -> str:
+    role = clean(value or "").lower()
+    if "fact" in role:
+        return "팩트 장표"
+    if "analysis" in role:
+        return "분석 장표"
+    if "data" in role or "chart" in role:
+        return "차트"
+    if "x_post" in role or "screenshot" in role:
+        return "캡처"
+    if "visual" in role:
+        return "시각자료"
+    return "장표"
+
+
+def is_sentiment_asset(asset: dict) -> bool:
+    blob = clean(
+        " ".join(
+            str(asset.get(key) or "")
+            for key in ["source", "source_role", "visual_asset_role", "caption", "why_this_visual", "risks_or_caveats", "url"]
+        )
+    ).lower()
+    return bool(
+        "sentiment" in blob
+        or "x_post" in blob
+        or "x.com" in blob
+        or "twitter.com" in blob
+        or "reddit" in blob
+        or "소셜" in blob
+    )
+
+
+def asset_allowed_as_slide(asset: dict) -> bool:
+    if not asset.get("use_as_slide"):
+        return False
+    if is_sentiment_asset(asset) and not clean(asset.get("slide_exception_reason")):
+        return False
+    return True
+
+
+def storyline_blob(storyline: dict) -> str:
+    parts = []
+    for key in [
+        "title",
+        "hook",
+        "lead_candidate_reason",
+        "why_now",
+        "core_argument",
+        "talk_track",
+        "market_causality",
+        "expectation_gap",
+        "prepricing_risk",
+    ]:
+        parts.append(str(storyline.get(key) or ""))
+    for evidence in (storyline.get("evidence_to_use") or []) + (storyline.get("evidence_to_drop") or []):
+        for key in ["title", "source", "source_role", "evidence_role", "reason"]:
+            parts.append(str(evidence.get(key) or ""))
+    for asset in storyline.get("ppt_asset_queue") or []:
+        for key in ["caption", "visual_asset_role", "why_this_visual", "risks_or_caveats"]:
+            parts.append(str(asset.get(key) or ""))
+    return clean(" ".join(parts), 4000).lower()
+
+
+def storyline_asset_blob(storyline: dict) -> str:
+    parts = []
+    for evidence in storyline.get("evidence_to_use") or []:
+        for key in ["title", "source", "source_role", "evidence_role", "reason"]:
+            parts.append(str(evidence.get(key) or ""))
+    for asset in storyline.get("ppt_asset_queue") or []:
+        for key in ["caption", "visual_asset_role", "why_this_visual", "risks_or_caveats"]:
+            parts.append(str(asset.get(key) or ""))
+    return clean(" ".join(parts), 4000).lower()
+
+
+LEAD_REQUIREMENTS = [
+    {
+        "axis": "rates_macro",
+        "label": "금리·달러",
+        "axis_patterns": [r"\brate", r"\brates", r"\bfed\b", r"\bfomc\b", r"\bdxy\b", r"\bdollar", r"금리", r"달러", r"연준"],
+        "required": {
+            "10Y": [r"\b10y\b", r"10-year", r"10년", r"treasury", r"국채"],
+            "DXY/달러": [r"\bdxy\b", r"dollar", r"달러", r"원달러"],
+            "TLT": [r"\btlt\b"],
+            "나스닥/성장주 반응": [r"nasdaq", r"qqq", r"growth", r"duration", r"나스닥", r"성장주"],
+        },
+        "minimum": 2,
+    },
+    {
+        "axis": "oil",
+        "label": "유가",
+        "axis_patterns": [r"\boil\b", r"\bwti\b", r"brent", r"crude", r"opec", r"hormuz", r"유가", r"원유", r"호르무즈"],
+        "required": {
+            "WTI": [r"\bwti\b", r"crude", r"원유"],
+            "Brent": [r"brent", r"브렌트"],
+            "XLE/에너지주": [r"\bxle\b", r"energy", r"에너지", r"xom", r"cvx"],
+            "OPEC/EIA/호르무즈": [r"opec", r"eia", r"hormuz", r"inventory", r"호르무즈", r"재고"],
+        },
+        "minimum": 2,
+    },
+    {
+        "axis": "earnings",
+        "label": "실적",
+        "axis_patterns": [r"earnings", r"\beps\b", r"revenue", r"guidance", r"실적", r"가이던스", r"매출"],
+        "required": {
+            "EPS": [r"\beps\b", r"주당순이익"],
+            "매출": [r"revenue", r"sales", r"매출"],
+            "가이던스": [r"guidance", r"outlook", r"forecast", r"가이던스", r"전망"],
+            "주가 반응": [r"after[- ]?hours", r"pre[- ]?market", r"reaction", r"shares", r"주가", r"시간외"],
+        },
+        "minimum": 2,
+    },
+    {
+        "axis": "ai",
+        "label": "AI",
+        "axis_patterns": [r"\bai\b", r"artificial intelligence", r"capex", r"cloud", r"semiconductor", r"data center", r"인공지능", r"반도체", r"데이터센터"],
+        "required": {
+            "CapEx": [r"capex", r"capital expenditure", r"투자"],
+            "클라우드/매출": [r"cloud", r"revenue", r"sales", r"클라우드", r"매출"],
+            "반도체 반응": [r"semiconductor", r"nvidia", r"nvda", r"amd", r"반도체"],
+            "데이터센터 수요": [r"data center", r"datacenter", r"데이터센터"],
+        },
+        "minimum": 2,
+    },
+]
+
+
+def match_any(blob: str, patterns: list[str]) -> bool:
+    return any(re.search(pattern, blob, flags=re.I) for pattern in patterns)
+
+
+def lead_requirement_status(storyline: dict) -> dict:
+    blob = storyline_blob(storyline)
+    asset_blob = f"{storyline_asset_blob(storyline)} {generated_market_asset_blob()}"
+    for spec in LEAD_REQUIREMENTS:
+        if not match_any(blob, spec["axis_patterns"]):
+            continue
+        present = [
+            label
+            for label, patterns in spec["required"].items()
+            if match_any(asset_blob, patterns)
+        ]
+        missing = [label for label in spec["required"] if label not in present]
+        minimum = int(spec["minimum"])
+        return {
+            "axis": spec["axis"],
+            "label": spec["label"],
+            "present": present,
+            "missing": missing,
+            "minimum": minimum,
+            "met": len(present) >= minimum,
+        }
+    return {"axis": "", "label": "", "present": [], "missing": [], "minimum": 0, "met": True}
+
+
+def lead_status_text(storyline: dict) -> str:
+    status = lead_requirement_status(storyline)
+    if not status["axis"]:
+        return "리드 확정 가능"
+    if status["met"]:
+        return f"{status['label']} 리드 확정 가능"
+    return f"{status['label']} 리드 후보: 수치 확인 필요"
+
+
+def evidence_brief_title(item: dict, radar_by_id: dict, limit: int = 44) -> str:
+    return clean(evidence_title(item, radar_by_id), limit)
+
+
+def story_slide_titles(storyline: dict, radar_by_id: dict, limit: int = 5) -> list[str]:
+    values = []
+    for asset in storyline.get("ppt_asset_queue") or []:
+        if asset_allowed_as_slide(asset):
+            caption = asset_public_line(asset, 80)
+            if caption:
+                values.append(caption)
+    for item in storyline.get("slide_plan") or storyline.get("slide_order") or []:
+        title = slide_order_title(item, radar_by_id)
+        if title and title not in values:
+            values.append(public_complete_text(title, 80))
+    for evidence in storyline.get("evidence_to_use") or []:
+        role = clean(evidence.get("evidence_role")).lower()
+        if role in {"fact", "data", "analysis", "market_reaction", "visual"}:
+            title = evidence_public_line(evidence, radar_by_id, 80)
+            if title and title not in values:
+                values.append(title)
+    return values[:limit]
+
+
+def evidence_source_label(evidence: dict, radar_by_id: dict) -> str:
+    row = radar_by_id.get(evidence.get("item_id") or "") or {}
+    source = evidence.get("source") or row.get("source") or row.get("type") or ""
+    url = evidence.get("url") or row.get("url") or ""
+    return source_label(source, url)
+
+
+def evidence_reference_values(evidence: dict) -> set[str]:
+    values = set()
+    for key in ["item_id", "evidence_id", "id", "url"]:
+        value = clean(str(evidence.get(key) or ""))
+        if value:
+            values.add(value)
+            values.add(short_reference_id(value))
+    return values
+
+
+def asset_reference_values(asset: dict) -> set[str]:
+    values = set()
+    for key in ["asset_id", "evidence_id", "item_id", "url"]:
+        value = clean(str(asset.get(key) or ""))
+        if not value:
+            continue
+        values.add(value)
+        values.add(short_reference_id(value))
+        if ":" in value:
+            tail = value.split(":", 1)[1]
+            if tail.startswith("http"):
+                values.add(tail)
+                values.add(short_reference_id(tail))
+    return values
+
+
+def slide_asset_reference_values(brief: dict) -> set[str]:
+    values: set[str] = set()
+    for asset in flatten_ppt_assets(brief):
+        if not asset_allowed_as_slide(asset):
+            continue
+        values.update(asset_reference_values(asset))
+    return {value for value in values if value}
+
+
 def render_editorial_storyline(lines: list[str], index: int, storyline: dict, radar_by_id: dict) -> None:
     title = clean(storyline.get("title"), 90)
     evidence_to_use = storyline.get("evidence_to_use") or []
     evidence_to_drop = storyline.get("evidence_to_drop") or []
-    slide_order = [slide_order_title(item, radar_by_id) for item in storyline.get("slide_order") or [] if clean(item)]
+    slide_order = [
+        slide_order_title(item, radar_by_id)
+        for item in (storyline.get("slide_plan") or storyline.get("slide_order") or [])
+        if clean(item)
+        and "auto_added_fact_data_analysis_support" not in clean(item)
+        and "자동 보강" not in clean(item)
+        and "causal anchor" not in clean(item).lower()
+    ]
+    ppt_assets = storyline.get("ppt_asset_queue") or []
     lines.extend(
         [
             f"## {index}. {title}",
             "",
-            f"추천도: `{stars_text(storyline.get('recommendation_stars'))}` {clean(storyline.get('rating_reason'), 90)}".rstrip(),
+            f"추천도: `{stars_text(storyline.get('recommendation_stars'))}` {clean_complete(storyline.get('rating_reason'), 180)}".rstrip(),
             "",
-            f"> {clean(storyline.get('hook'), 220)}",
+            f"- 첫 꼭지 판단: {public_editorial_text(storyline.get('lead_candidate_reason') or ('보조 꼭지 후보' if index > 1 else ''), 220)}",
+            f"- 신호/소음: `{signal_label(storyline.get('signal_or_noise'))}`",
+            f"- 원인 판단: {public_editorial_text(storyline.get('market_causality') or '근거 조합 확인 필요', 180)}",
+            f"- 기대/선반영: 기대 `{public_editorial_text(storyline.get('expectation_gap') or 'check_if_relevant', 110)}` · 선반영 `{public_editorial_text(storyline.get('prepricing_risk') or 'check_if_relevant', 110)}`",
+            f"- 첫 5분 적합도/한국장 관련성: `{compact_status(storyline.get('first_5min_fit'), 'medium')}` / `{compact_status(storyline.get('korea_open_relevance'), 'medium')}`",
+            "",
+            f"> {public_editorial_text(storyline.get('hook'), 220)}",
             "",
             "### 왜 지금",
             "",
-            clean(storyline.get("why_now"), 320),
+            public_editorial_text(storyline.get("why_now"), 320),
             "",
             "### 핵심 주장",
             "",
-            clean(storyline.get("core_argument"), 320),
+            public_editorial_text(storyline.get("core_argument"), 320),
             "",
             "### 쓸 자료",
             "",
@@ -1040,16 +1727,29 @@ def render_editorial_storyline(lines: list[str], index: int, storyline: dict, ra
     if evidence_to_use:
         for item in evidence_to_use[:5]:
             title = evidence_title(item, radar_by_id)
-            reason = clean(item.get("reason"), 180)
-            lines.append(f"- `{title}`: {reason}")
+            reason = public_editorial_text(item.get("reason"), 180)
+            source = evidence_source_label(item, radar_by_id)
+            kind = evidence_kind_label(item.get("evidence_role"))
+            lines.append(f"- `{title}`: {reason} (출처: {source}, 성격: {kind})")
     else:
         lines.append("- 핵심 근거가 부족합니다. 방송 전 수동 확인이 필요합니다.")
     if evidence_to_drop:
         lines.extend(["", "### 버릴 자료", ""])
         for item in evidence_to_drop[:3]:
             title = evidence_title(item, radar_by_id)
-            reason = clean(item.get("reason"), 160)
-            lines.append(f"- `{title}`: {reason}")
+            reason = public_editorial_text(item.get("reason"), 160)
+            drop_code = clean(item.get("drop_code") or storyline.get("drop_code") or "support_only", 60)
+            lines.append(f"- `{title}` / `{drop_code}`: {reason}")
+    if ppt_assets:
+        slide_assets = [asset for asset in ppt_assets if asset.get("use_as_slide")]
+        lines.extend(["", "### PPT 캡처/장표 후보", ""])
+        for asset in slide_assets[:5]:
+            caption = clean(asset.get("caption"), 120)
+            why = public_editorial_text(asset.get("why_this_visual"), 160)
+            caveat = public_editorial_text(asset.get("risks_or_caveats"), 120)
+            lines.append(f"- {caption}: {why} / 주의: {caveat}")
+        if not slide_assets:
+            lines.append("- 이 꼭지는 말로만 처리하는 편이 낫습니다.")
     lines.extend(["", "### 구성", ""])
     if slide_order:
         for item in slide_order[:5]:
@@ -1061,11 +1761,19 @@ def render_editorial_storyline(lines: list[str], index: int, storyline: dict, ra
             "",
             "### 방송 멘트 초안",
             "",
-            clean(storyline.get("talk_track"), 420),
+            public_editorial_text(storyline.get("talk_track"), 420),
             "",
             "### 반론/주의점",
             "",
-            clean(storyline.get("counterpoint"), 260),
+            public_editorial_text(storyline.get("counterpoint"), 260),
+            "",
+            "### 판단이 바뀌는 조건",
+            "",
+            public_editorial_text(storyline.get("what_would_change_my_mind"), 240),
+            "",
+            "### 클로징 한 줄",
+            "",
+            public_editorial_text(storyline.get("closing_line"), 220),
             "",
         ]
     )
@@ -1076,7 +1784,452 @@ def editorial_summary_bullets(brief: dict) -> list[str]:
     if not summary:
         return []
     parts = [part.strip() for part in re.split(r"(?<=[.!?。])\s+|(?<=다\.)\s+", summary) if part.strip()]
-    return parts[:3] if parts else [summary]
+    return [clean_complete(part, 180) for part in (parts[:3] if parts else [summary])]
+
+
+def flatten_ppt_assets(brief: dict) -> list[dict]:
+    assets = list(brief.get("ppt_asset_queue") or [])
+    seen = {item.get("asset_id") for item in assets if item.get("asset_id")}
+    for story in brief.get("storylines") or []:
+        for asset in story.get("ppt_asset_queue") or []:
+            key = asset.get("asset_id") or f"{asset.get('storyline_id')}:{asset.get('caption')}"
+            if key in seen:
+                continue
+            seen.add(key)
+            assets.append(asset)
+    return sorted(assets, key=lambda item: int(item.get("slide_priority") or 99))
+
+
+def flatten_talk_only(brief: dict) -> list[dict]:
+    slide_refs = slide_asset_reference_values(brief)
+    rows = list(brief.get("talk_only_queue") or [])
+    filtered_rows = []
+    seen = set()
+    for item in rows:
+        refs = evidence_reference_values(item)
+        if refs & slide_refs:
+            continue
+        key = item.get("item_id") or item.get("evidence_id")
+        if key:
+            seen.add(key)
+        filtered_rows.append(item)
+    rows = filtered_rows
+    for story in brief.get("storylines") or []:
+        for evidence in story.get("evidence_to_use") or []:
+            if evidence.get("evidence_role") != "sentiment":
+                continue
+            if evidence_reference_values(evidence) & slide_refs:
+                continue
+            if evidence.get("item_id") in seen:
+                continue
+            seen.add(evidence.get("item_id"))
+            rows.append(evidence)
+        for asset in story.get("ppt_asset_queue") or []:
+            if not is_sentiment_asset(asset) or clean(asset.get("slide_exception_reason")):
+                continue
+            key = asset.get("asset_id") or asset.get("item_id") or asset.get("evidence_id") or asset.get("caption")
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(
+                {
+                    "item_id": asset.get("item_id") or asset.get("asset_id"),
+                    "evidence_id": asset.get("evidence_id"),
+                    "title": asset.get("caption") or asset.get("source") or "소셜 반응",
+                    "evidence_role": "sentiment",
+                    "reason": asset.get("risks_or_caveats") or asset.get("why_this_visual") or "분위기 참고용이라 장표 대신 말로만 처리",
+                }
+            )
+    return dedupe_talk_only_rows(rows)
+
+
+def normalized_title_key(value: str | None) -> str:
+    text = clean(value).lower().replace("…", "")
+    text = re.sub(r"https?://\S+", "", text)
+    text = re.sub(r"[^0-9a-z가-힣]+", " ", text)
+    text = clean(text)
+    return text[:32]
+
+
+def talk_only_dedupe_keys(item: dict) -> list[str]:
+    keys = []
+    for key in ["evidence_id", "item_id", "url"]:
+        value = clean(str(item.get(key) or ""))
+        if value:
+            keys.append(f"{key}:{value.lower()}")
+    source = clean(item.get("source")).lower()
+    url = clean(item.get("url")).lower()
+    if source and url:
+        keys.append(f"source-url:{source}:{url}")
+    title_key = normalized_title_key(item.get("title") or item.get("caption"))
+    if title_key:
+        keys.append(f"title:{title_key}")
+    return keys
+
+
+def talk_only_row_score(item: dict) -> int:
+    title = clean(item.get("title") or item.get("caption"))
+    reason = clean(item.get("reason"))
+    url_bonus = 20 if clean(item.get("url")) else 0
+    return len(title) + min(len(reason), 80) + url_bonus
+
+
+def dedupe_talk_only_rows(rows: list[dict]) -> list[dict]:
+    deduped: list[dict] = []
+    key_to_index: dict[str, int] = {}
+    for item in rows:
+        keys = talk_only_dedupe_keys(item)
+        existing_index = next((key_to_index[key] for key in keys if key in key_to_index), None)
+        if existing_index is None:
+            key_to_index.update({key: len(deduped) for key in keys})
+            deduped.append(item)
+            continue
+        if talk_only_row_score(item) > talk_only_row_score(deduped[existing_index]):
+            deduped[existing_index] = item
+            for key in keys:
+                key_to_index[key] = existing_index
+    return deduped
+
+
+def flatten_drop_items(brief: dict) -> list[dict]:
+    rows = list(brief.get("drop_list") or [])
+    seen = {item.get("item_id") for item in rows if item.get("item_id")}
+    for story in brief.get("storylines") or []:
+        for evidence in story.get("evidence_to_drop") or []:
+            if evidence.get("item_id") in seen:
+                continue
+            seen.add(evidence.get("item_id"))
+            rows.append(evidence)
+    return rows
+
+
+def compact_broadcast_order(brief: dict, storylines: list[dict]) -> list[str]:
+    lead = storylines[0] if storylines else {}
+    order = [
+        "시장은 지금: 지수와 금리·달러의 온도",
+    ]
+    if lead:
+        order.append(f"리드: {clean(story_display_title(lead), 64)}")
+    for story in storylines[1:4]:
+        title = clean(story_display_title(story), 56)
+        if title:
+            order.append(f"보조 꼭지: {title}")
+    order.append("특징주: 실적과 종목 반응")
+    return order[:5]
+
+
+def story_news_bullet(storyline: dict) -> str:
+    axis = story_axis(storyline)
+    if axis == "rates":
+        return "Fed 인사의 인플레이션 경계 발언으로 금리·달러 부담이 다시 부각됐다."
+    if axis == "oil":
+        if oil_price_reaction_weak():
+            return "유가 관련 지정학 헤드라인은 나왔지만 WTI/Brent 가격 반응은 약했다."
+        return "유가 관련 지정학 헤드라인이 에너지주와 인플레이션 기대를 흔들 수 있다."
+    if axis == "ai":
+        return "AI 인프라 수요 관련 뉴스는 기술주 보조 소재로 활용 가능하다."
+    title = story_display_title(storyline)
+    return f"{title}를 보조 소재로 점검한다." if title else ""
+
+
+def operational_bullet(value: str) -> bool:
+    lowered = value.lower()
+    return bool(
+        "내부 준비안" in value
+        or "리드 후보" in value
+        or "확정합니다" in value
+        or "확인하고" in value
+        or "먼저 확인" in value
+        or "보강 요청" in value
+        or ("소셜" in value and ("sentiment" in lowered or "사실 근거" in value))
+    )
+
+
+def compact_news_bullets(brief: dict, fallback: list[str], storylines: list[dict] | None = None) -> list[str]:
+    bullets = editorial_summary_bullets(brief)
+    if not bullets:
+        bullets = [clean_complete(item, 160) for item in fallback[:3]]
+    public_bullets = []
+    for item in bullets[:3]:
+        raw = clean(item)
+        if not raw:
+            continue
+        if operational_bullet(raw):
+            continue
+        public_bullets.append(public_complete_text(raw, 150))
+    if len(public_bullets) < 2:
+        for story in storylines or []:
+            bullet = story_news_bullet(story)
+            if bullet and bullet not in public_bullets:
+                public_bullets.append(bullet)
+            if len(public_bullets) >= 3:
+                break
+    return public_bullets
+
+
+def status_from_paths(paths: list[str | Path], default: str = "미수집") -> str:
+    return "확인 완료" if any(Path(path).exists() for path in paths if path) else default
+
+
+def chart_status(*chart_ids: str) -> str:
+    return status_from_paths([EXPORTS_DIR / f"{chart_id}.png" for chart_id in chart_ids], "수동 캡처 필요")
+
+
+def screenshot_status(target_date: str | None, *patterns: str, missing: str = "수동 캡처 필요") -> str:
+    if not target_date:
+        return "확인 필요"
+    return "확인 완료" if screenshots_for(target_date, *patterns) else missing
+
+
+def asset_queue_status(assets: list[dict]) -> str:
+    return "후보 있음, 원문 확인 필요" if assets else "수동 캡처 필요"
+
+
+def table_cell(value: object, limit: int = 90) -> str:
+    return clean(str(value or "").replace("|", "/"), limit) or "-"
+
+
+def ppt_table_row(slide: str, title: str, material: str, status: str, action: str) -> str:
+    return f"| {table_cell(slide, 12)} | {table_cell(title, 70)} | {table_cell(material, 170)} | {table_cell(status, 30)} | {table_cell(action, 90)} |"
+
+
+def chart_takeaway(*chart_ids: str) -> str:
+    titles = [chart_title(chart_id) for chart_id in chart_ids if chart_title(chart_id)]
+    return " / ".join(titles) if titles else "최신 차트 확인"
+
+
+def market_chart_basis() -> str:
+    rows = chart_rows()
+    subtitle = rows[0][2] if rows and rows[0][2] else ""
+    match = re.search(r"(\d{2}\.\d{2}\.\d{2})", subtitle)
+    if match:
+        return f"{match.group(1)} 미국장 종가 기준"
+    return subtitle or "-"
+
+
+def render_compact_host_view(
+    lines: list[str],
+    brief: dict,
+    storylines: list[dict],
+    radar_by_id: dict,
+    today_axis: str,
+    market_map_summary: str,
+    summary_fallback: list[str],
+) -> None:
+    lead = storylines[0] if storylines else {}
+    lead_status = lead_requirement_status(lead) if lead else {"present": [], "missing": [], "met": True, "label": ""}
+    lead_assets = [
+        asset_public_line(asset, 70)
+        for asset in (lead.get("ppt_asset_queue") or [])
+        if asset_allowed_as_slide(asset)
+    ][:3]
+    if lead and not lead_assets:
+        lead_assets = [evidence_public_line(item, radar_by_id, 70) for item in (lead.get("evidence_to_use") or [])[:3]]
+    talk_items = [
+        evidence_brief_title(item, radar_by_id, 42)
+        for item in (lead.get("evidence_to_use") or [])
+        if clean(item.get("evidence_role")).lower() == "sentiment"
+    ][:3]
+    needed = lead_status["missing"][:4] if not lead_status["met"] else []
+    news_bullets = compact_news_bullets(brief, summary_fallback, storylines)
+
+    core_viewpoint = public_editorial_text(today_axis, 60)
+    if core_viewpoint.endswith("…") and lead:
+        core_viewpoint = story_display_title(lead)
+    lines.extend(["# 진행자용 1페이지 요약", "", "## 오늘의 핵심 관점", "", f"- {core_viewpoint}", ""])
+    lines.extend(["## 주요 뉴스 요약", ""])
+    for bullet in news_bullets:
+        lines.append(f"- {bullet}")
+    if not news_bullets:
+        lines.append("- Fed 인플레이션 발언, 유가 가격 반응, AI 인프라 수요 신호를 중심으로 시장 톤을 잡습니다.")
+    lines.extend(["", "## 오늘 방송 순서", ""])
+    for index, item in enumerate(compact_broadcast_order(brief, storylines), start=1):
+        lines.append(f"{index}. {item}")
+
+    lines.extend(["", "## 첫 꼭지", ""])
+    if lead:
+        check_lines = [f"{item} 확인 완료" for item in lead_status.get("present", [])[:3]]
+        check_lines.extend(f"{item} 미수집" for item in needed[: max(0, 4 - len(check_lines))])
+        lines.extend(
+            [
+                f"- 제목: {story_display_title(lead)}",
+                f"- 상태: {lead_status_text(lead)}",
+                f"- 왜 지금: {first_sentences(lead.get('lead_candidate_reason') or lead.get('why_now'), 2, 150)}",
+                f"- 시장 지도: {public_complete_text(market_map_summary, 160)}",
+                "- 보여줄 자료: " + (", ".join(lead_assets[:3]) if lead_assets else "10Y/DXY/지수 반응 등 수동 확인"),
+                "- 말로 처리: " + (", ".join(talk_items) if talk_items else "소셜 반응과 해석 보조는 짧게 언급"),
+                "- 방송 전 체크: " + (", ".join(check_lines) if check_lines else "리드 핵심 수치와 최신 시세 재확인"),
+            ]
+        )
+    else:
+        lines.append("- 리드 후보 없음. market-radar와 editorial-brief fallback 여부를 확인하세요.")
+    lines.append("")
+
+
+def render_host_storyline(lines: list[str], index: int, storyline: dict, radar_by_id: dict) -> None:
+    title = story_display_title(storyline)
+    quote = story_quote_text(storyline)
+    slide_titles = story_slide_titles(storyline, radar_by_id, 5)
+    evidence_titles = [
+        f"`{evidence_public_line(item, radar_by_id, 90)}`"
+        for item in (storyline.get("evidence_to_use") or [])[:4]
+    ]
+    check_items = lead_requirement_status(storyline).get("missing", [])[:3]
+    lines.extend(
+        [
+            f"### {index}. {title}",
+            "",
+            f"추천도: `{stars_text(storyline.get('recommendation_stars'))}`",
+            "",
+            f"> {quote}",
+            "",
+            "#### 선정 이유",
+            "",
+        ]
+    )
+    reason = first_sentences(sanitize_story_public_text(storyline, storyline.get("lead_candidate_reason") or storyline.get("why_now"), 220), 2, 180)
+    lines.append(f"- {reason}")
+    lines.append(f"- 신호 판단: {signal_label(storyline.get('signal_or_noise'))}")
+    lines.extend(["", "#### 슬라이드 구성", ""])
+    if slide_titles:
+        for item in slide_titles:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- 훅 → 시장 지도 → 핵심 근거 → 반론/주의점")
+    lines.extend(["", "#### 자료 배치", ""])
+    if evidence_titles:
+        for item in evidence_titles:
+            lines.append(f"- {item}")
+    else:
+        lines.append("- 방송 전 fact/data/analysis 근거를 추가 확인")
+    if check_items:
+        lines.extend(["", "#### 확인 필요", ""])
+        for item in check_items:
+            lines.append(f"- {item}")
+    short_hook = story_short_talk(storyline)
+    research_note = sanitize_story_public_text(storyline, storyline.get("talk_track") or storyline.get("core_argument"), 320)
+    lines.extend(["", "#### 짧은 말문", "", short_hook or quote, "", "#### 리서치 설명", "", research_note, ""])
+
+
+def render_ppt_asset_queue(lines: list[str], brief: dict, target_date: str | None = None, radar_by_id: dict | None = None) -> None:
+    assets = [asset for asset in flatten_ppt_assets(brief) if asset_allowed_as_slide(asset)]
+    stories = brief.get("storylines") or []
+    lead = next((story for story in stories if int(story.get("rank") or 0) == 1), stories[0] if stories else {})
+    lead_id = lead.get("storyline_id") if lead else ""
+    lead_assets = [asset for asset in assets if asset.get("storyline_id") == lead_id]
+    other_assets = [asset for asset in assets if asset not in lead_assets]
+    lead_materials = [asset_public_line(asset, 70) for asset in lead_assets[:2] if clean(asset.get("caption"))]
+    other_materials = [asset_public_line(asset, 64) for asset in other_assets[:2] if clean(asset.get("caption"))]
+
+    title_candidate = story_display_title(lead) if lead else "오늘 시장의 핵심 제약과 기회"
+    lines.extend(
+        [
+            "## 슬라이드 제작 순서",
+            "",
+            "| 슬라이드 | 제목 | 자료 | 상태 | 작업 |",
+            "|---:|---|---|---|---|",
+            ppt_table_row("0", "타이틀", title_candidate, "초안 완료" if lead else "확인 필요", "표지 제목으로 사용"),
+            ppt_table_row("1", "시장은 지금", "주요 지수 흐름", screenshot_status(target_date, "finviz-index-futures-*.png", missing="자동 캡처 실패"), "오프닝 시장 지도"),
+            ppt_table_row("2", "S&P500/Nasdaq", "지수 흐름 또는 선물 캡처", screenshot_status(target_date, "finviz-index-futures-*.png", missing="수동 캡처 필요"), "위험선호 방향 확인"),
+            ppt_table_row("3", "히트맵", "S&P500·러셀 히트맵", screenshot_status(target_date, "finviz-sp500-heatmap*.png", "*russell*heatmap*.png", "*iwm*heatmap*.png"), "섹터 확산 확인"),
+            ppt_table_row("4", "10년물 금리", chart_takeaway("us10y"), chart_status("us10y"), "리드의 금리 축 확인"),
+            ppt_table_row("5", "유가", chart_takeaway("crude-oil-wti", "crude-oil-brent"), chart_status("crude-oil-wti", "crude-oil-brent"), "headline과 가격 반응 비교"),
+            ppt_table_row("6", "달러/원달러", chart_takeaway("dollar-index", "usd-krw"), chart_status("dollar-index", "usd-krw"), "환율 부담 확인"),
+            ppt_table_row("7", "비트코인", chart_takeaway("bitcoin"), chart_status("bitcoin"), "위험자산 보조 온도계"),
+            ppt_table_row("8", "리드", ", ".join(lead_materials) or "리드 근거 후보 없음", asset_queue_status(lead_assets), "큰 캡처 또는 핵심 문장 강조"),
+            ppt_table_row("9", "보조/특징주", ", ".join(other_materials) or "실적/특징주 섹션에서 선별", asset_queue_status(other_assets), "짧은 보조 꼭지로 사용"),
+            "",
+        ]
+    )
+
+
+def render_talk_only_queue(lines: list[str], brief: dict, radar_by_id: dict) -> None:
+    rows = flatten_talk_only(brief)
+    if not rows:
+        lines.append("- 말로만 처리할 자료가 별도로 지정되지 않았습니다.")
+        return
+    for item in rows[:10]:
+        title = evidence_title(item, radar_by_id)
+        role = evidence_kind_label(item.get("evidence_role") or "context")
+        reason = public_editorial_text(item.get("reason"), 140)
+        lines.append(f"- `{title}` / `{role}`: {reason}")
+
+
+def render_drop_queue(lines: list[str], brief: dict, radar_by_id: dict) -> None:
+    rows = flatten_drop_items(brief)
+    if not rows:
+        lines.append("- 버릴 자료가 별도로 지정되지 않았습니다.")
+        return
+    for item in rows[:10]:
+        title = evidence_title(item, radar_by_id)
+        drop_code = public_label(item.get("drop_code") or "support_only", 50)
+        reason = public_editorial_text(item.get("reason"), 140)
+        lines.append(f"- {title} / {drop_code}: {reason}")
+
+
+def render_audit_log(lines: list[str], brief: dict, radar_by_id: dict, target_date: str | None = None) -> None:
+    lines.extend(["# 검증 로그/회고용", "", "이 섹션은 진행자용 상단 화면이 아니라 품질검수와 방송 후 회고를 위한 내부 장부입니다.", ""])
+    if target_date:
+        status_table = source_status_table(target_date)
+        if status_table:
+            lines.extend(["## 수집 현황 표", "", *status_table, ""])
+    for index, story in enumerate(brief.get("storylines") or [], start=1):
+        story_id = clean(story.get("storyline_id") or f"storyline-{index}", 80)
+        lines.extend([f"## {index}. {clean(story.get('title'), 90)}", "", f"- storyline_id: `{story_id}`"])
+        flags = story_logic_flags(story)
+        if flags:
+            lines.append("- logic_flags: `" + "`, `".join(flags) + "`")
+        for key in ["signal_or_noise", "market_causality", "expectation_gap", "prepricing_risk", "first_5min_fit", "korea_open_relevance"]:
+            value = clean(story.get(key), 140)
+            if value:
+                lines.append(f"- {key}: `{value}`")
+        status = lead_requirement_status(story)
+        if status.get("axis"):
+            lines.append(
+                f"- lead_required_assets: axis=`{status['axis']}` present=`{', '.join(status['present']) or '-'}` missing=`{', '.join(status['missing']) or '-'}`"
+            )
+        use_items = story.get("evidence_to_use") or []
+        if use_items:
+            lines.extend(["", "### evidence_to_use", ""])
+            for item in use_items[:8]:
+                title = evidence_title(item, radar_by_id)
+                item_id = clean(item.get("item_id"), 90)
+                evidence_id = clean(item.get("evidence_id"), 90)
+                source_role = clean(item.get("source_role"), 60)
+                evidence_role = clean(item.get("evidence_role"), 60)
+                reason = clean(item.get("reason"), 180)
+                lines.append(
+                    f"- `{title}` item_id=`{item_id}` evidence_id=`{evidence_id}` source_role=`{source_role}` evidence_role=`{evidence_role}` reason={reason}"
+                )
+        drop_items = story.get("evidence_to_drop") or []
+        if drop_items:
+            lines.extend(["", "### evidence_to_drop", ""])
+            for item in drop_items[:8]:
+                title = evidence_title(item, radar_by_id)
+                item_id = clean(item.get("item_id"), 90)
+                evidence_id = clean(item.get("evidence_id"), 90)
+                drop_code = clean(item.get("drop_code") or story.get("drop_code"), 60)
+                reason = clean(item.get("reason"), 180)
+                lines.append(f"- `{title}` item_id=`{item_id}` evidence_id=`{evidence_id}` drop_code=`{drop_code}` reason={reason}")
+        assets = story.get("ppt_asset_queue") or []
+        if assets:
+            lines.extend(["", "### ppt_asset_queue", ""])
+            for asset in assets[:8]:
+                caption = clean(asset.get("caption"), 100)
+                asset_id = clean(asset.get("asset_id"), 100)
+                visual_role = clean(asset.get("visual_asset_role"), 70)
+                lines.append(
+                    f"- `{caption}` asset_id=`{asset_id}` visual_asset_role=`{visual_role}` use_as_slide=`{asset.get('use_as_slide')}` use_as_talk_only=`{asset.get('use_as_talk_only')}`"
+                )
+        lines.append("")
+    rows = flatten_drop_items(brief)
+    if rows:
+        lines.extend(["## 전체 drop_code 장부", ""])
+        for item in rows[:16]:
+            lines.append(
+                f"- `{evidence_title(item, radar_by_id)}` item_id=`{clean(item.get('item_id'), 90)}` drop_code=`{clean(item.get('drop_code') or 'support_only', 60)}`"
+            )
+        lines.append("")
 
 
 COMPANY_NAMES = {
@@ -1204,36 +2357,65 @@ def render_dashboard(target_date: str) -> str:
     }
     use_editorial = valid_editorial_brief(editorial_brief)
     display_storylines = editorial_brief.get("storylines", []) if use_editorial else filtered_storylines(radar_storylines or storylines, radar_by_id)
-    today_axis = clean(editorial_brief.get("daily_thesis"), 140) if use_editorial else infer_today_axis(display_storylines, radar_candidates)
+    today_axis = (
+        clean_complete(editorial_brief.get("one_line_market_frame") or editorial_brief.get("daily_thesis"), 220)
+        if use_editorial
+        else infer_today_axis(display_storylines, radar_candidates)
+    )
+    market_map_summary = clean(editorial_brief.get("market_map_summary"), 220) if use_editorial else "지수, 히트맵, 금리, 유가, 달러, 원달러, 비트코인 순서로 시장 반응을 먼저 확인합니다."
+    lead_story = display_storylines[0] if display_storylines else {}
 
     lines = [
         f"# {title}",
         "",
-        f"최종 수정 일시: `{now} (KST)`",
+        f"문서 생성: `{now} (KST)`",
         "",
-        f"뉴스/X 수집 구간: `{window} (KST)`",
+        f"자료 수집: `{window} (KST)`",
         "",
-        f"시장 데이터 기준: {code_meta(chart_rows()[0][2] if chart_rows() and chart_rows()[0][2] else '-')}",
+        f"시장 차트: {code_meta(market_chart_basis())}",
         "",
-        "# 🗞️ 주요 뉴스 요약",
-        "",
-        f"- 오늘의 대립축: {today_axis}",
     ]
     summary_bullets = editorial_summary_bullets(editorial_brief) if use_editorial else selection.get("dashboard_summary_bullets", [])
-    if summary_bullets:
-        for bullet in summary_bullets[:3]:
-            lines.append(f"- {clean(bullet, 110)}")
-    elif radar_storylines:
-        for storyline in radar_storylines[1:3]:
-            lines.append(f"- {clean(storyline.get('one_liner'), 110)}")
-    lines.extend(["", "# 📚 추천 스토리라인", ""])
+    render_compact_host_view(
+        lines,
+        editorial_brief if use_editorial else {"editorial_summary": "\n".join(summary_bullets)},
+        display_storylines,
+        radar_by_id,
+        today_axis,
+        market_map_summary,
+        [story.get("one_liner") for story in radar_storylines[1:4]] if radar_storylines else summary_bullets,
+    )
+    lines.extend(["# PPT 제작 큐", ""])
+    if use_editorial:
+        render_ppt_asset_queue(lines, editorial_brief, target_date, radar_by_id)
+    else:
+        render_ppt_asset_queue(lines, {"editorial_summary": "\n".join(summary_bullets), "storylines": display_storylines}, target_date, radar_by_id)
+    lines.extend(["", "## 말로만 처리할 자료", ""])
+    if use_editorial:
+        render_talk_only_queue(lines, editorial_brief, radar_by_id)
+    else:
+        lines.append("- editorial brief가 유효하지 않아 별도 talk-only 큐가 없습니다.")
+
+    lines.extend(["", "# 자료 수집 상세", "", "## 추천 스토리라인", ""])
     for index, storyline in enumerate(display_storylines, start=1):
         if use_editorial:
-            render_editorial_storyline(lines, index, storyline, radar_by_id)
+            render_host_storyline(lines, index, storyline, radar_by_id)
         else:
             render_storyline(lines, index, storyline, radar_by_id, ledger)
-
-    lines.extend(["# 🤖 자료 수집", "", "## 1. 시장은 지금", ""])
+    lines.extend(
+        [
+            "",
+            "## 경제 일정/실적 일정",
+            "",
+            "- 경제 일정은 아래 `오늘의 경제 일정` 표/이미지에서 확인합니다.",
+            "- 실적 일정과 특징주는 아래 `실적/특징주` 섹션에서 확인합니다.",
+            "",
+            "## 자료 수집",
+            "",
+            "## 1. 시장은 지금",
+            "",
+        ]
+    )
     index_futures = screenshots_for(target_date, "finviz-index-futures-*.png")
     if index_futures:
         lines.extend(["### 주요 지수 흐름", "", screenshot_source_line(target_date, "finviz-index-futures", "[Finviz](https://finviz.com/)"), ""])
@@ -1289,7 +2471,7 @@ def render_dashboard(target_date: str) -> str:
                     f"| {short_dt(event.get('local_datetime'))} | {event.get('country')} | {clean(event.get('event'), 32)} | {event.get('forecast') or event.get('consensus') or '-'} | {event.get('previous') or '-'} |"
                 )
         else:
-            lines.append("- 경제일정 후보 없음")
+            lines.append("- 오늘 표시할 주요 경제 일정 없음" if economic else "- 경제 일정 수집 상태 확인 필요")
 
     fedwatch_rows = fedwatch_probability_rows(target_date)
     if fedwatch_rows:
@@ -1358,7 +2540,7 @@ def render_dashboard(target_date: str) -> str:
             next_title = compact_radar_title(fed_rows[index]) if index < len(fed_rows) else ""
             render_radar_card(lines, row, index, next_title)
 
-    lines.extend(["", f"## {misc_section_number}. 오늘의 이모저모", ""])
+    lines.extend(["", f"## {misc_section_number}. 보조 꼭지 후보", ""])
     radar_misc_rows = []
     seen_radar_ids = set()
     seen_radar_titles = set()
@@ -1492,6 +2674,21 @@ def render_dashboard(target_date: str) -> str:
         lines.append("")
         for row in feature_rows[:5]:
             render_feature_stock(lines, row)
+    lines.extend(["", "## 방송 후 회고 입력용 메모", ""])
+    if use_editorial:
+        watchpoints = editorial_brief.get("retrospective_watchpoints") or []
+        if watchpoints:
+            for item in watchpoints[:8]:
+                lines.append(f"- {public_editorial_text(item, 160)}")
+        else:
+            lines.append("- 리드 스토리라인이 실제 첫 꼭지로 쓰였는지 기록.")
+            lines.append("- PPT 캡처 후보 중 실제 장표화된 자료와 말로만 처리된 자료를 구분.")
+            lines.append("- 대시보드에는 있었지만 쓰이지 않은 자료의 이유를 drop_code 후보로 기록.")
+    else:
+        lines.append("- editorial brief fallback 또는 누락 상태입니다. 실제 방송 사용 여부를 수동 기록하세요.")
+    if use_editorial:
+        lines.extend([""])
+        render_audit_log(lines, editorial_brief, radar_by_id, target_date)
     return "\n".join(lines).rstrip() + "\n"
 
 

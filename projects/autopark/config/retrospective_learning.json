@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "description": "Operational weights for turning broadcast retrospective labels into next-day editorial guidance.",
+  "lookback_days": 7,
+  "max_days": 4,
+  "max_examples_per_day": 6,
+  "label_weights": {
+    "used_as_lead": 4,
+    "used_later": 1,
+    "mentioned_only": 1,
+    "used_as_slide": 3,
+    "used_as_talk_only": 1,
+    "strong_broadcast_fit": 3,
+    "weak_broadcast_fit": 1,
+    "not_used_too_complex": -3,
+    "not_used_low_visual_value": -2,
+    "not_used_already_known": -1,
+    "not_used_weak_market_reaction": -2,
+    "missed_source_gap": -3,
+    "missed_weighting_error": -4,
+    "false_positive_sentiment_only": -4,
+    "false_positive_visual_only": -4
+  },
+  "label_actions": {
+    "used_as_lead": "Boost stories that explain the open, are understandable in five minutes, and have slide-ready evidence.",
+    "used_as_slide": "Prefer candidates with concrete PPT assets over text-only summaries when editorial strength is similar.",
+    "used_as_talk_only": "Keep related material concise and spoken-only unless the visual has independent explanatory value.",
+    "strong_broadcast_fit": "Repeat the evidence mix that matched the actual broadcast: fact/data plus a usable visual.",
+    "weak_broadcast_fit": "Use as a backup pattern, not as a lead pattern.",
+    "not_used_too_complex": "Demote stories that require too much setup for the first five minutes.",
+    "not_used_low_visual_value": "Do not force a slide for material that works better as one sentence.",
+    "not_used_already_known": "Check prepricing and whether the audience has already absorbed the story.",
+    "not_used_weak_market_reaction": "Require a visible market reaction before promoting to lead.",
+    "missed_source_gap": "Add source/search watchpoints for topics that appeared in the broadcast but were absent from the dashboard.",
+    "missed_weighting_error": "Reduce weight on similar weak signals and require a stronger fact/data anchor.",
+    "false_positive_sentiment_only": "Never promote X/Reddit/community-only material as fact or as a lead.",
+    "false_positive_visual_only": "Do not infer causality from a chart or heatmap without fact/data/analysis support."
+  },
+  "hard_rules": [
+    "Retrospective feedback is preference and format guidance, not a source for new market facts.",
+    "A positive label can boost presentation fit, but current-day evidence still decides the story.",
+    "A negative label should create a warning or demotion unless current-day fact/data evidence clearly overrides it."
+  ]
+}

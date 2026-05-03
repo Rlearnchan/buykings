@@ -22,6 +22,24 @@ RAW_DIR = PROJECT_ROOT / "data" / "raw"
 OPENAI_API = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5-mini"
 
+RETROSPECTIVE_LABELS = [
+    "used_as_lead",
+    "used_later",
+    "mentioned_only",
+    "used_as_slide",
+    "used_as_talk_only",
+    "not_used_too_complex",
+    "not_used_low_visual_value",
+    "not_used_already_known",
+    "not_used_weak_market_reaction",
+    "missed_source_gap",
+    "missed_weighting_error",
+    "false_positive_sentiment_only",
+    "false_positive_visual_only",
+    "strong_broadcast_fit",
+    "weak_broadcast_fit",
+]
+
 
 RETROSPECTIVE_SCHEMA = {
     "type": "object",
@@ -34,6 +52,8 @@ RETROSPECTIVE_SCHEMA = {
         "unused_dashboard_items",
         "format_issues",
         "source_feedback",
+        "asset_usage_labels",
+        "ppt_outline_comparison",
         "prompt_updates",
         "code_change_suggestions",
         "summary_for_next_brief",
@@ -105,6 +125,35 @@ RETROSPECTIVE_SCHEMA = {
                 },
             },
         },
+        "asset_usage_labels": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["item_id", "storyline_id", "label", "evidence", "comment"],
+                "properties": {
+                    "item_id": {"type": "string"},
+                    "storyline_id": {"type": "string"},
+                    "label": {"type": "string"},
+                    "evidence": {"type": "string"},
+                    "comment": {"type": "string"},
+                },
+            },
+        },
+        "ppt_outline_comparison": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["slide_title", "matched_storyline_id", "status", "comment"],
+                "properties": {
+                    "slide_title": {"type": "string"},
+                    "matched_storyline_id": {"type": "string"},
+                    "status": {"type": "string"},
+                    "comment": {"type": "string"},
+                },
+            },
+        },
         "prompt_updates": {"type": "array", "items": {"type": "string"}},
         "code_change_suggestions": {"type": "array", "items": {"type": "string"}},
         "summary_for_next_brief": {"type": "string"},
@@ -161,6 +210,47 @@ def read_text(path: Path, limit: int = 40_000) -> str:
 
 def default_notion_path(target_date: str) -> Path:
     return RUNTIME_DIR / "notion" / target_date / f"{display_date_title(target_date)}.md"
+
+
+def default_ppt_outline_path(target_date: str) -> Path:
+    return RUNTIME_DIR / "broadcast" / target_date / "ppt-outline.md"
+
+
+def default_asset_comparison_path(target_date: str) -> Path:
+    return RUNTIME_DIR / "broadcast" / target_date / "broadcast-asset-comparison.json"
+
+
+def compact_asset_comparison(comparison: dict) -> dict:
+    if not comparison:
+        return {}
+    return {
+        "inputs": comparison.get("inputs") or {},
+        "topic_summary": (comparison.get("topic_summary") or [])[:12],
+        "storyline_results": [
+            {
+                "storyline_id": item.get("storyline_id"),
+                "title": item.get("title"),
+                "rank": item.get("rank"),
+                "labels": item.get("labels") or [],
+                "slide_matches": (item.get("slide_matches") or [])[:3],
+                "transcript_matches": (item.get("transcript_matches") or [])[:3],
+            }
+            for item in (comparison.get("storyline_results") or [])[:8]
+        ],
+        "asset_results": [
+            {
+                "item_id": item.get("item_id"),
+                "evidence_id": item.get("evidence_id"),
+                "storyline_id": item.get("storyline_id"),
+                "title": item.get("title"),
+                "label": item.get("label"),
+                "slide_matches": (item.get("slide_matches") or [])[:2],
+                "transcript_matches": (item.get("transcript_matches") or [])[:2],
+            }
+            for item in (comparison.get("asset_results") or [])[:30]
+        ],
+        "missed_slides": (comparison.get("missed_slides") or [])[:20],
+    }
 
 
 def find_timestamp(value: object) -> str | None:
@@ -232,13 +322,26 @@ def collection_limitations(target_date: str) -> list[dict]:
     return limitations
 
 
-def build_input_payload(target_date: str, transcript_path: Path | None, notion_path: Path | None) -> dict:
+def build_input_payload(
+    target_date: str,
+    transcript_path: Path | None,
+    notion_path: Path | None,
+    ppt_outline_path: Path | None = None,
+    asset_comparison_path: Path | None = None,
+) -> dict:
     day_dir = RUNTIME_DIR / "broadcast" / target_date
     transcript_json = load_json(day_dir / "wepoll-transcript.json")
     if transcript_path is None:
         transcript_path = day_dir / "host-segment.md"
     if notion_path is None:
         notion_path = default_notion_path(target_date)
+    if ppt_outline_path is None:
+        default_outline = default_ppt_outline_path(target_date)
+        ppt_outline_path = default_outline if default_outline.exists() else None
+    if asset_comparison_path is None:
+        default_comparison = default_asset_comparison_path(target_date)
+        asset_comparison_path = default_comparison if default_comparison.exists() else None
+    asset_comparison = load_json(asset_comparison_path) if asset_comparison_path else {}
     processed = PROCESSED_DIR / target_date
     brief = load_json(processed / "editorial-brief.json")
     radar = load_json(processed / "market-radar.json")
@@ -261,16 +364,20 @@ def build_input_payload(target_date: str, transcript_path: Path | None, notion_p
             "findings": quality.get("findings") or [],
         },
         "collection_limitations": collection_limitations(target_date),
+        "retrospective_label_candidates": RETROSPECTIVE_LABELS,
         "editorial_brief": {
             "daily_thesis": brief.get("daily_thesis"),
             "editorial_summary": brief.get("editorial_summary"),
             "storylines": [
                 {
+                    "storyline_id": story.get("storyline_id"),
                     "title": story.get("title"),
                     "stars": story.get("recommendation_stars"),
                     "hook": story.get("hook"),
                     "why_now": story.get("why_now"),
                     "evidence_to_use": story.get("evidence_to_use") or [],
+                    "ppt_asset_queue": story.get("ppt_asset_queue") or [],
+                    "evidence_to_drop": story.get("evidence_to_drop") or [],
                 }
                 for story in (brief.get("storylines") or [])
             ],
@@ -286,19 +393,28 @@ def build_input_payload(target_date: str, transcript_path: Path | None, notion_p
         ],
         "notion_markdown_excerpt": read_text(notion_path, 24_000),
         "broadcast_transcript": read_text(transcript_path, 36_000),
+        "ppt_outline_path": str(ppt_outline_path) if ppt_outline_path else "",
+        "ppt_outline_excerpt": read_text(ppt_outline_path, 20_000) if ppt_outline_path else "",
+        "asset_comparison_path": str(asset_comparison_path) if asset_comparison_path else "",
+        "asset_comparison": compact_asset_comparison(asset_comparison),
     }
 
 
 def build_prompt(payload: dict) -> str:
     return f"""You are a Korean broadcast post-mortem editor for Autopark.
 
-Compare the morning dashboard with the actual host segment transcript.
+Compare the morning dashboard with the actual host segment transcript and, when provided, the PPT outline.
 
 Important rules:
 - The transcript is an imperfect auto-generated Korean caption. Be conservative.
 - Focus only on the first host segment, not guest/interview sections.
 - Do not quote long transcript passages. Use short evidence snippets only.
 - Judge whether Autopark helped the actual broadcast: hit, partial hit, miss, unused.
+- Compare dashboard recommendations with actual transcript topics, PPT slide titles/body, slide-used material, talk-only material, dashboard items not used, and broadcast items missing from the dashboard.
+- If asset_comparison is provided, use it as a deterministic first-pass alignment for labels and PPT usage, but stay conservative when the matches are weak.
+- Use only labels from retrospective_label_candidates when filling asset_usage_labels.
+- Preserve item_id, evidence_id, and storyline_id whenever the input provides them.
+- Mark whether material was used_as_lead, used_later, mentioned_only, used_as_slide, used_as_talk_only, not_used_* or false_positive_*.
 - Separate content misses from format/presentation errors.
 - If collection_limitations lists stale/live-only captures or missing timestamps, mention them as operational issues and propose a concrete prevention rule.
 - Suggest prompt/config/source-weight changes. Do not directly rewrite code.
@@ -372,6 +488,8 @@ def keyword_fallback(payload: dict, reason: str) -> dict:
         "unused_dashboard_items": [],
         "format_issues": [],
         "source_feedback": [],
+        "asset_usage_labels": [],
+        "ppt_outline_comparison": [],
         "prompt_updates": ["LLM 회고를 다시 실행하세요."],
         "code_change_suggestions": [],
         "summary_for_next_brief": "방송 회고를 생성하지 못했습니다. 다음 편집장 단계는 기존 자료만 참고해야 합니다.",
@@ -386,6 +504,7 @@ def render_markdown(target_date: str, review: dict, payload: dict) -> str:
         f"- 영상: {payload.get('video', {}).get('title') or '-'}",
         f"- transcript: `{payload.get('transcript_path')}`",
         f"- dashboard: `{payload.get('notion_markdown_path')}`",
+        f"- ppt outline: `{payload.get('ppt_outline_path') or '-'}`",
         f"- hit rate estimate: `{review.get('hit_rate_estimate')}`",
         "",
     ]
@@ -399,6 +518,25 @@ def render_markdown(target_date: str, review: dict, payload: dict) -> str:
             lines.append(f"- `{item.get('type')}` {source}: {detail}{captured_at}")
         if len(limitations) > 20:
             lines.append(f"- ...and {len(limitations) - 20} more")
+        lines.append("")
+    comparison = payload.get("asset_comparison") or {}
+    if comparison:
+        inputs = comparison.get("inputs") or {}
+        lines.extend(
+            [
+                "## Auto Asset Comparison",
+                "",
+                f"- storylines: `{inputs.get('storyline_count', '-')}`",
+                f"- slides: `{inputs.get('slide_count', '-')}`",
+                f"- transcript segments: `{inputs.get('transcript_segment_count', '-')}`",
+                "",
+            ]
+        )
+        for item in (comparison.get("storyline_results") or [])[:6]:
+            labels = ", ".join(item.get("labels") or []) or "-"
+            best_slide = (item.get("slide_matches") or [{}])[0]
+            slide_note = f" / slide {best_slide.get('slide_number')}: {best_slide.get('title')}" if best_slide.get("slide_number") else ""
+            lines.append(f"- `{item.get('storyline_id') or '-'}` {item.get('title') or '-'}: {labels}{slide_note}")
         lines.append("")
     lines.extend(
         [
@@ -434,6 +572,18 @@ def render_markdown(target_date: str, review: dict, payload: dict) -> str:
     for item in review.get("format_issues") or []:
         lines.append(f"- {item.get('issue')}: {item.get('fix')}")
     if not review.get("format_issues"):
+        lines.append("- 없음")
+
+    lines.extend(["", "## PPT outline 비교", ""])
+    for item in review.get("ppt_outline_comparison") or []:
+        lines.append(f"- `{item.get('slide_title') or '-'}` / `{item.get('status') or '-'}` / `{item.get('matched_storyline_id') or '-'}`: {item.get('comment') or '-'}")
+    if not review.get("ppt_outline_comparison"):
+        lines.append("- 없음")
+
+    lines.extend(["", "## 자료 사용 라벨", ""])
+    for item in review.get("asset_usage_labels") or []:
+        lines.append(f"- `{item.get('item_id') or '-'}` `{item.get('storyline_id') or '-'}` `{item.get('label') or '-'}`: {item.get('comment') or item.get('evidence') or '-'}")
+    if not review.get("asset_usage_labels"):
         lines.append("- 없음")
 
     lines.extend(["", "## 소스 피드백", ""])
@@ -478,13 +628,15 @@ def main() -> int:
     parser.add_argument("--date", required=True)
     parser.add_argument("--transcript", type=Path)
     parser.add_argument("--notion", type=Path)
+    parser.add_argument("--ppt-outline", type=Path)
+    parser.add_argument("--asset-comparison", type=Path)
     parser.add_argument("--env", type=Path, default=REPO_ROOT / ".env")
     parser.add_argument("--model", default=None)
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    payload = build_input_payload(args.date, args.transcript, args.notion)
+    payload = build_input_payload(args.date, args.transcript, args.notion, args.ppt_outline, args.asset_comparison)
     review_dir = RUNTIME_DIR / "reviews" / args.date
     review_md = review_dir / "broadcast-retrospective.md"
     review_json = review_dir / "broadcast-retrospective.json"
@@ -505,6 +657,8 @@ def main() -> int:
                     "feedback_markdown": str(feedback_md),
                     "has_transcript": bool(payload.get("broadcast_transcript")),
                     "has_dashboard": bool(payload.get("notion_markdown_excerpt")),
+                    "has_ppt_outline": bool(payload.get("ppt_outline_excerpt")),
+                    "has_asset_comparison": bool(payload.get("asset_comparison")),
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -540,6 +694,8 @@ def main() -> int:
         "input": {
             "transcript_path": payload.get("transcript_path"),
             "notion_markdown_path": payload.get("notion_markdown_path"),
+            "ppt_outline_path": payload.get("ppt_outline_path"),
+            "asset_comparison_path": payload.get("asset_comparison_path"),
             "video": payload.get("video"),
             "collection_limitations": payload.get("collection_limitations") or [],
         },

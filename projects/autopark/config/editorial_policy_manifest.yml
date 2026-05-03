@@ -1,0 +1,37 @@
+version: 1
+description: "Operational editorial policy distilled from Autopark policy docs 01-05."
+
+editor_role:
+  name: "morning_broadcast_editor"
+  principle: "Autopark prepares a broadcast cue sheet and PPT queue, not a long news archive."
+
+lead_storyline:
+  selection_rule: "Pick the story that best explains today's market move, is clear in the first five minutes, and can be supported with slide-ready material."
+  required_fields:
+    - lead_candidate_reason
+    - signal_or_noise
+    - market_causality
+    - expectation_gap
+    - prepricing_risk
+    - first_5min_fit
+    - ppt_asset_queue
+
+evidence_policy:
+  evidence_roles: ["fact", "data", "analysis", "sentiment", "visual", "market_reaction"]
+  hard_rules:
+    - "Every storyline must cite current candidate item_id or evidence_id."
+    - "X and Reddit can show sentiment only."
+    - "Heatmaps and charts show reaction only unless paired with fact/data/analysis."
+    - "For earnings and macro data, compare result versus expectation and market pricing."
+
+dashboard_policy:
+  preferred_sections:
+    - "오늘의 한 줄"
+    - "오늘의 시장 지도"
+    - "리드 스토리 후보"
+    - "추천 스토리라인 3-5개"
+    - "PPT 캡처 후보"
+    - "말로만 처리할 자료"
+    - "버릴 자료와 이유"
+    - "경제 일정/실적 일정"
+    - "방송 후 회고 입력용 메모"

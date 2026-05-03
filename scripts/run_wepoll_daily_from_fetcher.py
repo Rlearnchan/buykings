@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+from pathlib import PureWindowsPath
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,6 +63,7 @@ def main() -> None:
     parser.add_argument("--include-label", default="글만")
     parser.add_argument("--format-label", default="CSV")
     parser.add_argument("--download-dir", type=Path, default=DEFAULT_DOWNLOAD_DIR)
+    parser.add_argument("--fetcher-output-dir", help="Output directory as seen by the fetcher host")
     parser.add_argument("--manifest-dir", type=Path, default=DEFAULT_MANIFEST_DIR)
     parser.add_argument("--skip-append", action="store_true")
     parser.add_argument("--skip-healthcheck", action="store_true")
@@ -100,7 +103,7 @@ def main() -> None:
         "boardLabel": args.board_label,
         "includeLabel": args.include_label,
         "formatLabel": args.format_label,
-        "outputDir": str(args.download_dir.resolve()),
+        "outputDir": args.fetcher_output_dir or str(args.download_dir.resolve()),
     }
     download_date_from = args.date_from
     download_date_to = args.date_to
@@ -118,7 +121,23 @@ def main() -> None:
 
     raw_csv = Path(download_result["downloaded_file"]).resolve()
     if not raw_csv.exists():
+        downloaded_name = PureWindowsPath(download_result["downloaded_file"]).name
+        if downloaded_name == download_result["downloaded_file"]:
+            downloaded_name = Path(download_result["downloaded_file"]).name
+        mapped_csv = args.download_dir.resolve() / downloaded_name
+        if mapped_csv.exists():
+            raw_csv = mapped_csv
+            download_result["downloaded_file_mapped"] = str(raw_csv)
+    if not raw_csv.exists():
         raise SystemExit(f"Fetcher reported a downloaded file that does not exist: {raw_csv}")
+    if download_date_from and download_date_to:
+        exact_csv = args.download_dir.resolve() / f"wepoll_stock_posts_{download_date_from}_{download_date_to}.csv"
+        if raw_csv != exact_csv:
+            if exact_csv.exists():
+                exact_csv.unlink()
+            raw_csv.replace(exact_csv)
+            raw_csv = exact_csv
+            download_result["downloaded_file"] = str(raw_csv)
 
     manifest_path = args.manifest_dir / f"{raw_csv.stem}.json"
     manifest_path.write_text(
@@ -138,24 +157,29 @@ def main() -> None:
         append_cmd.extend(["--min-rows", str(args.min_rows)])
     if args.today:
         append_cmd.extend(["--today", args.today])
-    model = args.model or env_values.get("WEPOLL_SECOND_PASS_MODEL")
+    model = args.model or env_values.get("WEPOLL_SECOND_PASS_MODEL") or os.environ.get("WEPOLL_SECOND_PASS_MODEL")
     if model:
         append_cmd.extend(["--model", model])
     if args.timeseries_spec:
         append_cmd.extend(["--timeseries-spec", str(args.timeseries_spec.resolve())])
     if args.bubble_spec:
         append_cmd.extend(["--bubble-spec", str(args.bubble_spec.resolve())])
-    panic_root = args.panic_root or (Path(env_values["WEPOLL_PANIC_ROOT"]) if env_values.get("WEPOLL_PANIC_ROOT") else None)
+    panic_root_value = env_values.get("WEPOLL_PANIC_ROOT") or os.environ.get("WEPOLL_PANIC_ROOT")
+    panic_root = args.panic_root or (Path(panic_root_value) if panic_root_value else None)
     if panic_root:
         append_cmd.extend(["--panic-root", str(panic_root.resolve())])
     if args.python_executable:
         append_cmd.extend(["--python-executable", args.python_executable])
-    second_pass_backend = args.second_pass_backend or env_values.get("WEPOLL_SECOND_PASS_BACKEND")
+    second_pass_backend = (
+        args.second_pass_backend
+        or env_values.get("WEPOLL_SECOND_PASS_BACKEND")
+        or os.environ.get("WEPOLL_SECOND_PASS_BACKEND")
+    )
     if second_pass_backend:
         append_cmd.extend(["--second-pass-backend", second_pass_backend])
     if args.ollama_host:
         append_cmd.extend(["--ollama-host", args.ollama_host])
-    openai_api_key = args.openai_api_key or env_values.get("OPENAI_API_KEY")
+    openai_api_key = args.openai_api_key or env_values.get("OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY")
     if openai_api_key:
         os.environ.setdefault("OPENAI_API_KEY", openai_api_key)
     if args.env_file:

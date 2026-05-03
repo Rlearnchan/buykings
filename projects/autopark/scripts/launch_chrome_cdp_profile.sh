@@ -29,6 +29,7 @@ rsync -a --delete \
 cp "$SOURCE_CHROME_DIR/Local State" "$TARGET_DIR/Local State"
 
 open -na "Google Chrome" --args \
+  "--remote-debugging-address=${REMOTE_DEBUGGING_ADDRESS:-127.0.0.1}" \
   "--remote-debugging-port=$PORT" \
   "--user-data-dir=$TARGET_DIR" \
   "--profile-directory=$SOURCE_PROFILE" \

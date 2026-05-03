@@ -149,7 +149,7 @@ def remap_threshold_to_50(value: float, midpoint: float) -> float:
 def classify_label(stance_idx: float, participation_idx: float) -> str:
     if participation_idx >= 50:
         return "탐욕" if stance_idx >= 50 else "공포"
-    if stance_idx < 45:
+    if stance_idx < 50:
         return "신중"
     return "낙관"
 

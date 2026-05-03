@@ -102,6 +102,17 @@ function resolveAuthProfile(args, source) {
   return profilePath;
 }
 
+function cleanStaleProfileLocks(profilePath) {
+  if (String(process.env.AUTOPARK_PROFILE_LOCK_CLEANUP || '1').toLowerCase() === '0') return;
+  for (const name of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+    try {
+      fs.rmSync(path.join(profilePath, name), { force: true, recursive: true });
+    } catch {
+      // Chromium will surface a launch error if the profile is genuinely active.
+    }
+  }
+}
+
 async function createBrowserSession(chromium, args, source) {
   const viewport = args.viewport || { width: 1440, height: 1100 };
   const baseContextOptions = {
@@ -135,7 +146,14 @@ async function createBrowserSession(chromium, args, source) {
       const executablePath = fallbackChromiumPath();
       if (executablePath) persistentOptions.executablePath = executablePath;
     }
-    const context = await chromium.launchPersistentContext(authProfilePath, persistentOptions);
+    let context;
+    try {
+      context = await chromium.launchPersistentContext(authProfilePath, persistentOptions);
+    } catch (error) {
+      if (!/profile appears to be in use|process_singleton/i.test(error.message || '')) throw error;
+      cleanStaleProfileLocks(authProfilePath);
+      context = await chromium.launchPersistentContext(authProfilePath, persistentOptions);
+    }
     return {
       browser: context.browser(),
       context,
@@ -597,6 +615,40 @@ async function captureFinvizHeatmap(page, screenshotDir, safeId, label = 'Finviz
   ];
 }
 
+function findReusableFinvizScreenshot(date, safeId) {
+  const screenshotsRoot = path.join(projectRoot, 'runtime', 'screenshots');
+  if (!fs.existsSync(screenshotsRoot)) return null;
+  const candidates = [];
+  for (const day of fs.readdirSync(screenshotsRoot)) {
+    if (day >= date) continue;
+    const dayDir = path.join(screenshotsRoot, day);
+    for (const name of [`${safeId}-map.png`, `${safeId}.png`]) {
+      const candidate = path.join(dayDir, name);
+      if (!fs.existsSync(candidate)) continue;
+      const stats = fs.statSync(candidate);
+      if (stats.size > 10_000) candidates.push({ day, candidate, stats });
+    }
+  }
+  candidates.sort((left, right) => right.day.localeCompare(left.day) || right.stats.mtimeMs - left.stats.mtimeMs);
+  return candidates[0] || null;
+}
+
+function reusableFinvizFallback(source, date, screenshotDir, safeId) {
+  if (!(source.id === 'finviz-sp500-heatmap' || source.id === 'finviz-russell-heatmap')) return null;
+  const reusable = findReusableFinvizScreenshot(date, safeId);
+  if (!reusable) return null;
+  const fallbackPath = path.join(screenshotDir, `${safeId}-map-fallback.png`);
+  fs.copyFileSync(reusable.candidate, fallbackPath);
+  return {
+    source_day: reusable.day,
+    image: {
+      label: `${source.name || source.id} fallback from ${reusable.day}`,
+      path: fallbackPath,
+      relative_path: path.relative(repoRoot, fallbackPath),
+    },
+  };
+}
+
 async function captureCnbcUs10y(page, screenshotDir, safeId, viewport) {
   const quote = await page.locator('#quote-page-strip').first().boundingBox().catch(() => null);
   const chart = await page.locator('.PhoenixChartWrapper-rendererWeb').first().boundingBox().catch(() => null);
@@ -897,13 +949,17 @@ async function main() {
     await dismissCommonOverlays(page);
 
     const fullPage = source.capture_full_page === false ? false : args.fullPage;
-    const capturedImages = await captureSourceScreenshots(source, page, screenshotDir, safeId, screenshotPath, fullPage, viewport);
+    let capturedImages = await captureSourceScreenshots(source, page, screenshotDir, safeId, screenshotPath, fullPage, viewport);
     const title = await page.title();
     const bodyText = await page.locator('body').innerText({ timeout: 3000 }).catch(() => '');
     const blocked =
       /just a moment/i.test(title) ||
       /security verification/i.test(bodyText) ||
       /not a bot/i.test(bodyText);
+    const fallback = blocked ? reusableFinvizFallback(source, args.date, screenshotDir, safeId) : null;
+    if (fallback) {
+      capturedImages = [fallback.image];
+    }
     const partial = blocked ? null : await detectPartialCapture(source, page, bodyText);
     const extracted = blocked ? {} : await extractStructuredData(source, page, title, bodyText);
 
@@ -928,12 +984,13 @@ async function main() {
       headed: args.headed,
       bootstrap: args.bootstrap,
       partial_issue: partial,
+      fallback_source_date: fallback?.source_day || null,
       extracted,
-      status: blocked ? 'blocked' : partial ? 'partial' : 'ok',
+      status: fallback ? 'fallback' : blocked ? 'blocked' : partial ? 'partial' : 'ok',
     };
     fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`);
-    console.log(JSON.stringify({ ok: !blocked && !partial, metadata }, null, 2));
-    if (blocked || partial) {
+    console.log(JSON.stringify({ ok: Boolean(fallback) || (!blocked && !partial), metadata }, null, 2));
+    if (!fallback && (blocked || partial)) {
       process.exitCode = 2;
     }
   } catch (error) {

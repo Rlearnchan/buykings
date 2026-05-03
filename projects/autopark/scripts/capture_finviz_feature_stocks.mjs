@@ -69,6 +69,17 @@ function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
 }
 
+function cleanStaleProfileLocks(profilePath) {
+  if (String(process.env.AUTOPARK_PROFILE_LOCK_CLEANUP || '1').toLowerCase() === '0') return;
+  for (const name of ['SingletonLock', 'SingletonSocket', 'SingletonCookie']) {
+    try {
+      fs.rmSync(path.join(profilePath, name), { force: true, recursive: true });
+    } catch {
+      // Chromium will surface a launch error if the profile is genuinely active.
+    }
+  }
+}
+
 async function createContext(chromium, args) {
   const options = {
     viewport: { width: 1440, height: 1400 },
@@ -91,8 +102,16 @@ async function createContext(chromium, args) {
       const executablePath = fallbackChromiumPath();
       if (executablePath) persistentOptions.executablePath = executablePath;
     }
+    let context;
+    try {
+      context = await chromium.launchPersistentContext(profilePath, persistentOptions);
+    } catch (error) {
+      if (!/profile appears to be in use|process_singleton/i.test(error.message || '')) throw error;
+      cleanStaleProfileLocks(profilePath);
+      context = await chromium.launchPersistentContext(profilePath, persistentOptions);
+    }
     return {
-      context: await chromium.launchPersistentContext(profilePath, persistentOptions),
+      context,
       browser: null,
       shouldCloseContext: true,
       shouldCloseBrowser: false,

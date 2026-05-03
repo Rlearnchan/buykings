@@ -1,5 +1,6 @@
 param(
     [int]$Port = 9222,
+    [string]$RemoteAddress = "127.0.0.1",
     [string]$StartUrl = "https://x.com/wallstengine"
 )
 
@@ -64,6 +65,7 @@ $Urls = @(
 )
 
 $Arguments = @(
+    "--remote-debugging-address=$RemoteAddress",
     "--remote-debugging-port=$Port",
     "--user-data-dir=$ProfileDir",
     "--profile-directory=Default",
@@ -76,15 +78,24 @@ Start-Process -FilePath $ChromePath -ArgumentList $Arguments -WorkingDirectory $
 Start-Sleep -Seconds 4
 
 $Health = $null
+$DockerHealth = $null
 try {
     $Health = Invoke-RestMethod -Uri "http://127.0.0.1:$Port/json/version" -TimeoutSec 5
 } catch {
     Write-Warning "Chrome CDP did not respond yet: $($_.Exception.Message)"
 }
+try {
+    $DockerHealth = Invoke-RestMethod -Uri "http://host.docker.internal:$Port/json/version" -TimeoutSec 5
+} catch {
+    Write-Warning "Chrome CDP did not respond via host.docker.internal yet: $($_.Exception.Message)"
+}
 
 [pscustomobject]@{
     ok = [bool]$Health
+    docker_ok = [bool]$DockerHealth
     endpoint = "http://127.0.0.1:$Port"
+    docker_endpoint = "http://host.docker.internal:$Port"
+    remote_address = $RemoteAddress
     chrome_path = $ChromePath
     profile_dir = $ProfileDir
     login_note = "Keep this Chrome profile logged in for X, Finviz, Earnings Whispers, FedWatch, and Polymarket."
