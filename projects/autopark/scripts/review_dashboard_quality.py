@@ -428,6 +428,29 @@ def review_integrity(target_date: str, markdown: str) -> list[Finding]:
             "진행자용 public 영역에 수집 오류 원문 또는 내부 수집 현황 표가 노출됩니다.",
             "오류 원문과 소스 상태 표는 검증 로그로 내리고 public에는 방송 전 확인 문장만 남기세요.",
         )
+    dangling_ellipsis = [
+        line.strip()
+        for line in public.splitlines()
+        if line.strip().startswith(("- ", ">")) and line.strip().endswith("…")
+    ]
+    if dangling_ellipsis:
+        issue(
+            findings,
+            "integrity",
+            "medium",
+            "RENDER-001 public 문장 말줄임표 종료",
+            "public 문장이 완결되지 않고 말줄임표로 끝납니다: " + dangling_ellipsis[0],
+            "진행자용 문장은 clean_complete 계열로 닫고, 기사 제목은 출처/시간/제목으로 분리해 노출하세요.",
+        )
+    if re.search(r"^\s*(?:리포트|요약하면|후속):", public, re.M):
+        issue(
+            findings,
+            "integrity",
+            "medium",
+            "HOST-001 리서치 문체 public 노출",
+            "짧은 말문 또는 public 본문에 리서치 문서식 접두어가 남아 있습니다.",
+            "`리포트:`, `요약하면`, `후속:` 같은 표현은 진행자가 읽는 구어체 문장으로 바꾸세요.",
+        )
     compact_top = compact_top_markdown(markdown)
     compact_lines = [line for line in compact_top.splitlines() if line.strip()]
     news_section = section(compact_top, r"주요 뉴스 요약")
@@ -496,8 +519,8 @@ def review_format(markdown: str, target_date: str) -> list[Finding]:
         )
 
     for label, pattern in [
-        ("최종 수정 일시", r"최종 수정 일시:\s*`?\d{2}\.\d{2}\.\d{2}\s+\d{2}:\d{2}"),
-        ("수집 구간", r"수집 구간:\s*`?\d{2}:\d{2}-\d{2}:\d{2}"),
+        ("문서 생성", r"(?:문서 생성|최종 수정 일시):\s*`?\d{2}\.\d{2}\.\d{2}\s+\d{2}:\d{2}"),
+        ("자료 수집", r"(?:자료 수집|수집 구간):\s*`?\d{2}:\d{2}-\d{2}:\d{2}"),
     ]:
         if not re.search(pattern, markdown):
             issue(

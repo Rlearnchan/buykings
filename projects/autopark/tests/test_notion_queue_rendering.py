@@ -111,6 +111,7 @@ class NotionQueueRenderingTest(unittest.TestCase):
         self.assertLess(rendered.index("# 오늘 방송 순서"), rendered.index("# 첫 꼭지"))
         self.assertIn("## 오늘의 핵심 관점", rendered)
         self.assertIn("실적은 좋은데, 금리가 발목을 잡는다", rendered)
+        self.assertNotIn("리드 후보를 확정합니다", rendered)
         for forbidden in ["source_role", "evidence_role", "drop_code", "supported_by_mixed_evidence"]:
             self.assertNotIn(forbidden, rendered)
 
@@ -124,6 +125,21 @@ class NotionQueueRenderingTest(unittest.TestCase):
         }
 
         self.assertEqual("AI 인프라 수요는 아직 살아 있다", dashboard.story_display_title(story))
+
+    def test_story_public_text_rewrites_oil_and_ai_body_copy(self) -> None:
+        oil_story = {
+            "title": "이란 뉴스에 되살아난 유가 프리미엄",
+            "hook": "이란 관련 헤드라인이 다시 유가 프리미엄을 부각시키고 있습니다.",
+            "talk_track": "짧게: 유가에 대한 프리미엄이 부활하는 조짐입니다.",
+        }
+        ai_story = {
+            "title": "OpenAI(AI) 숫자가 다시 AI 인프라 기대를 받치는가",
+            "hook": "AI 관련 숫자·거래 소식이 인프라 수요 기대를 지탱하고 있나?",
+            "evidence_to_use": [{"title": "Anthropic chip purchase talks", "evidence_role": "fact"}],
+        }
+
+        self.assertNotIn("프리미엄", dashboard.story_quote_text(oil_story))
+        self.assertNotIn("숫자", dashboard.sanitize_story_public_text(ai_story, ai_story["hook"]))
 
     def test_sentiment_asset_defaults_to_talk_only_without_exception(self) -> None:
         brief = {
@@ -150,6 +166,24 @@ class NotionQueueRenderingTest(unittest.TestCase):
 
         self.assertNotIn("X 반응 캡처", rendered)
         self.assertIn("X 반응 캡처", "\n".join(dashboard.evidence_title(item, {}) for item in dashboard.flatten_talk_only(brief)))
+
+    def test_talk_only_queue_deduplicates_by_title_prefix(self) -> None:
+        brief = {
+            "talk_only_queue": [
+                {"item_id": "short", "title": "Using AI makes you stupid. We kno…", "evidence_role": "sentiment", "reason": "짧은 제목"},
+                {
+                    "item_id": "long",
+                    "title": "Using AI makes you stupid. We know that. But what if it makes companies stupid too?",
+                    "evidence_role": "sentiment",
+                    "reason": "긴 제목",
+                },
+            ]
+        }
+
+        rows = dashboard.flatten_talk_only(brief)
+
+        self.assertEqual(1, len(rows))
+        self.assertEqual("long", rows[0]["item_id"])
 
 
 if __name__ == "__main__":
