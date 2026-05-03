@@ -343,6 +343,8 @@ def summarize_payload(payload: dict, stderr: str = "") -> str:
         return summary
     if payload.get("fallback") is not None and payload.get("focus_count") is not None:
         summary = f"fallback={payload.get('fallback')}; focuses={payload.get('focus_count')}; gaps={payload.get('source_gap_count')}"
+        if payload.get("fallback_code"):
+            summary += f"; code={payload.get('fallback_code')}"
         if payload.get("fallback_reason"):
             summary += f"; reason={str(payload.get('fallback_reason'))[:120]}"
         return summary
@@ -597,6 +599,7 @@ def main() -> int:
     parser.add_argument("--polymarket-source", default=None)
     parser.add_argument("--skip-datawrapper-export", action="store_true")
     parser.add_argument("--market-focus-with-web", action="store_true")
+    parser.add_argument("--skip-market-focus-brief", action="store_true")
     parser.add_argument("--skip-publish", action="store_true")
     parser.add_argument("--publish-policy", choices=["gate", "always", "never"], default=None)
     parser.add_argument("--operation-mode", choices=["auto", "daily_broadcast", "monday_catchup", "no_broadcast"], default="auto")
@@ -660,6 +663,8 @@ def main() -> int:
             "post-publish review",
             "state mirror",
         ]
+        if args.skip_market_focus_brief:
+            planned = [step for step in planned if step != "build market focus brief"]
         browser_commands = [
             [
                 py,
@@ -748,7 +753,9 @@ def main() -> int:
                         "x_max_posts": effective_x_max_posts,
                     },
                     "editorial": {
-                        "market_focus_step": "build market focus brief",
+                        "market_focus_enabled": not args.skip_market_focus_brief,
+                        "market_focus_policy": "all-in-one runs by default; use --skip-market-focus-brief only for emergency/debug reruns",
+                        "market_focus_step": "build market focus brief" if not args.skip_market_focus_brief else "skipped by flag",
                         "market_focus_output": str(PROJECT_ROOT / "data" / "processed" / args.date / "market-focus-brief.json"),
                         "step": "build editorial brief",
                         "fallback": "unknown_until_run",
@@ -1089,16 +1096,38 @@ def main() -> int:
     )
     append_step(results, result)
 
-    market_focus_command = [py, "projects/autopark/scripts/build_market_focus_brief.py", "--date", args.date]
-    if args.market_focus_with_web:
-        market_focus_command.append("--with-web")
-    result, market_focus_payload = run(
-        market_focus_command,
-        "build market focus brief",
-        240,
-        allow_fail=True,
-        env=run_env,
-    )
+    if args.skip_market_focus_brief:
+        now = now_kst().isoformat(timespec="seconds")
+        market_focus_payload = {
+            "ok": True,
+            "skipped": True,
+            "fallback": True,
+            "fallback_code": "market_focus_skipped_by_flag",
+            "fallback_reason": "--skip-market-focus-brief was set; editorial brief may use existing market-focus-brief.json if present.",
+            "output": str(PROJECT_ROOT / "data" / "processed" / args.date / "market-focus-brief.json"),
+        }
+        result = StepResult(
+            "build market focus brief",
+            "warn",
+            now,
+            now,
+            0.0,
+            [],
+            None,
+            market_focus_payload["fallback_reason"],
+            [],
+        )
+    else:
+        market_focus_command = [py, "projects/autopark/scripts/build_market_focus_brief.py", "--date", args.date]
+        if args.market_focus_with_web:
+            market_focus_command.append("--with-web")
+        result, market_focus_payload = run(
+            market_focus_command,
+            "build market focus brief",
+            240,
+            allow_fail=True,
+            env=run_env,
+        )
     append_step(results, result)
 
     result, editorial_payload = run(
@@ -1223,7 +1252,10 @@ def main() -> int:
         "publish_policy": publish_policy,
         "operation": operation,
         "market_focus": {
+            "enabled": not args.skip_market_focus_brief,
+            "skipped": bool(market_focus_payload.get("skipped")),
             "fallback": bool(market_focus_payload.get("fallback")),
+            "fallback_code": market_focus_payload.get("fallback_code"),
             "fallback_reason": market_focus_payload.get("fallback_reason"),
             "model": market_focus_payload.get("model"),
             "with_web": bool(market_focus_payload.get("with_web")),

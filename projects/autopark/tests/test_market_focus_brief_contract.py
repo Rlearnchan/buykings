@@ -145,8 +145,38 @@ class MarketFocusBriefContractTest(unittest.TestCase):
 
         self.assertEqual([], focus_builder.validate_brief(brief))
         self.assertTrue(brief["fallback"])
+        self.assertEqual("openai_unavailable", brief["fallback_code"])
         self.assertEqual("lead", brief["what_market_is_watching"][0]["broadcast_use"])
         self.assertEqual("known-1", brief["suggested_broadcast_order"][0]["evidence_ids"][0])
+
+    def test_market_focus_model_override_priority(self) -> None:
+        env = {
+            "AUTOPARK_MARKET_FOCUS_MODEL": "gpt-5.4",
+            "AUTOPARK_OPENAI_MODEL": "gpt-4.1",
+        }
+
+        self.assertEqual("custom-model", focus_builder.resolve_model("custom-model", env))
+        self.assertEqual("gpt-5.4", focus_builder.resolve_model(None, env))
+        self.assertEqual("gpt-4.1", focus_builder.resolve_model(None, {"AUTOPARK_OPENAI_MODEL": "gpt-4.1"}))
+        self.assertEqual(focus_builder.DEFAULT_MODEL, focus_builder.resolve_model(None, {}))
+
+    def test_model_availability_errors_are_classified_for_fallback(self) -> None:
+        self.assertEqual(
+            "model_not_available",
+            focus_builder.classify_openai_error(400, "model_not_found", "The model does not exist."),
+        )
+        self.assertEqual(
+            "model_not_available",
+            focus_builder.classify_openai_error(403, "invalid_request_error", "You do not have access to model gpt-5.5."),
+        )
+
+    def test_synthetic_smoke_payload_has_local_ids_without_real_sources(self) -> None:
+        payload = focus_builder.synthetic_smoke_payload("2026-05-03")
+        ids = focus_builder.known_evidence_ids(payload)
+
+        self.assertIn("synthetic-fed-1", ids)
+        self.assertIn("synthetic-us10y-1", ids)
+        self.assertTrue(payload["input_limits"]["synthetic_smoke"])
 
 
 if __name__ == "__main__":

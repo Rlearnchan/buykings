@@ -26,11 +26,22 @@ EXPORTS_DIR = PROJECT_ROOT / "exports" / "current"
 PROMPT_PATH = PROJECT_ROOT / "prompts" / "market_focus_brief.md"
 DEFAULT_ENV = REPO_ROOT / ".env"
 OPENAI_API = "https://api.openai.com/v1/responses"
+# Official OpenAI models docs list this as the flagship frontier model ID.
 DEFAULT_MODEL = "gpt-5.5"
 DEFAULT_REASONING_EFFORT = "medium"
 
 BROADCAST_USES = {"lead", "supporting_story", "talk_only", "drop"}
 PUBLIC_USES = {"lead", "supporting_story", "talk_only"}
+
+
+class OpenAIAPIError(RuntimeError):
+    def __init__(self, label: str, status: int | None, api_code: str, message: str, body: str = "") -> None:
+        self.label = label
+        self.status = status
+        self.api_code = api_code
+        self.message = message
+        self.body = body
+        super().__init__(f"{label}: status={status}; api_code={api_code}; message={message}")
 
 
 FOCUS_ITEM_SCHEMA = {
@@ -501,6 +512,93 @@ def build_input_payload(target_date: str, max_candidates: int, max_raw_files: in
     }
 
 
+def synthetic_smoke_payload(target_date: str) -> dict:
+    return {
+        "date": target_date,
+        "policy": {
+            "role": "market_editor_not_news_summarizer",
+            "primary_question": "What was the market actually watching around the prior US session?",
+            "local_sources_first": True,
+            "x_social_is_sentiment_only": True,
+            "charts_are_reaction_not_causality": True,
+            "missing_external_story_must_be_source_gap": True,
+            "do_not_publish_story_without_local_item_id_or_evidence_id": True,
+            "lead_rule": "best_market_explanation_first_5min_not_most_sensational",
+            "synthetic_smoke": True,
+        },
+        "market_radar": {
+            "candidate_count": 3,
+            "storylines": [
+                {
+                    "title": "Rates and dollar frame risk appetite",
+                    "one_liner": "Synthetic market packet for API schema smoke.",
+                    "why_selected": "Multiple synthetic local sources point to the same market question.",
+                    "selected_item_ids": ["synthetic-fed-1", "synthetic-us10y-1"],
+                    "material_refs": [],
+                }
+            ],
+            "candidates": [
+                {
+                    "id": "synthetic-fed-1",
+                    "item_id": "synthetic-fed-1",
+                    "source": "Synthetic Wire",
+                    "title": "Fed speaker keeps inflation risk in focus",
+                    "summary": "Synthetic local fact item: inflation concern keeps rate sensitivity alive.",
+                    "theme_keys": ["rates_macro"],
+                    "source_role": "fact_anchor",
+                    "evidence_role": "fact",
+                },
+                {
+                    "id": "synthetic-us10y-1",
+                    "item_id": "synthetic-us10y-1",
+                    "source": "Synthetic Market Data",
+                    "title": "US 10Y yield holds firm while growth stocks pause",
+                    "summary": "Synthetic local market reaction item: yields and dollar constrain risk appetite.",
+                    "theme_keys": ["rates_macro"],
+                    "source_role": "market_reaction",
+                    "evidence_role": "market_reaction",
+                },
+                {
+                    "id": "synthetic-x-1",
+                    "item_id": "synthetic-x-1",
+                    "source": "Synthetic X",
+                    "title": "Traders debate whether oil risk is real",
+                    "summary": "Synthetic social sentiment item only; do not use as fact anchor.",
+                    "theme_keys": ["oil_geopolitics"],
+                    "source_role": "sentiment_probe",
+                    "evidence_role": "sentiment",
+                },
+            ],
+        },
+        "visual_cards": [],
+        "raw_sources": [
+            {
+                "source_id": "synthetic-news",
+                "path": "synthetic/news.json",
+                "kind": "news_or_analysis",
+                "sample_items": [{"id": "synthetic-fed-1", "title": "Fed speaker keeps inflation risk in focus"}],
+            },
+            {
+                "source_id": "synthetic-x",
+                "path": "synthetic/x.json",
+                "kind": "x_social_sentiment",
+                "sample_items": [{"id": "synthetic-x-1", "title": "Traders debate whether oil risk is real"}],
+            },
+        ],
+        "charts": [
+            {
+                "path": "synthetic/us10y-datawrapper.json",
+                "chart_id": "us10y",
+                "title": "US 10Y synthetic chart",
+                "takeaway": "Rates remain the price confirmation to check.",
+                "latest_value": "4.30%",
+            }
+        ],
+        "available_assets": [],
+        "input_limits": {"synthetic_smoke": True, "max_candidates": 3, "max_raw_files": 2, "max_assets": 0},
+    }
+
+
 def known_evidence_ids(payload: dict) -> set[str]:
     ids: set[str] = {"market-radar"}
     for item in payload.get("market_radar", {}).get("candidates") or []:
@@ -584,6 +682,43 @@ def extract_web_sources(raw: dict) -> list[dict]:
     return sources
 
 
+def classify_openai_error(status: int | None, api_code: str, message: str) -> str:
+    text = f"{api_code} {message}".lower()
+    if api_code in {"model_not_available", "model_not_found"}:
+        return "model_not_available"
+    if "model" in text and (
+        "not available" in text
+        or "does not exist" in text
+        or "do not have access" in text
+        or "not have access" in text
+        or "not found" in text
+    ):
+        return "model_not_available"
+    if status == 401:
+        return "auth_failed"
+    if status == 429:
+        return "rate_limited"
+    if status and status >= 500:
+        return "openai_server_error"
+    return "openai_api_error"
+
+
+def openai_http_error(exc: urllib.error.HTTPError) -> OpenAIAPIError:
+    body = exc.read().decode("utf-8", errors="replace")
+    api_code = f"http_{exc.code}"
+    message = exc.reason or body[:240]
+    try:
+        payload = json.loads(body)
+        error = payload.get("error") if isinstance(payload, dict) else {}
+        if isinstance(error, dict):
+            api_code = str(error.get("code") or error.get("type") or api_code)
+            message = str(error.get("message") or message)
+    except json.JSONDecodeError:
+        pass
+    label = classify_openai_error(exc.code, api_code, message)
+    return OpenAIAPIError(label, exc.code, api_code, compact_text(message, 500), compact_text(body, 1000))
+
+
 def call_openai(
     prompt: str,
     token: str,
@@ -616,8 +751,11 @@ def call_openai(
         method="POST",
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        raw = json.loads(response.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            raw = json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raise openai_http_error(exc) from exc
     text = extract_output_text(raw)
     if not text:
         raise RuntimeError("OpenAI response did not contain output_text")
@@ -636,6 +774,10 @@ def load_fixture_response(path: Path) -> tuple[dict, str | None, list[dict]]:
     if isinstance(payload, dict):
         return payload, payload.get("id"), payload.get("web_sources") or []
     raise ValueError("fixture must be a JSON object")
+
+
+def resolve_model(args_model: str | None, env: dict[str, str]) -> str:
+    return args_model or env.get("AUTOPARK_MARKET_FOCUS_MODEL") or env.get("AUTOPARK_OPENAI_MODEL") or DEFAULT_MODEL
 
 
 def write_raw_response(
@@ -895,7 +1037,16 @@ def chart_confirmation(payload: dict) -> str:
     return "; ".join(titles) if titles else "Check index futures, rates, dollar, oil, and heatmap captures."
 
 
-def fallback_brief(target_date: str, reason: str, input_payload: dict, raw_response_id: str | None = None, raw_response_path: str = "") -> dict:
+def fallback_brief(
+    target_date: str,
+    reason: str,
+    input_payload: dict,
+    raw_response_id: str | None = None,
+    raw_response_path: str = "",
+    model: str | None = None,
+    with_web: bool = False,
+    fallback_code: str = "openai_unavailable",
+) -> dict:
     radar = input_payload.get("market_radar") or {}
     candidates = item_lookup(input_payload)
     focus_items = []
@@ -986,10 +1137,12 @@ def fallback_brief(target_date: str, reason: str, input_payload: dict, raw_respo
     return {
         "ok": True,
         "fallback": True,
+        "fallback_code": fallback_code,
         "fallback_reason": reason,
         "target_date": target_date,
         "created_at": datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds"),
-        "model": None,
+        "model": model,
+        "with_web": bool(with_web),
         "raw_response_id": raw_response_id,
         "raw_response_path": raw_response_path,
         **brief,
@@ -1017,15 +1170,24 @@ def render_markdown(brief: dict, input_payload: dict) -> str:
         "",
         f"- target_date: `{brief.get('target_date') or input_payload.get('date')}`",
         f"- generated_at: `{brief.get('created_at') or datetime.now(ZoneInfo('Asia/Seoul')).isoformat(timespec='seconds')}`",
+        f"- model: `{brief.get('model') or 'none'}`",
+        f"- with_web: `{bool(brief.get('with_web'))}`",
         f"- fallback: `{bool(brief.get('fallback'))}`",
-        "",
-        "## Market Focus Summary",
-        "",
-        brief.get("market_focus_summary") or "-",
-        "",
-        "## What Market Is Watching",
-        "",
     ]
+    if brief.get("fallback"):
+        lines.append(f"- fallback_code: `{brief.get('fallback_code') or 'unknown'}`")
+        lines.append(f"- fallback_reason: {compact_text(brief.get('fallback_reason') or '', 240)}")
+    lines.extend(
+        [
+            "",
+            "## Market Focus Summary",
+            "",
+            brief.get("market_focus_summary") or "-",
+            "",
+            "## What Market Is Watching",
+            "",
+        ]
+    )
     for item in brief.get("what_market_is_watching") or []:
         ids = unique_strings([*(item.get("evidence_ids") or []), *(item.get("source_ids") or [])])
         evidence = ", ".join(evidence_label(item_id, lookup) for item_id in ids[:5]) or "-"
@@ -1092,15 +1254,16 @@ def main() -> int:
     parser.add_argument("--output", type=Path, help="Write JSON to a custom path instead of data/processed/<date>/market-focus-brief.json.")
     parser.add_argument("--markdown-output", type=Path, help="Write Markdown to a custom path instead of runtime/notion/<date>-market-focus.md.")
     parser.add_argument("--prompt-output", type=Path, help="Write the exact prompt payload to a JSON file without secrets.")
+    parser.add_argument("--synthetic-smoke", action="store_true", help="Use a tiny synthetic packet for API contract smoke without exporting local collected sources.")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     env = {**load_env(args.env.resolve()), **os.environ}
-    model = args.model or env.get("AUTOPARK_MARKET_FOCUS_MODEL") or env.get("AUTOPARK_OPENAI_MODEL") or DEFAULT_MODEL
+    model = resolve_model(args.model, env)
     reasoning_effort = args.reasoning_effort or env.get("AUTOPARK_MARKET_FOCUS_REASONING_EFFORT") or DEFAULT_REASONING_EFFORT
     fixture_meta = load_optional_json(args.response_fixture) if args.response_fixture else {}
     fixture_model = fixture_meta.get("model") if isinstance(fixture_meta, dict) else None
-    input_payload = build_input_payload(args.date, args.max_candidates, args.max_raw_files, args.max_assets)
+    input_payload = synthetic_smoke_payload(args.date) if args.synthetic_smoke else build_input_payload(args.date, args.max_candidates, args.max_raw_files, args.max_assets)
     output_path = args.output or (PROCESSED_DIR / args.date / "market-focus-brief.json")
     markdown_path = args.markdown_output or (RUNTIME_NOTION_DIR / f"{args.date}-market-focus.md")
     prompt = build_prompt(input_payload, with_web=args.with_web)
@@ -1131,6 +1294,7 @@ def main() -> int:
                 "candidate_count": len(input_payload.get("market_radar", {}).get("candidates") or []),
                 "raw_source_count": len(input_payload.get("raw_sources") or []),
                 "asset_count": len(input_payload.get("available_assets") or []),
+                "synthetic_smoke": bool(args.synthetic_smoke),
             }
         )
         return 0
@@ -1176,7 +1340,17 @@ def main() -> int:
             **brief,
         }
     except (urllib.error.URLError, TimeoutError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
-        brief = fallback_brief(args.date, f"{type(exc).__name__}: {exc}", input_payload, raw_response_id=response_id, raw_response_path=raw_response_path)
+        fallback_code = exc.label if isinstance(exc, OpenAIAPIError) else "openai_unavailable"
+        brief = fallback_brief(
+            args.date,
+            f"{type(exc).__name__}: {exc}",
+            input_payload,
+            raw_response_id=response_id,
+            raw_response_path=raw_response_path,
+            model=model,
+            with_web=args.with_web,
+            fallback_code=fallback_code,
+        )
 
     write_json(output_path, brief)
     markdown_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1189,8 +1363,10 @@ def main() -> int:
             "markdown_output": str(markdown_path),
             "model": brief.get("model"),
             "with_web": bool(brief.get("with_web")),
+            "synthetic_smoke": bool(args.synthetic_smoke),
             "focus_count": len(brief.get("what_market_is_watching") or []),
             "source_gap_count": len(brief.get("source_gaps") or []),
+            "fallback_code": brief.get("fallback_code"),
             "fallback_reason": brief.get("fallback_reason"),
         }
     )

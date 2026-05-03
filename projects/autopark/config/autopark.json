@@ -26,8 +26,8 @@
     },
     {
       "id": "market_focus_brief",
-      "enabled": false,
-      "description": "Use local collected sources and an OpenAI editor pass to rank what the prior US market was watching before rendering editorial/storyline outputs."
+      "enabled": true,
+      "description": "Default-on in the all-in-one runner after market-radar and before editorial-brief; use --skip-market-focus-brief only for emergency/debug reruns."
     },
     {
       "id": "review",
