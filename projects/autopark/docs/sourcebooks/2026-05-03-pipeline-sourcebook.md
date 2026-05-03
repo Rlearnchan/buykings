@@ -1,18 +1,19 @@
 # 26.05.03 Autopark Pipeline Sourcebook
 
-- Generated at: `26.05.03 19:20`
+- Generated at: `26.05.03 20:11`
 - Scope: end-to-end sourcebook for the compact dashboard pipeline: collection, API reasoning, filtering, renderer decisions, and quality gate.
 - Hygiene: credentials, browser/session data, signed URLs, raw HTML, full article bodies, and full X text are not included.
 - Long source material is represented as title/source/role/URL/summary only.
 
 ## 0. Artifact Inventory
-- `projects\autopark\data\processed\2026-05-03\dashboard-microcopy-context.json` (12,391 bytes)
-- `projects\autopark\data\processed\2026-05-03\dashboard-microcopy.json` (7,640 bytes)
+- `projects\autopark\data\processed\2026-05-03\dashboard-microcopy-context.json` (15,421 bytes)
+- `projects\autopark\data\processed\2026-05-03\dashboard-microcopy.json` (7,886 bytes)
 - `projects\autopark\data\processed\2026-05-03\earnings-calendar-tickers.json` (29,821 bytes)
 - `projects\autopark\data\processed\2026-05-03\earnings-calendar-x-posts.json` (9,581 bytes)
 - `projects\autopark\data\processed\2026-05-03\earnings-ticker-drilldown.json` (76,030 bytes)
 - `projects\autopark\data\processed\2026-05-03\economic-calendar.json` (300 bytes)
 - `projects\autopark\data\processed\2026-05-03\editorial-brief.json` (33,041 bytes)
+- `projects\autopark\data\processed\2026-05-03\evidence-microcopy.json` (130,220 bytes)
 - `projects\autopark\data\processed\2026-05-03\finviz-feature-stocks.json` (28,258 bytes)
 - `projects\autopark\data\processed\2026-05-03\market-focus-brief.json` (4,832 bytes)
 - `projects\autopark\data\processed\2026-05-03\market-preflight-agenda.json` (30,343 bytes)
@@ -21,7 +22,7 @@
 - `projects\autopark\data\processed\2026-05-03\today-misc-batch-b-candidates.json` (16,073 bytes)
 - `projects\autopark\data\processed\2026-05-03\visual-cards.json` (9,035 bytes)
 - `projects\autopark\data\processed\2026-05-03\x-timeline-posts.json` (134,101 bytes)
-- `projects\autopark\runtime\notion\2026-05-03\26.05.03.md` (12,997 bytes)
+- `projects\autopark\runtime\notion\2026-05-03\26.05.03.md` (13,243 bytes)
 
 ## 1. Pipeline Order
 - Pre-flight Market Agenda: web-enabled discovery agenda and collection targets
@@ -29,6 +30,7 @@
 - X/earnings timeline: collect X timeline posts and earnings calendar context
 - Visual cards and captures: collect Finviz, market charts, FedWatch, Fear & Greed, and chart exports
 - Market Radar: merge local candidates into a candidate DB with internal source/evidence roles
+- Evidence Microcopy: grouped candidate summaries after market-radar; no ranking/ordering authority
 - Market Focus Brief: call OpenAI with sanitized local packet; no web_search; promote only local-evidence-backed focus items
 - Editorial Brief: turn focus/radar into broadcast storylines and material queue
 - Fixed compact renderer: LLM supplies values; renderer owns section structure/order/exposed fields
@@ -270,6 +272,49 @@ Representative candidates
 ### Market Focus source gaps
 - 전날 미국장 지수 종가와 섹터별 실제 반응
 
+## 6.1 Evidence Microcopy
+- enabled: `False`
+- model: `gpt-5-mini`
+- source: `deterministic_disabled`
+- request_count: `0`
+- item_count: `136`
+- fallback_count: `136`
+- invalid_output_count: `0`
+- estimated_tokens: `20579`
+- generated fields: `summary_bullets, ppt_use_hint, caution`
+| item_id | source | summary_bullets | ppt_use_hint | caution |
+| --- | --- | --- | --- | --- |
+| https://x.com/KobeissiLetter/status/2050710022938558611 | (13) The Kobeissi Letter (@KobeissiLetter) / X | (13) The Kobeissi Letter (@KobeissiLetter) / X 자료는 BREAKING: President Trump says he will… / 유가와 에너지주 반응을 나눠 보며 인플레 부담이 커졌는지 확인하는 자료입니다. / PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/wallstengine/status/2050376010269634723 | (16) Wall St Engine (@wallstengine) / X | (16) Wall St Engine (@wallstengine) / X 자료는 Apple raised the Mac mini’s starting price to… / AI·실적 기대가 기술주와 한국 반도체 연결고리에 이어지는지 보는 자료입니다. / PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/_Investinq/status/2050070498306904444 | (16) StockMarket.News (@_Investinq) / X | (16) StockMarket.News (@_Investinq) / X 자료는 Mark Cuban's raising a question that a lot of… / 금리·달러·물가 기대가 전날 시장의 위험선호를 어떻게 제한했는지 보는 자료입니다. / 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. | 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/wallstengine/status/2050372648077865429 | (16) Wall St Engine (@wallstengine) / X | (16) Wall St Engine (@wallstengine) / X 자료는 TRUMP ON IRAN: MAYBE BETTER OFF NOT MAKING A… / 유가와 에너지주 반응을 나눠 보며 인플레 부담이 커졌는지 확인하는 자료입니다. / PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/KobeissiLetter/status/2050722187884089775 | (13) The Kobeissi Letter (@KobeissiLetter) / X | (13) The Kobeissi Letter (@KobeissiLetter) / X 자료는 The US government's cash balance is ri… / 금리·달러·물가 기대가 전날 시장의 위험선호를 어떻게 제한했는지 보는 자료입니다. / 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. | 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/wallstengine/status/2050551657206034656 | (16) Wall St Engine (@wallstengine) / X | (16) Wall St Engine (@wallstengine) / X 자료는 BERKSHIRE CASH HITS RECORD $397B Berkshire Ha… / AI·실적 기대가 기술주와 한국 반도체 연결고리에 이어지는지 보는 자료입니다. / PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/KobeissiLetter/status/2050669462924247072 | (13) The Kobeissi Letter (@KobeissiLetter) / X | (13) The Kobeissi Letter (@KobeissiLetter) / X 자료는 BREAKING: The average price of a gallo… / 유가와 에너지주 반응을 나눠 보며 인플레 부담이 커졌는지 확인하는 자료입니다. / PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/wallstengine/status/2050381071158747512 | (16) Wall St Engine (@wallstengine) / X | (16) Wall St Engine (@wallstengine) / X 자료는 CLAUDE CAN NOW WATCH THE MARKETS 24/7 I teste… / AI·실적 기대가 기술주와 한국 반도체 연결고리에 이어지는지 보는 자료입니다. / PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/wallstengine/status/2050552345931755921 | (16) Wall St Engine (@wallstengine) / X | (16) Wall St Engine (@wallstengine) / X 자료는 OPENAI CFO SARAH FRIAR WEIGHS 2027 IPO TIMING… / AI·실적 기대가 기술주와 한국 반도체 연결고리에 이어지는지 보는 자료입니다. / PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/Reuters/status/2050774856640127425 | Reuters (@Reuters) / X | Reuters (@Reuters) / X 자료는 Trump says there is possibility US could restart strikes on Ir… / 유가와 에너지주 반응을 나눠 보며 인플레 부담이 커졌는지 확인하는 자료입니다. / PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/business/status/2050770083039883365 | Bloomberg (@business) / X | Bloomberg (@business) / X 자료는 Vietnam’s inflation picked up more than expected in April… / 유가와 에너지주 반응을 나눠 보며 인플레 부담이 커졌는지 확인하는 자료입니다. / PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/KobeissiLetter/status/2050656606791291230 | (13) The Kobeissi Letter (@KobeissiLetter) / X | (13) The Kobeissi Letter (@KobeissiLetter) / X 자료는 BREAKING: Tether purchased +6 tonnes o… / 전날 시장에서 주목된 소재가 실제 가격 반응과 연결되는지 확인하는 자료입니다. / 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/wallstengine/status/2050740932224692732 | (16) Wall St Engine (@wallstengine) / X | (16) Wall St Engine (@wallstengine) / X 자료는 Biopharma M&A reached $84B in Q1, nearly doub… / 전날 시장에서 주목된 소재가 실제 가격 반응과 연결되는지 확인하는 자료입니다. / 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/TKL_Adam/status/2050607483803013594 | (13) The Kobeissi Letter (@KobeissiLetter) / X | (13) The Kobeissi Letter (@KobeissiLetter) / X 자료는 Efficient, free markets had a solution… / AI·실적 기대가 기술주와 한국 반도체 연결고리에 이어지는지 보는 자료입니다. / PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/KobeissiLetter/status/2050696828434202649 | (13) The Kobeissi Letter (@KobeissiLetter) / X | (13) The Kobeissi Letter (@KobeissiLetter) / X 자료는 Investors are flooding into US Industr… / 전날 시장에서 주목된 소재가 실제 가격 반응과 연결되는지 확인하는 자료입니다. / 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/KobeissiLetter/status/2050630474129719568 | (13) The Kobeissi Letter (@KobeissiLetter) / X | (13) The Kobeissi Letter (@KobeissiLetter) / X 자료는 Tech layoffs are skyrocketing: Tech co… / 전날 시장에서 주목된 소재가 실제 가격 반응과 연결되는지 확인하는 자료입니다. / 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/KobeissiLetter/status/2050603984939889068 | (13) The Kobeissi Letter (@KobeissiLetter) / X | (13) The Kobeissi Letter (@KobeissiLetter) / X 자료는 This is truly unfortunate: In 2022, Je… / AI·실적 기대가 기술주와 한국 반도체 연결고리에 이어지는지 보는 자료입니다. / PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| isabelnet-com-blog-013 | Blog – ISABELNET | Blog – ISABELNET 자료는 WTI Oil Prices in Real Terms / 유가와 에너지주 반응을 나눠 보며 인플레 부담이 커졌는지 확인하는 자료입니다. / PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/bespokeinvest/status/2050220254849122666 | (16) Bespoke (@bespokeinvest) / X | (16) Bespoke (@bespokeinvest) / X 자료는 Apple $AAPL reported its second triple play in thre… / AI·실적 기대가 기술주와 한국 반도체 연결고리에 이어지는지 보는 자료입니다. / PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/charliebilello/status/2050598689849143303 | (2) Charlie Bilello (@charliebilello) / Twitter | (2) Charlie Bilello (@charliebilello) / Twitter 자료는 Average 30-Year Mortgage Rate in the… / 금리·달러·물가 기대가 전날 시장의 위험선호를 어떻게 제한했는지 보는 자료입니다. / 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. | 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/Reuters/status/2050777376536101213 | Reuters (@Reuters) / X | Reuters (@Reuters) / X 자료는 Recent inflation data was 'bad news,' Fed's Goolsbee says reut. / 금리·달러·물가 기대가 전날 시장의 위험선호를 어떻게 제한했는지 보는 자료입니다. / 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. | 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/business/status/2050740299614335408 | Bloomberg (@business) / X | Bloomberg (@business) / X 자료는 The list of Asian stocks that benefit from business partner… / 금리·달러·물가 기대가 전날 시장의 위험선호를 어떻게 제한했는지 보는 자료입니다. / 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. | 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/wallstengine/status/2050349249188278280 | (16) Wall St Engine (@wallstengine) / X | (16) Wall St Engine (@wallstengine) / X 자료는 WSJ: GameStop is preparing an offer for eBay… / 전날 시장에서 주목된 소재가 실제 가격 반응과 연결되는지 확인하는 자료입니다. / 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/CNBC/status/2050587179680665948 | CNBC (@CNBC) / X | CNBC (@CNBC) / X 자료는 Airfare amid Iran war: Buy now or wait out the conflict? / 유가와 에너지주 반응을 나눠 보며 인플레 부담이 커졌는지 확인하는 자료입니다. / PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/charliebilello/status/2050587363731272009 | (2) Charlie Bilello (@charliebilello) / Twitter | (2) Charlie Bilello (@charliebilello) / Twitter 자료는 Apple has bought back $732 billion in… / 전날 시장에서 주목된 소재가 실제 가격 반응과 연결되는지 확인하는 자료입니다. / 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/business/status/2050740844563493368 | Bloomberg (@business) / X | Bloomberg (@business) / X 자료는 Australian Prime Minister Anthony Albanese said the coming… / AI·실적 기대가 기술주와 한국 반도체 연결고리에 이어지는지 보는 자료입니다. / PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/bespokeinvest/status/2050660296553840716 | (16) Bespoke (@bespokeinvest) / X | (16) Bespoke (@bespokeinvest) / X 자료는 Berkshire Hathaway just had its worst relative perf… / 전날 시장에서 주목된 소재가 실제 가격 반응과 연결되는지 확인하는 자료입니다. / 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/wallstengine/status/2050381431478907304 | (16) Wall St Engine (@wallstengine) / X | (16) Wall St Engine (@wallstengine) / X 자료는 Celcuity $CELC Phase 3 VIKTORIA-1 trial met t… / 전날 시장에서 주목된 소재가 실제 가격 반응과 연결되는지 확인하는 자료입니다. / 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/business/status/2050742157779067189 | Bloomberg (@business) / X | Bloomberg (@business) / X 자료는 Coming soon: Chronicling the disruptions and threats of AI… / AI·실적 기대가 기술주와 한국 반도체 연결고리에 이어지는지 보는 자료입니다. / PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | PPT에서는 실적·AI 투자 흐름 뒤에 보조 설명 자료로 붙입니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+| https://x.com/charliebilello/status/2050579705510703528 | (2) Charlie Bilello (@charliebilello) / Twitter | (2) Charlie Bilello (@charliebilello) / Twitter 자료는 Every week I send a letter to tens of… / 전날 시장에서 주목된 소재가 실제 가격 반응과 연결되는지 확인하는 자료입니다. / 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 방송에서는 리드 근거가 아니라 보조 확인 또는 말로 짚는 자료로 씁니다. | 원문만으로 가격 반응이나 인과관계를 단정하지 않습니다. |
+
 ## 7. Editorial Brief API
 - Input: Market Focus output + Market Radar candidates + recent briefs/feedback + visual/material candidates
 - Model: `None`, fallback: `True`
@@ -351,7 +396,7 @@ Representative candidates
 - card_count: `13`
 - fallback_count: `16`
 - invalid_output_count: `0`
-- estimated_tokens: `2078`
+- estimated_tokens: `2281`
 - generated fields: `quote_lines, host_relevance_bullets, content_bullets`
 ### Microcopy storyline fields
 | storyline_id | quote_lines | host_relevance_bullets |
@@ -362,13 +407,13 @@ Representative candidates
 ### Microcopy media fields
 | card_key | content_bullets |
 | --- | --- |
-| media_focus:https:-x.com-KobeissiLetter-status-2050710022938558611 | 유가와 지정학 리스크 관련 내용입니다. / 유가 지정학 기사 / 유가 지정학 기사의 시장 반응과 방송 연결 포인트를 확인한다. |
-| media_focus:isabelnet-com-blog-013 | 유가와 지정학 리스크 관련 내용입니다. / WTI·브렌트 가격 차트 / WTI·브렌트 가격 차트의 시장 반응과 방송 연결 포인트를 확인한다. |
+| media_focus:https:-x.com-KobeissiLetter-status-2050710022938558611 | 유가와 에너지주 반응을 나눠 보며 인플레 부담이 커졌는지 확인하는 자료입니다. / PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. / 유가 지정학 기사 |
+| media_focus:isabelnet-com-blog-013 | 유가와 에너지주 반응을 나눠 보며 인플레 부담이 커졌는지 확인하는 자료입니다. / PPT에서는 유가 차트 뒤에 붙여 실제 시장 반응 확인용으로 씁니다. / WTI·브렌트 가격 차트 |
 | media_focus:15:에너지주-반응-차트 | 에너지주 반응 차트 / 에너지주 반응 차트의 시장 반응과 방송 연결 포인트를 확인한다. / 유가 헤드라인이 실제 가격과 에너지주 반응으로 이어지는지 보는 자료다. |
 | media_focus:16:보강-후보-자료 | 전날 미국장 지수 종가와 섹터별 실제 반응 / 보강 후보 자료 / 보강 후보 자료의 시장 반응과 방송 연결 포인트를 확인한다. |
 | media_focus:17:프리플라이트-보강-자료 | 발견 힌트상 주식은 강하지만 채권시장은 인플레·유가·Fed 경로를 더 경계할 수 있음. / 한국 개인투자자에게 환율과 성장주 할인율이 1차 체크포인트. / 미 10년물·DXY·USD/KRW가 주식 사상권 랠리를 제약하는가, 아니면 위험선호를 확인하는가? |
-| media_focus:https:-x.com-charliebilello-status-2050598689849143303 | 연준과 인플레이션 경로를 보는 자료입니다. / 금리 부담 기사 / 금리 부담 기사의 시장 반응과 방송 연결 포인트를 확인한다. |
-| media_focus:https:-x.com-Reuters-status-2050777376536101213 | 연준과 인플레이션 경로를 보는 자료입니다. / Fed 인플레이션 발언 기사 / Fed 인플레이션 발언 기사의 시장 반응과 방송 연결 포인트를 확인한다. |
+| media_focus:https:-x.com-charliebilello-status-2050598689849143303 | 금리·달러·물가 기대가 전날 시장의 위험선호를 어떻게 제한했는지 보는 자료입니다. / 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. / 금리 부담 기사 |
+| media_focus:https:-x.com-Reuters-status-2050777376536101213 | 금리·달러·물가 기대가 전날 시장의 위험선호를 어떻게 제한했는지 보는 자료입니다. / 첫 5분에서는 지수보다 금리 경로가 편해졌는지 확인하는 근거로 씁니다. / Fed 인플레이션 발언 기사 |
 | media_focus:XLE | XLE 일간 차트 / XLE 일간 차트의 시장 반응과 방송 연결 포인트를 확인한다. / 유가 헤드라인이 실제 가격과 에너지주 반응으로 이어지는지 보는 자료다. |
 | media_focus:CVX | CVX 일간 차트 / CVX 일간 차트의 시장 반응과 방송 연결 포인트를 확인한다. / 유가 헤드라인이 실제 가격과 에너지주 반응으로 이어지는지 보는 자료다. |
 | media_focus:XOM | XOM 일간 차트 / XOM 일간 차트의 시장 반응과 방송 연결 포인트를 확인한다. / 유가 헤드라인이 실제 가격과 에너지주 반응으로 이어지는지 보는 자료다. |

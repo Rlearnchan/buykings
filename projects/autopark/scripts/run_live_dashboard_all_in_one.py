@@ -1189,6 +1189,15 @@ def main() -> int:
     )
     append_step(results, result)
 
+    result, _ = run(
+        [py, "projects/autopark/scripts/build_evidence_microcopy.py", "--date", args.date],
+        "build evidence microcopy",
+        240,
+        allow_fail=True,
+        env=run_env,
+    )
+    append_step(results, result)
+
     if args.skip_market_focus_brief:
         now = now_kst().isoformat(timespec="seconds")
         market_focus_payload = {

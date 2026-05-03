@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from datetime import datetime
@@ -100,6 +101,93 @@ def print_json(payload: dict) -> None:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     except UnicodeEncodeError:
         print(json.dumps(payload, ensure_ascii=True, indent=2))
+
+
+EVIDENCE_MICROCOPY_FORBIDDEN = [
+    "source_role",
+    "evidence_role",
+    "item_id:",
+    "evidence_id",
+    "asset_id",
+    "MF-",
+    "http://",
+    "https://",
+]
+
+
+def review_evidence_microcopy_contract(target_date: str) -> list[Finding]:
+    findings: list[Finding] = []
+    path = PROCESSED_DIR / target_date / "evidence-microcopy.json"
+    payload, error = load_json(path)
+    if error:
+        if os.environ.get("AUTOPARK_EVIDENCE_MICROCOPY_ENABLED") == "1":
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "Evidence microcopy artifact missing",
+                f"`{path}` could not be loaded: {error}",
+                "Run build_evidence_microcopy.py after market-radar and before focus/editorial.",
+            )
+        return findings
+    if payload.get("enabled") and not payload.get("items"):
+        issue(
+            findings,
+            "integrity",
+            "high",
+            "Evidence microcopy has no items",
+            "Evidence microcopy is enabled but generated zero item summaries.",
+            "Generate deterministic fallback rows when the API path is unavailable.",
+        )
+    for index, item in enumerate(payload.get("items") or [], start=1):
+        if not isinstance(item, dict):
+            issue(findings, "integrity", "high", "Invalid evidence microcopy row", f"Row {index} is not an object.", "Keep items as JSON objects.")
+            continue
+        bullets = item.get("summary_bullets") or []
+        if not 1 <= len(bullets) <= 3:
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "Invalid evidence summary bullet count",
+                f"`{item.get('item_id') or index}` has {len(bullets)} summary bullets.",
+                "Each evidence microcopy item needs 1 to 3 bullets.",
+            )
+        for field, value in [
+            *[(f"summary_bullets[{bullet_index}]", bullet) for bullet_index, bullet in enumerate(bullets, start=1)],
+            ("ppt_use_hint", item.get("ppt_use_hint") or ""),
+            ("caution", item.get("caution") or ""),
+        ]:
+            text = normalize(str(value or ""))
+            if len(text) > 90:
+                issue(
+                    findings,
+                    "integrity",
+                    "high",
+                    "Evidence microcopy line too long",
+                    f"`{item.get('item_id') or index}` {field} is {len(text)} chars.",
+                    "Keep every generated evidence microcopy line within 90 characters.",
+                )
+            lowered = text.lower()
+            if any(token.lower() in lowered for token in EVIDENCE_MICROCOPY_FORBIDDEN):
+                issue(
+                    findings,
+                    "integrity",
+                    "high",
+                    "Evidence microcopy exposes forbidden token",
+                    f"`{item.get('item_id') or index}` {field} contains a forbidden token or URL.",
+                    "Validate and replace only the failing item with deterministic fallback.",
+                )
+            if re.search(r"<html\b|<!doctype html|<body\b|</body>|X-Amz-Signature|SessionToken", text, flags=re.I):
+                issue(
+                    findings,
+                    "integrity",
+                    "high",
+                    "Evidence microcopy contains raw body material",
+                    f"`{item.get('item_id') or index}` {field} looks like raw HTML or a signed response.",
+                    "Never send or persist raw HTML, full article bodies, or signed URLs in microcopy.",
+                )
+    return findings
 
 
 def item_ids(payload: dict) -> set[str]:
@@ -1823,13 +1911,18 @@ def main() -> int:
     input_path = args.input or (RUNTIME_NOTION_DIR / args.date / f"{display_date_title(args.date)}.md")
     markdown = input_path.read_text(encoding="utf-8")
     if is_compact_publish_markdown(markdown):
-        findings = review_compact_publish_contract(markdown) + review_market_focus_contract(args.date, markdown)
+        findings = (
+            review_compact_publish_contract(markdown)
+            + review_market_focus_contract(args.date, markdown)
+            + review_evidence_microcopy_contract(args.date)
+        )
     else:
         findings = (
             review_format(markdown, args.date)
             + review_content(markdown)
             + review_integrity(args.date, markdown)
             + review_market_focus_contract(args.date, markdown)
+            + review_evidence_microcopy_contract(args.date)
         )
     format_score = score(findings, "format")
     content_score = score(findings, "content")

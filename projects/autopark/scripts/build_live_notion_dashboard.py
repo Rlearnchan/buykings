@@ -616,6 +616,9 @@ def render_fedwatch_heatmap(target_date: str, headers: list[str], rows: list[lis
 
 
 def summarize_material_text(row: dict, limit: int = 220) -> str:
+    micro_lines = [clean(value, 90) for value in (row.get("micro_summary_bullets") or []) if clean(value, 90)]
+    if micro_lines:
+        return public_complete_text(" ".join(micro_lines[:3]), limit)
     text = clean(row.get("summary") or row.get("text") or row.get("headline") or row.get("title"))
     if not text:
         return ""
@@ -3076,9 +3079,11 @@ def build_microcopy_context(
                 continue
             item_id = item.get("item_id") or item.get("evidence_id") or ""
             row = radar_by_id.get(item_id) or {}
+            micro_lines = [clean(value, 90) for value in (row.get("micro_summary_bullets") or []) if clean(value, 90)]
             evidence_summary.append(
                 clean(
-                    row.get("summary")
+                    " / ".join(micro_lines)
+                    or row.get("summary")
                     or row.get("radar_question")
                     or row.get("market_reaction")
                     or item.get("reason")
@@ -3114,7 +3119,16 @@ def build_microcopy_context(
             "label": clean(card.get("label")),
             "title": clean(card.get("title") or card.get("headline") or card.get("label"), 120),
             "source": clean(card.get("source") or card.get("source_label"), 80),
-            "summary": clean(card.get("summary") or card.get("source_gap") or card.get("content") or card.get("title"), 360),
+            "summary": clean(
+                " / ".join(value for value in (card.get("micro_summary_bullets") or []) if value)
+                or card.get("summary")
+                or card.get("source_gap")
+                or card.get("content")
+                or card.get("title"),
+                360,
+            ),
+            "ppt_use_hint": clean(card.get("ppt_use_hint") or "", 90),
+            "caution": clean(card.get("caution") or "", 90),
             "source_gap": clean(card.get("source_gap"), 240),
         }
         for card in media_cards
@@ -3687,6 +3701,33 @@ def prepare_compact_collection_cards(collection_cards: list[dict]) -> tuple[list
     return market_cards, media_cards
 
 
+def evidence_microcopy_lookup(payload: dict) -> dict[str, dict]:
+    return {
+        clean(item.get("item_id")): item
+        for item in payload.get("items") or []
+        if isinstance(item, dict) and clean(item.get("item_id"))
+    }
+
+
+def attach_evidence_microcopy(rows: list[dict], payload: dict) -> list[dict]:
+    lookup = evidence_microcopy_lookup(payload)
+    enriched = []
+    for row in rows:
+        item = dict(row)
+        item_id = clean(item.get("item_id") or item.get("id"))
+        copy = lookup.get(item_id)
+        if copy:
+            item["micro_summary_bullets"] = [
+                compact_public_text(value, 90, "")
+                for value in copy.get("summary_bullets") or []
+                if compact_public_text(value, 90, "")
+            ][:3]
+            item["ppt_use_hint"] = compact_public_text(copy.get("ppt_use_hint") or "", 90, "")
+            item["caution"] = compact_public_text(copy.get("caution") or "", 90, "")
+        enriched.append(item)
+    return enriched
+
+
 def render_compact_collection_section(lines: list[str], market_cards: list[dict], media_cards: list[dict], microcopy: dict) -> None:
     lines.append("# 🤖 자료 수집")
     lines.append("## 1. 시장은 지금")
@@ -3706,16 +3747,21 @@ def render_compact_publish_dashboard(target_date: str) -> str:
     batch_a = load_json(processed / "today-misc-batch-a-candidates.json")
     batch_b = load_json(processed / "today-misc-batch-b-candidates.json")
     market_radar = load_json(processed / "market-radar.json")
+    evidence_microcopy = load_json(processed / "evidence-microcopy.json")
     market_preflight = load_json(processed / "market-preflight-agenda.json")
     market_focus = load_json(processed / "market-focus-brief.json")
     editorial_brief = load_json(processed / "editorial-brief.json")
     x_timeline = load_json(processed / "x-timeline-posts.json")
     economic = load_json(processed / "economic-calendar.json")
-    radar_candidates = market_radar.get("candidates") or []
+    radar_candidates = attach_evidence_microcopy(market_radar.get("candidates") or [], evidence_microcopy)
     radar_by_id = {row.get("id"): row for row in radar_candidates if row.get("id")}
+    extra_candidates = attach_evidence_microcopy(
+        (batch_a.get("candidates") or []) + (batch_b.get("candidates") or []) + (x_timeline.get("posts") or []),
+        evidence_microcopy,
+    )
     candidate_by_id = {
         row.get("id"): row
-        for row in (batch_a.get("candidates") or []) + (batch_b.get("candidates") or []) + (x_timeline.get("posts") or [])
+        for row in extra_candidates
         if row.get("id")
     }
     use_editorial = valid_editorial_brief(editorial_brief)

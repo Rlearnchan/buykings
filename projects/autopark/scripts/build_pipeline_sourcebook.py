@@ -279,6 +279,7 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
     finviz = read_json(processed / "finviz-feature-stocks.json")
     earnings = read_json(processed / "earnings-ticker-drilldown.json")
     economic = read_json(processed / "economic-calendar.json")
+    evidence_microcopy = read_json(processed / "evidence-microcopy.json")
     microcopy = read_json(processed / "dashboard-microcopy.json")
     quality = read_json(RUNTIME_DIR / "reviews" / target_date / "dashboard-quality.json")
     dashboard_markdown = runtime_date.read_text(encoding="utf-8") if runtime_date.exists() else ""
@@ -310,6 +311,7 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
                     "X/earnings timeline: collect X timeline posts and earnings calendar context",
                     "Visual cards and captures: collect Finviz, market charts, FedWatch, Fear & Greed, and chart exports",
                     "Market Radar: merge local candidates into a candidate DB with internal source/evidence roles",
+                    "Evidence Microcopy: grouped candidate summaries after market-radar; no ranking/ordering authority",
                     "Market Focus Brief: call OpenAI with sanitized local packet; no web_search; promote only local-evidence-backed focus items",
                     "Editorial Brief: turn focus/radar into broadcast storylines and material queue",
                     "Fixed compact renderer: LLM supplies values; renderer owns section structure/order/exposed fields",
@@ -440,6 +442,36 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
             ]
         )
     lines.append("")
+
+    lines.extend(
+        [
+            "## 6.1 Evidence Microcopy",
+            f"- enabled: `{evidence_microcopy.get('enabled')}`",
+            f"- model: `{evidence_microcopy.get('model') or ''}`",
+            f"- source: `{evidence_microcopy.get('source') or ''}`",
+            f"- request_count: `{evidence_microcopy.get('request_count') or 0}`",
+            f"- item_count: `{evidence_microcopy.get('item_count') or len(evidence_microcopy.get('items') or [])}`",
+            f"- fallback_count: `{evidence_microcopy.get('fallback_count') or 0}`",
+            f"- invalid_output_count: `{evidence_microcopy.get('invalid_output_count') or 0}`",
+            f"- estimated_tokens: `{evidence_microcopy.get('estimated_tokens') or 0}`",
+            f"- generated fields: `{', '.join(evidence_microcopy.get('generated_fields') or ['summary_bullets', 'ppt_use_hint', 'caution'])}`",
+            markdown_table(
+                ["item_id", "source", "summary_bullets", "ppt_use_hint", "caution"],
+                [
+                    [
+                        item.get("item_id"),
+                        item.get("source_label"),
+                        " / ".join(item.get("summary_bullets") or []),
+                        item.get("ppt_use_hint"),
+                        item.get("caution"),
+                    ]
+                    for item in (evidence_microcopy.get("items") or [])[:30]
+                    if isinstance(item, dict)
+                ],
+            ),
+            "",
+        ]
+    )
 
     lines.extend(
         [
