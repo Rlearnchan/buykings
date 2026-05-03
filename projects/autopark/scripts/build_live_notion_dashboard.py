@@ -1279,6 +1279,183 @@ def media_asset_id(item_id: str) -> str:
     return f"MF-{digest}"
 
 
+PUBLIC_MATERIAL_FALLBACKS = {
+    "rates": "금리 확인 자료",
+    "oil": "유가 확인 자료",
+    "ai": "AI 인프라 확인 자료",
+    "earnings": "실적 확인 자료",
+    "market": "시장 반응 확인 자료",
+}
+
+CHART_PUBLIC_LABELS = {
+    "us10y": "10년물 국채금리",
+    "crude-oil-wti": "WTI 가격 차트",
+    "crude-oil-brent": "브렌트 가격 차트",
+    "dollar-index": "달러인덱스 차트",
+    "usd-krw": "원/달러 환율 차트",
+    "bitcoin": "비트코인 가격 차트",
+    "economic-calendar-us": "미국 경제일정 표",
+    "economic-calendar-global": "글로벌 경제일정 표",
+    "fedwatch-conditional-probabilities-short-term": "FedWatch 단기 금리 확률",
+    "fedwatch-conditional-probabilities-long-term": "FedWatch 장기 금리 확률",
+}
+
+PUBLIC_ITEM_LABELS = {
+    **CHART_PUBLIC_LABELS,
+    "^tnx": "10년물 국채금리",
+    "tnx": "10년물 국채금리",
+    "dxy": "달러인덱스 차트",
+    "dx-y.nyb": "달러인덱스 차트",
+    "usdkrw=x": "원/달러 환율 차트",
+    "krw=x": "원/달러 환율 차트",
+}
+PUBLIC_LABEL_ALIASES = {
+    "10년물 금리 차트": "10년물 국채금리",
+}
+
+HOST_FORBIDDEN_TOKENS = [
+    "MF-",
+    "http://",
+    "https://",
+    "source_role",
+    "evidence_role",
+    "item_id",
+    "evidence_id",
+    "![",
+    "<table",
+    "PPT 제작 큐",
+    "슬라이드 제작 순서",
+    "말로만 처리할 자료",
+    "자료 수집 상세",
+    "경제 일정/실적 일정",
+    "Audit",
+    "Debug",
+]
+
+
+def markdown_plain(value: object) -> str:
+    text = clean(str(value or ""))
+    text = re.sub(r"!\[[^\]]*]\([^)]+\)", "", text)
+    text = re.sub(r"\[([^\]]+)]\([^)]+\)", r"\1", text)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    return clean(text)
+
+
+def english_word_run_too_long(text: str) -> bool:
+    return bool(re.search(r"\b[A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z][A-Za-z0-9&'’.-]*){4,}\b", text or ""))
+
+
+def valid_public_material_label(value: object) -> bool:
+    text = markdown_plain(value)
+    if not text or len(text) > 28:
+        return False
+    forbidden = [
+        "MF-",
+        "http",
+        "/",
+        "source_role",
+        "evidence_role",
+        "item_id",
+        "evidence_id",
+        "Reuters",
+        "Bloomberg",
+        "CNBC",
+        "Yahoo Finance",
+        "TradingView",
+        "Kobeissi",
+        "AdvisorPerspectives",
+    ]
+    if any(token.lower() in text.lower() for token in forbidden):
+        return False
+    return not english_word_run_too_long(text)
+
+
+def topic_axis_from_blob(blob: str) -> str:
+    lowered = (blob or "").lower()
+    if re.search(r"\boil\b|\bwti\b|brent|crude|opec|hormuz|유가|원유|브렌트", lowered):
+        return "oil"
+    if re.search(r"\bai\b|openai|nvidia|cloud|capex|semiconductor|data center|반도체|인프라", lowered):
+        return "ai"
+    if re.search(r"earnings|\beps\b|revenue|guidance|실적|매출|가이던스", lowered):
+        return "earnings"
+    if re.search(r"\brate|\bfed\b|fomc|inflation|dxy|dollar|treasury|금리|달러|인플레이션", lowered):
+        return "rates"
+    return "market"
+
+
+def fallback_public_material_label(axis: str, role_blob: str = "") -> str:
+    role = (role_blob or "").lower()
+    if axis == "rates":
+        if "fed" in role or "inflation" in role:
+            return "Fed 인플레이션 발언 기사"
+        if "dxy" in role or "dollar" in role:
+            return "달러인덱스 차트"
+        return "10년물 국채금리" if ("data" in role or "chart" in role or "visual" in role) else "금리 부담 기사"
+    if axis == "oil":
+        return "WTI·브렌트 가격 차트" if ("data" in role or "chart" in role or "visual" in role) else "유가 지정학 기사"
+    if axis == "ai":
+        return "AI 인프라 투자 기사"
+    if axis == "earnings":
+        if "factset" in role:
+            return "FactSet 실적 시즌 요약"
+        return "빅테크 실적 반응 자료"
+    return PUBLIC_MATERIAL_FALLBACKS.get(axis, "시장 반응 확인 자료")
+
+
+def public_material_label(asset: dict, story: dict | None = None, focus: dict | None = None) -> str:
+    """Return a host-safe public material label, never an internal id/title dump."""
+    explicit_ids = [
+        clean((asset or {}).get(key)).lower()
+        for key in ["item_id", "evidence_id", "chart_id", "id", "asset_id", "ticker", "symbol"]
+    ]
+    for explicit_id in explicit_ids:
+        if explicit_id in PUBLIC_ITEM_LABELS:
+            return PUBLIC_ITEM_LABELS[explicit_id]
+
+    for key in ["public_material_label", "host_facing_material_name", "label"]:
+        candidate = asset.get(key) if isinstance(asset, dict) else ""
+        candidate_text = markdown_plain(candidate)
+        if candidate_text in PUBLIC_LABEL_ALIASES:
+            return PUBLIC_LABEL_ALIASES[candidate_text]
+        if valid_public_material_label(candidate):
+            return candidate_text
+
+    chart_id = clean((asset or {}).get("chart_id") or (asset or {}).get("id")).lower()
+    if chart_id in CHART_PUBLIC_LABELS:
+        return CHART_PUBLIC_LABELS[chart_id]
+
+    title = markdown_plain((asset or {}).get("title") or (asset or {}).get("headline") or (asset or {}).get("caption"))
+    source = markdown_plain((asset or {}).get("source") or (asset or {}).get("source_name") or "")
+    role_blob = " ".join(
+        markdown_plain((asset or {}).get(key))
+        for key in ["source_role", "evidence_role", "asset_type", "visual_asset_role", "type", "url"]
+    )
+    combined = " ".join(
+        [
+            title,
+            source,
+            role_blob,
+            markdown_plain((story or {}).get("title")),
+            markdown_plain((focus or {}).get("focus") or (focus or {}).get("suggested_story_title")),
+        ]
+    )
+
+    if "heatmap" in combined.lower() or "히트맵" in combined:
+        label = "빅테크 실적 반응 히트맵" if topic_axis_from_blob(combined) in {"ai", "earnings"} else "시장 반응 히트맵"
+        if valid_public_material_label(label):
+            return label
+    if "fedwatch" in combined.lower():
+        return "FedWatch 금리확률 차트"
+    if "fear" in combined.lower() and "greed" in combined.lower():
+        return "공포탐욕지수 차트"
+
+    axis = topic_axis_from_blob(combined)
+    label = fallback_public_material_label(axis, f"{role_blob} {source} {title}")
+    if valid_public_material_label(label):
+        return label
+    return PUBLIC_MATERIAL_FALLBACKS.get(axis, "시장 반응 확인 자료")
+
+
 def media_title_tag(row: dict, fallback: str = "") -> str:
     blob = row_blob(row)
     source = source_label(row.get("source") or row.get("source_name") or row.get("type"), row.get("url") or "")
@@ -2666,7 +2843,734 @@ def finviz_news_line(row: dict) -> dict:
     return {}
 
 
+def compact_stars_text(value: int | str | None) -> str:
+    try:
+        stars = max(1, min(3, int(value or 1)))
+    except (TypeError, ValueError):
+        stars = 1
+    return "★" * stars + "☆" * (3 - stars)
+
+
+def remove_host_forbidden(value: str) -> str:
+    text = markdown_plain(value)
+    text = re.sub(r"https?://\S+", "", text)
+    text = re.sub(r"MF-[0-9a-fA-F]+", "", text)
+    text = re.sub(r"\b(?:source_role|evidence_role|item_id|evidence_id)\s*[:=]\s*\S+", "", text)
+    text = re.sub(r"\b(?:source_role|evidence_role|item_id|evidence_id)\b", "", text)
+    return clean(text)
+
+
+def clip_public_sentence(value: object, limit: int, fallback: str) -> str:
+    text = remove_host_forbidden(str(value or ""))
+    if not text or english_word_run_too_long(text):
+        text = fallback
+    text = re.split(r"(?<=[.!?。])\s+", text)[0]
+    text = clean(text)
+    if len(text) > limit:
+        text = text[: limit - 1].rstrip(" ,.;:") + "…"
+    return text or fallback
+
+
+def compact_public_text(value: object, limit: int, fallback: str) -> str:
+    return clean(clip_public_sentence(value, limit, fallback), limit)
+
+
+def story_public_axis(storyline: dict) -> str:
+    title_axis = topic_axis_from_blob(
+        " ".join(
+            [
+                markdown_plain(storyline.get("display_title")),
+                markdown_plain(storyline.get("title")),
+                markdown_plain(storyline.get("suggested_story_title")),
+            ]
+        )
+    )
+    if title_axis != "market":
+        return title_axis
+    blob = " ".join(
+        [
+            markdown_plain(storyline.get("title")),
+            markdown_plain(storyline.get("hook")),
+            markdown_plain(storyline.get("why_now")),
+            markdown_plain(storyline.get("core_argument")),
+            " ".join(markdown_plain(item.get("title")) for item in storyline.get("evidence_to_use") or []),
+        ]
+    )
+    return topic_axis_from_blob(blob)
+
+
+def fallback_story_title(axis: str, rank: int) -> str:
+    titles = {
+        "rates": "금리·달러 부담은 다시 변수인가",
+        "oil": "유가는 헤드라인보다 가격 반응이 중요하다",
+        "ai": "AI 인프라 기대는 어디까지 살아 있나",
+        "earnings": "빅테크 실적은 선별 장세를 만들었나",
+    }
+    return titles.get(axis, f"시장 반응을 확인할 {rank}번 소재")
+
+
+def public_story_title(storyline: dict, rank: int) -> str:
+    axis = story_public_axis(storyline)
+    raw = storyline.get("display_title") or storyline.get("title") or storyline.get("suggested_story_title")
+    title = clip_public_sentence(raw, 48, fallback_story_title(axis, rank))
+    if not title or english_word_run_too_long(title):
+        return fallback_story_title(axis, rank)
+    return title
+
+
+def public_story_hook(storyline: dict) -> str:
+    axis = story_public_axis(storyline)
+    fallback = {
+        "rates": "금리와 달러가 위험자산 반등의 속도를 다시 제한하는지 확인한다.",
+        "oil": "유가 헤드라인과 실제 가격 반응이 같은 방향인지 먼저 분리한다.",
+        "ai": "AI 인프라 수요 기대가 실적과 주가 반응으로 이어지는지 확인한다.",
+        "earnings": "실적 호재가 지수 전체가 아니라 어느 섹터에만 붙는지 확인한다.",
+    }.get(axis, "가격 반응과 로컬 근거가 같은 방향인지 확인한다.")
+    return clip_public_sentence(
+        storyline.get("hook") or storyline.get("lead_candidate_reason") or storyline.get("why_now"),
+        120,
+        fallback,
+    )
+
+
+def compact_storylines_for_publish(storylines: list[dict]) -> list[dict]:
+    rows = [story for story in storylines if isinstance(story, dict)]
+    return sorted(rows, key=lambda row: int(row.get("rank") or 99))[:3]
+
+
+def label_axis(label: str) -> str:
+    lowered = label.lower()
+    if any(token in label for token in ["유가", "WTI", "브렌트", "에너지"]):
+        return "oil"
+    if any(token in label for token in ["AI", "반도체", "인프라"]):
+        return "ai"
+    if any(token in label for token in ["실적", "FactSet", "빅테크", "특징주"]):
+        return "earnings"
+    if any(token in label for token in ["금리", "달러", "Fed", "환율"]):
+        return "rates"
+    if "oil" in lowered or "wti" in lowered or "brent" in lowered:
+        return "oil"
+    if "earnings" in lowered:
+        return "earnings"
+    return "market"
+
+
+def public_material_labels_for_story(storyline: dict, radar_by_id: dict, used_labels: set[str] | None = None) -> list[str]:
+    labels: list[str] = []
+    axis = story_public_axis(storyline)
+    used = used_labels if used_labels is not None else set()
+
+    def add(label: str, *, allow_reuse: bool = False) -> None:
+        if not valid_public_material_label(label) or label in labels:
+            return
+        if label_axis(label) not in {axis, "market"}:
+            return
+        if label in used and not allow_reuse:
+            return
+        labels.append(label)
+
+    for asset in storyline.get("ppt_asset_queue") or []:
+        if isinstance(asset, dict):
+            add(public_material_label(asset, storyline))
+    for item in storyline.get("evidence_to_use") or []:
+        if not isinstance(item, dict):
+            continue
+        item_id = item.get("item_id") or item.get("evidence_id") or ""
+        row = radar_by_id.get(item_id) or {}
+        add(public_material_label({**row, **item}, storyline))
+
+    fallback_pool = {
+        "rates": ["10년물 국채금리", "달러인덱스 차트", "Fed 인플레이션 발언 기사"],
+        "oil": ["WTI·브렌트 가격 차트", "유가 지정학 기사", "에너지주 반응 차트"],
+        "ai": ["AI 인프라 투자 기사", "빅테크 실적 반응 자료", "반도체 연결 기사"],
+        "earnings": ["FactSet 실적 시즌 요약", "빅테크 실적 반응 자료", "실적 특징주 차트"],
+        "market": ["시장 반응 히트맵", "가격 반응 차트", "원문 확인 자료"],
+    }.get(axis, ["시장 반응 히트맵", "가격 반응 차트", "원문 확인 자료"])
+    for label in fallback_pool:
+        add(label)
+        if len(labels) >= 3:
+            break
+    if len(labels) < 2:
+        for label in fallback_pool:
+            add(label, allow_reuse=True)
+            if len(labels) >= 2:
+                break
+    used.update(labels)
+    return labels[:4]
+
+
+def media_focus_label_numbers(storylines: list[dict], radar_by_id: dict) -> dict[str, str]:
+    used_labels: set[str] = set()
+    label_numbers: dict[str, str] = {}
+    counter = 1
+    for story in storylines[:3]:
+        for label in public_material_labels_for_story(story, radar_by_id, used_labels)[:4]:
+            if label not in label_numbers:
+                label_numbers[label] = circled_number(counter)
+                counter += 1
+    return label_numbers
+
+
+def compact_top_news(brief: dict, market_focus: dict, storylines: list[dict]) -> list[str]:
+    seeds: list[str] = []
+    for item in market_focus.get("what_market_is_watching") or []:
+        seeds.append(item.get("one_sentence_for_host") or item.get("why_it_matters") or item.get("focus") or "")
+    seeds.extend([brief.get("daily_thesis") or "", brief.get("one_line_market_frame") or "", brief.get("editorial_summary") or ""])
+    seeds.extend(story.get("hook") or story.get("why_now") or story.get("title") or "" for story in storylines)
+    fallbacks = [
+        "금리·달러 부담이 위험자산 반등의 속도를 다시 제한하는지 확인한다.",
+        "유가 헤드라인은 실제 WTI·브렌트 가격 반응과 분리해 본다.",
+        "AI·실적 뉴스는 기술주 보조 소재로만 선별해 활용한다.",
+    ]
+    bullets: list[str] = []
+    for seed in [*seeds, *fallbacks]:
+        bullet = clip_public_sentence(seed, 80, fallbacks[len(bullets) % len(fallbacks)])
+        if bullet and bullet not in bullets:
+            bullets.append(bullet)
+        if len(bullets) == 3:
+            return bullets
+    return fallbacks
+
+
+def compact_market_map_line(brief: dict) -> str:
+    return clip_public_sentence(
+        brief.get("market_map_summary") or brief.get("one_line_market_frame") or "지수·금리·달러·유가의 방향을 먼저 확인한다.",
+        70,
+        "지수·금리·달러·유가의 방향을 먼저 확인한다.",
+    )
+
+
+def compact_feature_line(finviz_features: dict, earnings_drilldown: dict) -> str:
+    tickers = [clean(item.get("ticker"), 8).upper() for item in finviz_features.get("items") or [] if item.get("ticker")]
+    if tickers:
+        return f"{', '.join(tickers[:4])} 등 특징주 반응을 보조 자료로 확인한다."
+    rows = earnings_drilldown.get("items") or earnings_drilldown.get("tickers") or []
+    if rows:
+        return "이번 주 실적 일정과 특징주 반응을 보조 자료로 확인한다."
+    return "실적 일정과 특징주 반응은 자료 수집 섹션에서 확인한다."
+
+
+def render_compact_publish_host(
+    lines: list[str],
+    created_at: str,
+    collection_window: str,
+    chart_basis: str,
+    brief: dict,
+    market_focus: dict,
+    storylines: list[dict],
+    radar_by_id: dict,
+    finviz_features: dict,
+    earnings_drilldown: dict,
+    label_numbers: dict[str, str],
+) -> None:
+    while len(storylines) < 3:
+        storylines.append({})
+    used_story_labels: set[str] = set()
+    lines.extend(
+        [
+            f"문서 생성: `{created_at} (KST)`",
+            f"자료 수집: `{collection_window} (KST)`",
+            f"시장 차트: `{chart_basis}`",
+            "",
+            "# 🎥 진행자용 요약",
+            f"> **{compact_public_text(brief.get('daily_thesis') or brief.get('one_line_market_frame') or market_focus.get('market_focus_summary'), 90, '가격 반응과 로컬 근거가 같은 방향인지 확인한다.')}**",
+            "## 주요 뉴스",
+        ]
+    )
+    for bullet in compact_top_news(brief, market_focus, storylines):
+        lines.append(f"- {compact_public_text(bullet, 80, '시장 반응과 핵심 변수를 짧게 확인한다.')}")
+    lines.extend(["## 방송 순서", f"- `시장은 지금`: {compact_public_text(compact_market_map_line(brief), 64, '지수·금리·달러·유가의 방향을 먼저 확인한다.')}"])
+    for index, story in enumerate(storylines[:3], start=1):
+        lines.append(f"- “{compact_public_text(public_story_title(story, index), 48, fallback_story_title(story_public_axis(story), index))}”")
+    lines.append(f"- `실적/특징주`: {compact_public_text(compact_feature_line(finviz_features, earnings_drilldown), 64, '실적 일정과 특징주 반응을 보조 자료로 확인한다.')}")
+    lines.append("## 스토리라인")
+    for index, story in enumerate(storylines[:3], start=1):
+        lines.extend(
+            [
+                f"### {index}. {compact_public_text(public_story_title(story, index), 48, fallback_story_title(story_public_axis(story), index))}",
+                f"추천도: `{compact_stars_text(story.get('recommendation_stars'))}`",
+                f"> {compact_public_text(public_story_hook(story), 120, '가격 반응과 로컬 근거가 같은 방향인지 확인한다.')}",
+                "**슬라이드 구성**",
+            ]
+        )
+        for label in public_material_labels_for_story(story, radar_by_id, used_story_labels)[:4]:
+            prefix = label_numbers.get(label, "")
+            lines.append(f"- `{(prefix + ' ') if prefix else ''}{label}`")
+
+
+MARKET_NOW_CAPTURE_ORDER = [
+    ("주요 지수 흐름", "finviz-index-futures", "finviz-index-futures-*.png", "https://finviz.com/"),
+    ("S&P500 히트맵", "finviz-sp500-heatmap", "finviz-sp500-heatmap*.png", "https://finviz.com/map.ashx?t=sec"),
+    ("러셀 2000 히트맵", "finviz-russell-heatmap", "*russell*heatmap*.png", "https://finviz.com/map?t=sec_rut"),
+]
+
+MARKET_NOW_TRAILING_ORDER = [
+    ("CNN Fear & Greed", "cnn-fear-greed", "*fear*greed*.png", "https://edition.cnn.com/markets/fear-and-greed"),
+]
+
+FIXED_ASSET_ORDER = {
+    "index-futures": 0,
+    "finviz-index-futures": 0,
+    "sp500-heatmap": 1,
+    "finviz-sp500-heatmap": 1,
+    "russell-heatmap": 2,
+    "finviz-russell-heatmap": 2,
+    "us10y": 3,
+    "crude-oil-wti": 4,
+    "crude-oil-brent": 5,
+    "dollar-index": 6,
+    "usd-krw": 7,
+    "bitcoin": 8,
+    "cnn-fear-greed": 9,
+    "fedwatch": 10,
+    "fedwatch-conditional-probabilities-short-term": 10,
+    "fedwatch-conditional-probabilities-long-term": 10,
+}
+
+CIRCLED_NUMBERS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱", "⑲", "⑳"]
+
+
+def public_collected_at(row: dict) -> str:
+    for key in ["captured_at", "published_at", "created_at", "updated_at"]:
+        value = row.get(key)
+        if value:
+            return display_dt(value)
+    return datetime.now(ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M")
+
+
+def material_dedupe_keys(card: dict) -> set[str]:
+    keys = set()
+    for key in ["asset_id", "item_id", "evidence_id", "url", "image", "local_path", "visual_local_path"]:
+        if key == "url" and card.get("allow_duplicate_url"):
+            continue
+        value = clean(card.get(key))
+        if value:
+            keys.add(f"{key}:{value.lower()}")
+    label = clean(card.get("label"))
+    if label:
+        keys.add(f"label:{label.lower()}")
+    for image in card.get("images") or []:
+        image_value = clean(image)
+        if image_value:
+            keys.add(f"image:{image_value.lower()}")
+    return keys
+
+
+def crop_bottom_whitespace(path: str | Path, target_date: str) -> str:
+    source = Path(path)
+    if not source.exists():
+        return str(source)
+    out_dir = PROJECT_ROOT / "runtime" / "assets" / target_date / "cropped"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    output = out_dir / f"{source.stem}-tight{source.suffix}"
+    try:
+        image = Image.open(source).convert("RGB")
+        width, height = image.size
+        bottom = height - 1
+        while bottom > 0:
+            row = [image.getpixel((x, bottom)) for x in range(0, width, max(1, width // 160))]
+            if any(pixel[0] < 245 or pixel[1] < 245 or pixel[2] < 245 for pixel in row):
+                break
+            bottom -= 1
+        crop_bottom = min(height, bottom + 10)
+        if crop_bottom < height - 8:
+            image.crop((0, 0, width, crop_bottom)).save(output)
+            return str(output)
+    except Exception:
+        return str(source)
+    return str(source)
+
+
+def material_publish_order_key(card: dict) -> tuple[int, int, int, str]:
+    section_rank = {
+        "market_now": 0,
+        "media_focus": 1,
+    }.get(card.get("section") or "", 9)
+    asset_key = clean(card.get("asset_key") or card.get("item_id") or card.get("evidence_id") or card.get("asset_id")).lower()
+    fixed_rank = FIXED_ASSET_ORDER.get(asset_key, 50)
+    story_rank = int(card.get("story_rank") or 99)
+    slide_rank = int(card.get("slide_rank") or 99)
+    return (section_rank, fixed_rank if section_rank == 0 else story_rank, slide_rank, clean(card.get("label")))
+
+
+def content_bullets(card: dict) -> list[str]:
+    raw = markdown_plain(card.get("content") or card.get("summary") or card.get("source_gap") or card.get("headline") or card.get("title") or "")
+    if not raw:
+        return ["자료의 가격 반응과 방송 연결 포인트를 확인한다."]
+    parts = [clean(part) for part in re.split(r"(?<=[.!?。])\s+|\n+", raw) if clean(part)]
+    if not parts:
+        parts = [raw]
+    return [clean(part, 90) for part in parts[:3]]
+
+
+def circled_number(index: int) -> str:
+    return CIRCLED_NUMBERS[index - 1] if 1 <= index <= len(CIRCLED_NUMBERS) else f"({index})"
+
+
+def render_market_material_card(lines: list[str], card: dict, rendered_keys: set[str]) -> bool:
+    label = public_material_label(card)
+    card = {**card, "label": label}
+    keys = material_dedupe_keys(card)
+    if keys & rendered_keys:
+        return False
+    rendered_keys.update(keys)
+    lines.append(f"### {label}")
+    source = clean(card.get("source") or card.get("source_label") or "source")
+    url = clean(card.get("url"))
+    if url:
+        lines.append(f"- 출처: {link(source, url)}")
+    else:
+        lines.append(f"- 출처: {source if source and source != 'source' else 'Autopark'}")
+    collected_at = public_collected_at(card)
+    if collected_at:
+        lines.append(f"- 수집 시점: `{collected_at}`")
+    images = [clean(image) for image in (card.get("images") or []) if clean(image)]
+    image = clean(card.get("image") or card.get("visual_local_path") or card.get("local_path"))
+    if image:
+        images.append(image)
+    for image_path in images:
+        lines.extend(["", notion_image(label, image_path)])
+    return True
+
+
+def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str], index: int) -> bool:
+    label = public_material_label(card)
+    card = {**card, "label": label}
+    keys = material_dedupe_keys(card)
+    if keys & rendered_keys:
+        return False
+    rendered_keys.update(keys)
+    lines.append(f"### {circled_number(index)} {label}")
+    source = clean(card.get("source") or card.get("source_label") or "source")
+    url = clean(card.get("url"))
+    if url:
+        lines.append(f"- 출처: {link(source, url)}")
+    else:
+        lines.append(f"- 출처: {source if source and source != 'source' else 'Autopark'}")
+    collected_at = public_collected_at(card)
+    if collected_at:
+        lines.append(f"- 수집 시점: `{collected_at}`")
+    lines.append("- 내용:")
+    for bullet in content_bullets(card):
+        lines.append(f"  - {bullet}")
+    image = clean(card.get("image") or card.get("visual_local_path") or card.get("local_path"))
+    if image:
+        lines.extend(["", notion_image(label, image)])
+    return True
+
+
+def append_collection_asset(
+    lines: list[str],
+    label: str,
+    *,
+    title: str = "",
+    source: str = "",
+    url: str = "",
+    source_role: str = "",
+    evidence_role: str = "",
+    item_id: str = "",
+    evidence_id: str = "",
+    source_gap: str = "",
+    image: str = "",
+    summary: str = "",
+) -> None:
+    render_media_focus_card(
+        lines,
+        {
+            "label": label,
+            "title": title,
+            "source": source,
+            "url": url,
+            "item_id": item_id,
+            "evidence_id": evidence_id,
+            "source_gap": source_gap,
+            "image": image,
+            "summary": summary,
+        },
+        set(),
+        1,
+    )
+
+
+def ordered_material_ids(market_focus: dict, storylines: list[dict]) -> list[str]:
+    ids: list[str] = []
+    for focus in market_focus.get("what_market_is_watching") or []:
+        if focus.get("broadcast_use") == "drop":
+            continue
+        for item_id in market_focus_ids(focus):
+            if item_id not in ids:
+                ids.append(item_id)
+    for item_id in storyline_media_ids(storylines):
+        if item_id not in ids:
+            ids.append(item_id)
+    return ids
+
+
+def render_compact_collection_section(
+    lines: list[str],
+    target_date: str,
+    market_focus: dict,
+    market_preflight: dict,
+    radar_by_id: dict,
+    candidate_by_id: dict,
+    storylines: list[dict],
+    finviz_features: dict,
+    economic: dict,
+) -> None:
+    lines.append("# 🤖 자료 수집")
+    rendered_keys: set[str] = set()
+    collection_cards: list[dict] = []
+
+    for label, source_id, pattern, url in MARKET_NOW_CAPTURE_ORDER:
+        images = screenshots_for(target_date, pattern)[:2] if source_id == "finviz-index-futures" else screenshots_for(target_date, pattern)[:1]
+        if images:
+            collection_cards.append(
+                {
+                    "section": "market_now",
+                    "asset_key": source_id,
+                    "label": label,
+                    "title": label,
+                    "source": source_id,
+                    "url": url,
+                    "item_id": source_id,
+                    "evidence_id": source_id,
+                    "images": images,
+                    "allow_duplicate_url": True,
+                }
+            )
+
+    for chart_id, chart_title_text, subtitle, source_name, source_url in chart_rows():
+        png = EXPORTS_DIR / f"{chart_id}.png"
+        collection_cards.append(
+            {
+                "section": "market_now",
+                "asset_key": chart_id,
+                "chart_id": chart_id,
+                "item_id": chart_id,
+                "evidence_id": chart_id,
+                "title": chart_title_text,
+                "source": source_name,
+                "url": source_url,
+                "image": str(png) if png.exists() else "",
+            }
+        )
+
+    for label, source_id, pattern, url in MARKET_NOW_TRAILING_ORDER:
+        images = screenshots_for(target_date, pattern)[:1]
+        if not images and source_id.startswith("fedwatch"):
+            png = EXPORTS_DIR / f"{source_id}.png"
+            images = [str(png)] if png.exists() else []
+        for image in images:
+            collection_cards.append(
+                {
+                    "section": "market_now",
+                    "asset_key": source_id,
+                    "label": label,
+                    "title": label,
+                    "source": source_id,
+                    "url": url,
+                    "item_id": source_id,
+                    "evidence_id": source_id,
+                    "image": image,
+                    "allow_duplicate_url": source_id.startswith("fedwatch"),
+                }
+            )
+
+    fedwatch_images = []
+    for source_id, filename in [
+        ("fedwatch-conditional-probabilities-short-term", "fedwatch-conditional-probabilities-short-term.png"),
+        ("fedwatch-conditional-probabilities-long-term", "fedwatch-conditional-probabilities-long-term.png"),
+    ]:
+        images = screenshots_for(target_date, f"*{source_id}*.png")[:1]
+        if not images:
+            png = EXPORTS_DIR / filename
+            images = [str(png)] if png.exists() else []
+        fedwatch_images.extend(crop_bottom_whitespace(image, target_date) for image in images)
+    if fedwatch_images:
+        collection_cards.append(
+            {
+                "section": "market_now",
+                "asset_key": "fedwatch",
+                "label": "FedWatch 금리 확률",
+                "title": "FedWatch 금리 확률",
+                "source": "CME FedWatch",
+                "url": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
+                "item_id": "fedwatch",
+                "evidence_id": "fedwatch",
+                "images": fedwatch_images,
+            }
+        )
+
+    focus_by_id: dict[str, dict] = {}
+    for focus in market_focus.get("what_market_is_watching") or []:
+        for item_id in market_focus_ids(focus):
+            focus_by_id.setdefault(item_id, focus)
+
+    story_label_order: dict[str, tuple[str, int, int]] = {}
+    story_label_source: dict[str, dict] = {}
+    for story_index, story in enumerate(storylines[:3], start=1):
+        section = "media_focus"
+        for slide_index, label in enumerate(public_material_labels_for_story(story, radar_by_id)[:4], start=1):
+            story_label_order.setdefault(label, (section, story_index, slide_index))
+        for item in story.get("evidence_to_use") or []:
+            if not isinstance(item, dict):
+                continue
+            item_id = item.get("item_id") or item.get("evidence_id") or ""
+            row = market_focus_material_row(item_id, radar_by_id, candidate_by_id) or item
+            label = public_material_label({**row, **item}, story, focus_by_id.get(item_id) or {})
+            story_label_source.setdefault(label, {**row, **item, "item_id": item_id, "evidence_id": item_id})
+
+    for label, (section, story_rank, slide_rank) in story_label_order.items():
+        row = story_label_source.get(label, {})
+        collection_cards.append(
+            {
+                **row,
+                "section": "media_focus",
+                "story_rank": story_rank,
+                "slide_rank": slide_rank,
+                "label": label,
+                "kind": "article" if row.get("url") else "material",
+                "source": source_label(row.get("source") or row.get("source_name") or row.get("type"), row.get("url") or ""),
+                "url": row.get("url") or "",
+                "summary": summarize_material_text(row) or row.get("summary") or row.get("title") or label,
+                "image": material_visual_path(row),
+            }
+        )
+
+    for row in (finviz_features.get("items") or [])[:6]:
+        ticker = clean(row.get("ticker"), 12).upper()
+        collection_cards.append(
+            {
+                "section": "media_focus",
+                "story_rank": 0,
+                "slide_rank": 100 + len(collection_cards),
+                "label": f"{ticker} 일간 차트" if ticker else "특징주 일간 차트",
+                "title": row.get("title") or ticker,
+                "source": "Finviz",
+                "url": row.get("url") or "",
+                "item_id": ticker,
+                "evidence_id": ticker,
+                "image": row.get("screenshot_path") or "",
+                "summary": relevant_finviz_summary(row) or row.get("title") or ticker,
+            }
+        )
+    events = economic.get("events") or []
+    if events:
+        collection_cards.append(
+            {
+                "section": "media_focus",
+                "story_rank": 0,
+                "slide_rank": 90,
+                "label": "실적·경제일정 표",
+                "title": "오늘 경제일정",
+                "source": "Trading Economics",
+                "url": "https://ko.tradingeconomics.com/calendar",
+                "summary": "; ".join(clean(item.get("event"), 40) for item in events[:5] if item.get("event")),
+            }
+        )
+
+    for gap in (market_focus.get("source_gaps") or [])[:8]:
+        collection_cards.append(
+            {
+                "section": "media_focus",
+                "story_rank": int(gap.get("related_focus_rank") or 99),
+                "slide_rank": 200 + len(collection_cards),
+                "label": "보강 후보 자료",
+                "source": "Market Focus",
+                "source_gap": gap.get("issue") or gap.get("why_needed") or "",
+                "summary": gap.get("search_hint") or "",
+            }
+        )
+    for item in (market_preflight.get("agenda_items") or [])[:5]:
+        collection_cards.append(
+            {
+                "section": "media_focus",
+                "story_rank": int(item.get("rank") or 99),
+                "slide_rank": 220 + len(collection_cards),
+                "label": "프리플라이트 보강 자료",
+                "source": "Pre-flight Agenda",
+                "source_gap": item.get("market_question") or "",
+                "summary": item.get("why_to_check") or "",
+            }
+        )
+
+    sections = [
+        ("market_now", "## 1. 시장은 지금"),
+        ("media_focus", "## 2. 미디어 포커스"),
+    ]
+    sorted_cards = sorted(collection_cards, key=material_publish_order_key)
+    media_index = 0
+    for section_key, heading in sections:
+        cards = [card for card in sorted_cards if card.get("section") == section_key]
+        if not cards:
+            continue
+        lines.append(heading)
+        for card in cards:
+            if section_key == "market_now":
+                render_market_material_card(lines, card, rendered_keys)
+            else:
+                media_index += 1
+                if not render_media_focus_card(lines, card, rendered_keys, media_index):
+                    media_index -= 1
+
+
+def render_compact_publish_dashboard(target_date: str) -> str:
+    processed = PROCESSED_DIR / target_date
+    live_pack = load_json(processed / "live-experiment-pack.json")
+    earnings_drilldown = load_json(processed / "earnings-ticker-drilldown.json")
+    finviz_features = load_json(processed / "finviz-feature-stocks.json")
+    batch_a = load_json(processed / "today-misc-batch-a-candidates.json")
+    batch_b = load_json(processed / "today-misc-batch-b-candidates.json")
+    market_radar = load_json(processed / "market-radar.json")
+    market_preflight = load_json(processed / "market-preflight-agenda.json")
+    market_focus = load_json(processed / "market-focus-brief.json")
+    editorial_brief = load_json(processed / "editorial-brief.json")
+    x_timeline = load_json(processed / "x-timeline-posts.json")
+    economic = load_json(processed / "economic-calendar.json")
+    radar_candidates = market_radar.get("candidates") or []
+    radar_by_id = {row.get("id"): row for row in radar_candidates if row.get("id")}
+    candidate_by_id = {
+        row.get("id"): row
+        for row in (batch_a.get("candidates") or []) + (batch_b.get("candidates") or []) + (x_timeline.get("posts") or [])
+        if row.get("id")
+    }
+    use_editorial = valid_editorial_brief(editorial_brief)
+    storylines = compact_storylines_for_publish(editorial_brief.get("storylines") if use_editorial else market_radar.get("storylines") or [])
+    label_numbers = media_focus_label_numbers(storylines, radar_by_id)
+    created_at = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M")
+    start_times: list[str] = []
+    end_times: list[str] = []
+    for filename in ["today-misc-batch-a-candidates.json", "today-misc-batch-b-candidates.json", "x-timeline-posts.json"]:
+        payload = load_json(processed / filename)
+        if payload.get("captured_at"):
+            start_times.append(short_dt(payload.get("captured_at")))
+            end_times.append(short_dt(payload.get("captured_at")))
+    freeze_time = short_dt(live_pack.get("freeze_time"))
+    if freeze_time != "-":
+        end_times.append(freeze_time)
+    collection_window = run_window(target_date) or f"{min(start_times) if start_times else '-'}-{max(end_times) if end_times else '-'}"
+    brief = editorial_brief if use_editorial else {"daily_thesis": infer_today_axis(storylines, radar_candidates), "storylines": storylines}
+    lines: list[str] = []
+    render_compact_publish_host(
+        lines,
+        created_at,
+        collection_window,
+        f"{display_date_title(target_date)} 미국장 종가 기준",
+        brief,
+        market_focus,
+        storylines,
+        radar_by_id,
+        finviz_features,
+        earnings_drilldown,
+        label_numbers,
+    )
+    render_compact_collection_section(lines, target_date, market_focus, market_preflight, radar_by_id, candidate_by_id, storylines, finviz_features, economic)
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def render_dashboard(target_date: str) -> str:
+    return render_compact_publish_dashboard(target_date)
+
     title = display_date_title(target_date)
     processed = PROCESSED_DIR / target_date
     live_pack = load_json(processed / "live-experiment-pack.json")

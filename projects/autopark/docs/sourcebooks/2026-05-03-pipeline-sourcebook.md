@@ -1,6 +1,6 @@
 # 26.05.03 Autopark Pipeline Sourcebook
 
-- Generated at: `26.05.03 18:32`
+- Generated at: `26.05.03 18:33`
 - Scope: end-to-end sourcebook for the compact dashboard pipeline: collection, API reasoning, filtering, renderer decisions, and quality gate.
 - Hygiene: credentials, browser/session data, signed URLs, raw HTML, full article bodies, and full X text are not included.
 - Long source material is represented as title/source/role/URL/summary only.

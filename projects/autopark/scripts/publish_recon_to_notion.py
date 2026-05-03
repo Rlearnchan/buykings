@@ -250,8 +250,17 @@ def table_block(header: list[str], rows: list[list[str]]) -> dict:
     }
 
 
+def compact_publish_title(markdown_path: Path | None) -> str:
+    if markdown_path is None:
+        return ""
+    if re.match(r"^\d{2}\.\d{2}\.\d{2}\.md$", markdown_path.name):
+        return markdown_path.stem
+    return ""
+
+
 def markdown_to_blocks(markdown: str, markdown_path: Path | None = None, token: str | None = None, upload_images: bool = False) -> tuple[str, list[dict]]:
-    title = "Untitled"
+    title = compact_publish_title(markdown_path) or "Untitled"
+    consume_first_h1_as_title = title == "Untitled"
     blocks: list[dict] = []
     list_stack: list[tuple[int, dict]] = []
     in_code = False
@@ -361,8 +370,9 @@ def markdown_to_blocks(markdown: str, markdown_path: Path | None = None, token: 
             reset_list_stack()
             level = len(heading.group(1))
             text = heading.group(2).strip()
-            if level == 1 and title == "Untitled":
+            if level == 1 and consume_first_h1_as_title:
                 title = text
+                consume_first_h1_as_title = False
                 continue
             if level >= 4:
                 blocks.append(block("paragraph", f"**{text}**"))
