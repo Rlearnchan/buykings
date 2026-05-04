@@ -19,6 +19,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from source_policy import infer_source_policy, policy_score_bonus
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = PROJECT_ROOT / "config" / "today_misc_sources.json"
@@ -168,6 +169,13 @@ class Candidate:
     confidence: int
     needs_user_note: bool
     score: int
+    source_tier: str = ""
+    source_authority: str = ""
+    source_use_role: str = ""
+    source_auth_profile: str = ""
+    source_publish_policy: str = ""
+    source_llm_policy: str = ""
+    source_lead_allowed: bool = False
 
 
 class AnchorParser(HTMLParser):
@@ -575,6 +583,7 @@ def score_item(title: str, source: dict) -> tuple[int, list[str]]:
         score += 2
     if source.get("category") == "fast_news":
         score += 1
+    score += policy_score_bonus(source)
     return score, hooks
 
 
@@ -632,6 +641,7 @@ def build_candidates(
     require_recent_signal: bool,
 ) -> list[Candidate]:
     candidates: list[Candidate] = []
+    policy = infer_source_policy(source)
     for index, item in enumerate(items):
         item_date = infer_item_date(item, target_date)
         if not is_recent_enough(item_date, target_date, lookback_hours):
@@ -684,10 +694,47 @@ def build_candidates(
                 confidence=3 if source.get("trust_level") == "high" else 2,
                 needs_user_note=True,
                 score=score,
+                source_tier=source.get("source_tier") or policy.get("tier") or "",
+                source_authority=source.get("source_authority") or policy.get("authority") or "",
+                source_use_role=source.get("source_use_role") or policy.get("use_role") or "",
+                source_auth_profile=source.get("auth_profile") or policy.get("auth_profile") or "",
+                source_publish_policy=source.get("source_publish_policy") or policy.get("publish_policy") or "",
+                source_llm_policy=source.get("source_llm_policy") or policy.get("llm_policy") or "",
+                source_lead_allowed=bool(source.get("source_lead_allowed") if "source_lead_allowed" in source else policy.get("lead_allowed")),
             )
         )
     candidates.sort(key=lambda item: (-item.score, item.source_name, item.headline))
     return candidates[:limit]
+
+
+def browser_profile_items(source: dict, limit: int, timeout_ms: int = 45000) -> tuple[list[dict], dict]:
+    profile = source.get("auth_profile") or infer_source_policy(source).get("auth_profile") or "syukafriends"
+    script = PROJECT_ROOT / "scripts" / "extract_browser_source_links.mjs"
+    command = [
+        "node",
+        str(script),
+        "--url",
+        source["url"],
+        "--profile",
+        profile,
+        "--limit",
+        str(max(limit * 8, 40)),
+        "--timeout-ms",
+        str(timeout_ms),
+    ]
+    completed = subprocess.run(command, cwd=PROJECT_ROOT.parents[1], text=True, capture_output=True, timeout=(timeout_ms / 1000) + 20)
+    payload = json.loads(completed.stdout or "{}")
+    if completed.returncode != 0 or not payload.get("ok"):
+        raise RuntimeError(payload.get("error") or completed.stderr or "browser profile extraction failed")
+    items = payload.get("items") or []
+    meta = {
+        "browser_profile": profile,
+        "browser_title": payload.get("title") or "",
+        "browser_final_url": payload.get("final_url") or "",
+        "browser_meta_description": payload.get("meta_description") or "",
+        "sanitized_only": True,
+    }
+    return items, meta
 
 
 def load_sources(config_path: Path, source_ids: list[str] | None, batch: str | None) -> list[dict]:
@@ -783,8 +830,18 @@ def main() -> int:
         started = time.time()
         try:
             fetch_url = SOURCE_FEEDS.get(source["id"], source["url"])
-            page = fetch_text(fetch_url)
-            items = extract_items(source, page, target_date)
+            browser_meta = {}
+            if source.get("collection_method") == "browser_profile_extract_sanitized":
+                try:
+                    items, browser_meta = browser_profile_items(source, args.limit_per_source)
+                    fetch_url = source["url"]
+                except Exception as browser_exc:  # noqa: BLE001 - fall back to public HTML probe.
+                    page = fetch_text(fetch_url)
+                    items = extract_items(source, page, target_date)
+                    browser_meta = {"browser_profile_error": str(browser_exc), "fallback": "public_html_probe"}
+            else:
+                page = fetch_text(fetch_url)
+                items = extract_items(source, page, target_date)
             candidates = build_candidates(
                 source,
                 items,
@@ -805,6 +862,7 @@ def main() -> int:
                     "raw_link_count": len(items),
                     "candidate_count": len(candidates),
                     "elapsed_seconds": round(time.time() - started, 2),
+                    **browser_meta,
                 }
             )
             all_candidates.extend(candidates)
@@ -817,6 +875,7 @@ def main() -> int:
                             "fetch_url": fetch_url,
                             "captured_at": captured_at,
                             "raw_link_count": len(items),
+                            "browser_meta": browser_meta,
                             "items": items[:100],
                             "candidates": [asdict(candidate) for candidate in candidates],
                         },

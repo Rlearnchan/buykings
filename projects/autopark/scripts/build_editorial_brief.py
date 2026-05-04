@@ -15,6 +15,8 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from source_policy import infer_source_policy
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PROJECT_ROOT.parents[1]
@@ -715,6 +717,7 @@ def compact_candidate(
     allow_text_fallback: bool = True,
     minimal: bool = False,
 ) -> dict:
+    policy = infer_source_policy(item)
     source_role = resolved_source_role(item)
     evidence_role = resolved_evidence_role(item, source_role)
     asset_type = resolved_asset_type(item)
@@ -733,6 +736,11 @@ def compact_candidate(
             "source": source_of(item),
             "source_role": source_role,
             "evidence_role": evidence_role,
+            "source_tier": item.get("source_tier") or policy.get("tier") or "",
+            "source_authority": item.get("source_authority") or policy.get("authority") or "",
+            "source_use_role": item.get("source_use_role") or policy.get("use_role") or "",
+            "source_llm_policy": item.get("source_llm_policy") or policy.get("llm_policy") or "",
+            "source_lead_allowed": bool(item.get("source_lead_allowed") if "source_lead_allowed" in item else policy.get("lead_allowed")),
             "asset_type": asset_type,
             "talk_vs_slide": talk_vs_slide,
             "score": item.get("score") or item.get("final_score") or 0,
@@ -749,6 +757,11 @@ def compact_candidate(
         "source": source_of(item),
         "source_role": source_role,
         "evidence_role": evidence_role,
+        "source_tier": item.get("source_tier") or policy.get("tier") or "",
+        "source_authority": item.get("source_authority") or policy.get("authority") or "",
+        "source_use_role": item.get("source_use_role") or policy.get("use_role") or "",
+        "source_llm_policy": item.get("source_llm_policy") or policy.get("llm_policy") or "",
+        "source_lead_allowed": bool(item.get("source_lead_allowed") if "source_lead_allowed" in item else policy.get("lead_allowed")),
         "published_at": item.get("published_at") or item.get("captured_at") or "",
         "score": item.get("score") or item.get("final_score") or 0,
         "theme_keys": item.get("theme_keys") or item.get("market_hooks") or [],
@@ -1129,6 +1142,7 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
             "evidence_roles": ["fact", "data", "analysis", "sentiment", "visual", "market_reaction"],
             "sentiment_sources_are_not_fact": True,
             "market_reaction_is_not_causality": True,
+            "source_policy": "Premium Reuters/Bloomberg/WSJ may anchor public claims only through sanitized summaries. Market-data evidence confirms reaction, not causality. Social evidence cannot be standalone fact evidence.",
             "operation_mode": os.environ.get("AUTOPARK_OPERATION_MODE") or "daily_broadcast",
             "expected_broadcast": os.environ.get("AUTOPARK_EXPECTED_BROADCAST", "1") != "0",
             "operation_note": os.environ.get("AUTOPARK_OPERATION_NOTE") or "",
@@ -1191,6 +1205,7 @@ Rules:
 - Each storyline must be a usable broadcast segment with a hook, why-now, argument, evidence, talk track, and counterpoint.
 - Today's lead is not the most sensational headline. It is the story that best explains today's market move, can be understood in the first 5 minutes, and can be supported by PPT material.
 - Separate fact, data, analysis, sentiment, visual, and market_reaction evidence. Use source_role and evidence_role exactly for that editorial distinction.
+- Use source_tier/source_authority/source_use_role as trust hints. Prefer premium/primary/data evidence for public claims, but do not promote a source just because it is premium if the local item lacks today's market relevance.
 - X, Reddit, and community posts cannot be fact evidence by themselves. They can only be sentiment evidence or light-segment color.
 - Heatmaps, index charts, company charts, and Finviz captures show market reaction; they do not prove causality unless paired with fact/data/analysis evidence.
 - For earnings and macro data, judge expectation_gap: actual result versus expected result and market-implied expectation.

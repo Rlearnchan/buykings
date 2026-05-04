@@ -106,7 +106,7 @@ def candidate_rows(items: list[Any], max_rows: int = 10) -> list[list[Any]]:
                 index,
                 item.get("title") or item.get("headline") or item.get("summary") or item.get("focus") or item.get("id") or item.get("ticker"),
                 item.get("source") or item.get("source_name") or item.get("type") or item.get("ticker"),
-                " / ".join(str(item.get(key) or "") for key in ["source_role", "evidence_role"] if item.get(key)),
+                " / ".join(str(item.get(key) or "") for key in ["source_tier", "source_authority", "source_role", "evidence_role"] if item.get(key)),
                 safe_url(item.get("url") or item.get("source_url")),
             ]
         )
@@ -315,6 +315,7 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
                     "X/earnings timeline: collect X timeline posts and earnings calendar context",
                     "Visual cards and captures: collect Finviz, market charts, FedWatch, Fear & Greed, and chart exports",
                     "Market Radar: merge local candidates into a candidate DB with internal source/evidence roles",
+                    "Source Policy: annotate evidence with source tier, authority, allowed use, and auth profile hints",
                     "Evidence Microcopy: grouped candidate summaries after market-radar; no ranking/ordering authority",
                     "Market Focus Brief: call OpenAI with sanitized local packet; no web_search; promote only local-evidence-backed focus items",
                     "Editorial Brief: turn focus/radar into broadcast storylines and material queue",
@@ -395,12 +396,14 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
             f"- storylines in radar: `{len(radar.get('storylines') or [])}`",
             "- Internal role/id fields remain available for audit, but are not rendered in publish Markdown.",
             markdown_table(
-                ["id", "title", "source", "source_role", "evidence_role"],
+                ["id", "title", "source", "tier", "authority", "source_role", "evidence_role"],
                 [
                     [
                         candidate.get("id") or candidate.get("item_id"),
                         candidate.get("title") or candidate.get("headline"),
                         candidate.get("source") or candidate.get("source_name"),
+                        candidate.get("source_tier") or (candidate.get("source_policy") or {}).get("tier"),
+                        candidate.get("source_authority") or (candidate.get("source_policy") or {}).get("authority"),
                         candidate.get("source_role"),
                         candidate.get("evidence_role"),
                     ]

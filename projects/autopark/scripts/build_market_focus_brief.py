@@ -15,6 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+from source_policy import infer_source_policy
+
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = PROJECT_ROOT.parents[1]
@@ -304,6 +306,7 @@ def attach_evidence_microcopy(rows: list[dict], microcopy: dict) -> list[dict]:
 
 
 def compact_candidate(item: dict) -> dict:
+    policy = infer_source_policy(item)
     return {
         "id": item_id_of(item),
         "item_id": item_id_of(item),
@@ -314,6 +317,11 @@ def compact_candidate(item: dict) -> dict:
         "score": score_of(item),
         "source_role": item.get("source_role") or "",
         "evidence_role": item.get("evidence_role") or "",
+        "source_tier": item.get("source_tier") or policy.get("tier") or "",
+        "source_authority": item.get("source_authority") or policy.get("authority") or "",
+        "source_use_role": item.get("source_use_role") or policy.get("use_role") or "",
+        "source_llm_policy": item.get("source_llm_policy") or policy.get("llm_policy") or "",
+        "source_lead_allowed": bool(item.get("source_lead_allowed") if "source_lead_allowed" in item else policy.get("lead_allowed")),
         "theme_keys": item.get("theme_keys") or item.get("market_hooks") or [],
         "market_reaction": compact_text(item.get("market_reaction") or "", 180),
         "signal_or_noise": compact_text(item.get("signal_or_noise") or "", 80),
@@ -528,12 +536,18 @@ def collect_screenshot_assets(target_date: str, limit: int) -> list[dict]:
 def sanitize_candidate(item: dict, aliases: dict[str, str]) -> dict:
     raw_id = item.get("id") or item.get("item_id") or item.get("url") or title_of(item)
     item_alias = alias_for(raw_id, aliases)
+    policy = infer_source_policy(item)
     return {
         "id": item_alias,
         "item_id": item_alias,
         "source_id": sanitized_text(source_of(item), 80),
         "source_role": sanitized_text(item.get("source_role") or "", 60),
         "evidence_role": sanitized_text(item.get("evidence_role") or "", 60),
+        "source_tier": sanitized_text(item.get("source_tier") or policy.get("tier") or "", 40),
+        "source_authority": sanitized_text(item.get("source_authority") or policy.get("authority") or "", 40),
+        "source_use_role": sanitized_text(item.get("source_use_role") or policy.get("use_role") or "", 60),
+        "source_llm_policy": sanitized_text(item.get("source_llm_policy") or policy.get("llm_policy") or "", 80),
+        "source_lead_allowed": bool(item.get("source_lead_allowed") if "source_lead_allowed" in item else policy.get("lead_allowed")),
         "title": sanitized_text(title_of(item), 100),
         "compact_summary": sanitized_text(item.get("summary") or item.get("description") or "", 320),
         "theme_keys": item.get("theme_keys") or item.get("market_hooks") or [],
@@ -882,6 +896,7 @@ def build_prompt(payload: dict, with_web: bool = False) -> str:
 Runtime mode:
 - {web_note}
 - candidates[].micro_title is a short public title; candidates[].micro_content is a 120-300 character description of what the material says; do not let either change source order or promote unsupported stories.
+- candidates[].source_tier/source_authority/source_use_role are trust hints only. Premium Reuters/Bloomberg/WSJ can anchor facts via sanitized summaries; market_data confirms reaction but not causality; social sources cannot be standalone fact evidence.
 
 Return JSON matching the provided schema. Do not wrap it in Markdown.
 

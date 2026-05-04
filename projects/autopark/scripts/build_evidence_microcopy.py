@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from source_policy import infer_source_policy
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
@@ -169,6 +170,7 @@ def theme_keys_of(item: dict) -> list[str]:
 
 
 def compact_item_for_prompt(item: dict) -> dict:
+    policy = infer_source_policy(item)
     return {
         "item_id": item_id_of(item),
         "source_label": source_label_of(item),
@@ -180,6 +182,14 @@ def compact_item_for_prompt(item: dict) -> dict:
         "market_reaction": clean(item.get("market_reaction") or "", 160),
         "korea_open_relevance": clean(item.get("korea_open_relevance") or "", 140),
         "asset_status": "visual_available" if item.get("visual_local_path") or item.get("image_refs") else "metadata_only",
+        "source_policy": {
+            "tier": policy.get("tier"),
+            "authority": policy.get("authority"),
+            "use_role": policy.get("use_role"),
+            "publish_policy": policy.get("publish_policy"),
+            "llm_policy": policy.get("llm_policy"),
+            "lead_allowed": policy.get("lead_allowed"),
+        },
     }
 
 
@@ -262,6 +272,7 @@ def build_prompt(target_date: str, items: list[dict]) -> str:
             "do_not_change_item_id_or_order": True,
             "do_not_invent_prices_dates_or_causality": True,
             "raw_body_and_urls_excluded": True,
+            "source_policy_note": "Premium sources can anchor facts but only via sanitized summary. Market data confirms reaction, not causality. Social sources are sentiment only.",
         },
         "items": [compact_item_for_prompt(item) for item in items],
     }

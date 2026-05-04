@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from editorial_policy import enrich_candidate_row, enrich_storyline
+from source_policy import infer_source_policy, policy_score_bonus
 from select_storylines_v2 import PROCESSED_DIR, RUNTIME_NOTION_DIR, compact_text, gather_materials, load_json, x_items
 
 PROJECT_ROOT = PROCESSED_DIR.parents[1]
@@ -95,7 +96,8 @@ def source_weight(material: dict) -> int:
     source = clean(material.get("source") or material.get("source_name") or material.get("source_id") or "").lower()
     url = clean(material.get("url") or "").lower()
     blob = f"{source} {url}"
-    return max([weight for key, weight in CORE_SOURCE_WEIGHTS.items() if key in blob] or [3])
+    base = max([weight for key, weight in CORE_SOURCE_WEIGHTS.items() if key in blob] or [3])
+    return base + policy_score_bonus(material)
 
 
 def source_blob(material: dict) -> str:
@@ -227,6 +229,7 @@ def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> 
             "summary": clean(material.get("summary") or title, 420),
             "score": score,
             "source_weight": weight,
+            "source_policy": infer_source_policy(material),
             "recency_days": recency_days,
             "recency_bucket": recency_bucket,
             "recency_penalty": recency_penalty,

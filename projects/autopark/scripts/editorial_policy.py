@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 
+from source_policy import apply_source_policy, infer_source_policy, policy_score_bonus
+
 
 SOCIAL_HINTS = ("x.com", "twitter.com", "reddit.com", "reddit", "x_social")
 VISUAL_HINTS = ("finviz", "heatmap", "chart", "screenshot", "visual_card", "datawrapper")
@@ -25,6 +27,9 @@ def _blob(*values: object) -> str:
 
 
 def infer_source_role(material: dict) -> str:
+    policy = infer_source_policy(material)
+    if policy.get("use_role") in {"fact_anchor", "analysis_anchor", "market_reaction", "sentiment_probe", "speed_anchor"}:
+        return str(policy["use_role"])
     blob = _blob(material.get("source"), material.get("source_name"), material.get("source_id"), material.get("type"), material.get("url"), material.get("title"))
     if any(hint in blob for hint in SOCIAL_HINTS):
         return "sentiment_probe"
@@ -176,6 +181,7 @@ def infer_talk_vs_slide(material: dict, asset_type: str, evidence_role: str) -> 
 
 
 def enrich_candidate_row(material: dict, row: dict, themes: dict[str, list[str]]) -> dict:
+    material = apply_source_policy(material)
     source_role = infer_source_role(material)
     evidence_role = infer_evidence_role(source_role, material)
     theme_keys = sorted(themes)
@@ -200,6 +206,14 @@ def enrich_candidate_row(material: dict, row: dict, themes: dict[str, list[str]]
         "ppt_asset_candidate": talk_vs_slide in {"slide", "talk_or_slide"},
         "talk_vs_slide": talk_vs_slide,
         "drop_risk": infer_drop_risk(source_role, evidence_role, signal_or_noise),
+        "source_tier": material.get("source_tier") or "",
+        "source_authority": material.get("source_authority") or "",
+        "source_use_role": material.get("source_use_role") or "",
+        "source_publish_policy": material.get("source_publish_policy") or "",
+        "source_llm_policy": material.get("source_llm_policy") or "",
+        "source_lead_allowed": bool(material.get("source_lead_allowed")),
+        "source_policy_notes": material.get("source_policy_notes") or "",
+        "source_policy_bonus": policy_score_bonus(material),
     }
 
 
