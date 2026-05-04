@@ -22,7 +22,7 @@ RUNTIME_NOTION_DIR = RUNTIME_DIR / "notion"
 PROMPT_PATH = PROJECT_ROOT / "prompts" / "market_preflight_agenda.md"
 DEFAULT_ENV = REPO_ROOT / ".env"
 OPENAI_API = "https://api.openai.com/v1/responses"
-DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_REASONING_EFFORT = "medium"
 
 TARGET_TYPES = {"chart", "news_search", "x_search", "official_source", "market_reaction", "capture"}

@@ -29,8 +29,7 @@ EXPORTS_DIR = PROJECT_ROOT / "exports" / "current"
 PROMPT_PATH = PROJECT_ROOT / "prompts" / "market_focus_brief.md"
 DEFAULT_ENV = REPO_ROOT / ".env"
 OPENAI_API = "https://api.openai.com/v1/responses"
-# Official OpenAI models docs list this as the flagship frontier model ID.
-DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_REASONING_EFFORT = "medium"
 
 BROADCAST_USES = {"lead", "supporting_story", "talk_only", "drop"}

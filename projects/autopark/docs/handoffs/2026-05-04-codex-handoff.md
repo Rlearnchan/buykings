@@ -62,7 +62,7 @@ The pipeline uses three higher-level LLM/editor roles, plus microcopy:
 
 Important implementation direction:
 
-- Hard tasks use stronger models.
+- During the current repeated-experiment period, all Autopark OpenAI text steps should use `gpt-5-mini`.
 - Simple evidence/card copy uses cheaper grouped model calls where possible.
 - If OpenAI fails, deterministic fallback must still produce a publishable dashboard.
 

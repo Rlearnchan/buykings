@@ -75,10 +75,10 @@ LLM은 네 가지 종류의 일만 합니다.
 
 | Area | Default model | What it may do | What it must not do |
 | --- | --- | --- | --- |
-| Market preflight | `gpt-5.5` | 오늘 확인할 의제 후보 제안 | publish 구조 확정 |
+| Market preflight | `gpt-5-mini` | 오늘 확인할 의제 후보 제안 | publish 구조 확정 |
 | Evidence microcopy | `gpt-5-mini` | 각 자료의 핵심 한 줄 요약 | 자료 채택, 순서, 랭킹 결정 |
-| Market focus | `gpt-5.5` | 리드 후보, source gap, false lead 판단 | renderer 포맷 변경 |
-| Editorial brief | `gpt-5.5` | 스토리라인과 방송 연결점 판단 | publish 카드명/번호 변경 |
+| Market focus | `gpt-5-mini` | 리드 후보, source gap, false lead 판단 | renderer 포맷 변경 |
+| Editorial brief | `gpt-5-mini` | 스토리라인과 방송 연결점 판단 | publish 카드명/번호 변경 |
 | Dashboard microcopy | `gpt-5-mini` | 최종 짧은 문장 polish | 구조, 순서, 자료명 변경 |
 
 운영 환경에서는 보통 아래 env가 중요합니다.
@@ -88,7 +88,9 @@ AUTOPARK_EVIDENCE_MICROCOPY_ENABLED=1
 AUTOPARK_EVIDENCE_MICROCOPY_MODEL=gpt-5-mini
 AUTOPARK_MICROCOPY_ENABLED=1
 AUTOPARK_MICROCOPY_MODEL=gpt-5-mini
-AUTOPARK_EDITORIAL_MODEL=gpt-5.5
+AUTOPARK_PREFLIGHT_MODEL=gpt-5-mini
+AUTOPARK_MARKET_FOCUS_MODEL=gpt-5-mini
+AUTOPARK_EDITORIAL_MODEL=gpt-5-mini
 ```
 
 API 오류, timeout, invalid JSON이 나면 각 단계는 deterministic fallback으로 이어집니다. Notion 발행은 quality gate 정책을 따릅니다.
