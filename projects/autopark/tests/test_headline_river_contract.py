@@ -104,6 +104,63 @@ class HeadlineRiverContractTest(unittest.TestCase):
         self.assertEqual(1, len(items))
         self.assertEqual("AI capex worries return as traders watch big tech earnings", items[0].title)
 
+    def test_html_parser_filters_quote_and_section_links(self) -> None:
+        biztoc = headline_river.SourceSpec(
+            source_id="biztoc-home",
+            label="BizToc Home",
+            url="https://biztoc.com/",
+            collection_method="html",
+            role="anomaly_detector",
+            authority="medium_low",
+            collection_ease="medium",
+            always_collect=True,
+        )
+        cnbc = headline_river.SourceSpec(
+            source_id="cnbc-world",
+            label="CNBC World",
+            url="https://www.cnbc.com/world/",
+            collection_method="html",
+            role="support_context",
+            authority="medium",
+            collection_ease="medium",
+            always_collect=False,
+        )
+
+        biztoc_items = headline_river.parse_html_items(
+            biztoc,
+            '<a href="https://finance.yahoo.com/quote/ES=F/">S&P FUTURES 7,270 0.16% •</a><a href="/story/oil">Oil risk returns as traders watch Hormuz shipping</a>',
+            "2026-05-04T05:30:00+09:00",
+        )
+        cnbc_items = headline_river.parse_html_items(
+            cnbc,
+            '<a href="/cryptocurrency/">Cryptocurrency</a><a href="/2026/05/04/global-markets-open.html">Global stocks rise as tech rally broadens</a>',
+            "2026-05-04T05:30:00+09:00",
+        )
+
+        self.assertEqual(["Oil risk returns as traders watch Hormuz shipping"], [item.title for item in biztoc_items])
+        self.assertEqual(["Global stocks rise as tech rally broadens"], [item.title for item in cnbc_items])
+
+    def test_balanced_limit_keeps_late_sources_represented(self) -> None:
+        source = headline_river.SourceSpec(
+            source_id="base",
+            label="Base",
+            url="https://example.com/",
+            collection_method="html",
+            role="baseline_headline",
+            authority="medium",
+            collection_ease="high",
+            always_collect=True,
+        )
+        rows = []
+        for source_id in ["a", "b", "c"]:
+            spec = headline_river.SourceSpec(**{**source.__dict__, "source_id": source_id})
+            for index in range(4):
+                rows.append(headline_river.make_item(spec, index + 1, f"{source_id} market headline {index}", f"https://example.com/{source_id}/{index}", "2026-05-04T05:30:00+09:00"))
+
+        limited = headline_river.balanced_limit(rows, 5)
+
+        self.assertEqual(["a", "b", "c", "a", "b"], [item.source_id for item in limited])
+
     def test_build_headline_river_dry_with_stubbed_fetch(self) -> None:
         tmp_root = PROJECT / ".tmp-tests" / "headline-river"
         if tmp_root.exists():

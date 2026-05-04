@@ -263,6 +263,7 @@ def source_specific_keep(source_id: str, title: str, url: str) -> bool:
     lowered = title.lower()
     parsed = urllib.parse.urlparse(url)
     path = parsed.path
+    host = host_of(url)
     low_signal_phrases = {
         "about us",
         "advertise",
@@ -332,10 +333,15 @@ def source_specific_keep(source_id: str, title: str, url: str) -> bool:
     if source_id.startswith("biztoc"):
         if re.search(r"/(account|login|upgrade|about|privacy|settings|newsletter)", url):
             return False
+        if host == "finance.yahoo.com" and path.startswith("/quote/"):
+            return False
         if any(phrase in lowered for phrase in {"customize", "settings", "upgrade", "dark mode"}):
             return False
-    if source_id == "cnbc-world" and ("cnbc.com" not in host_of(url)):
-        return False
+    if source_id == "cnbc-world":
+        if "cnbc.com" not in host:
+            return False
+        if not path.endswith(".html"):
+            return False
     if source_id == "tradingview-news" and any(phrase in lowered for phrase in {"economic calendar", "markets", "news flow"}):
         return False
     return True
@@ -485,6 +491,33 @@ def dedupe_items(items: list[HeadlineItem]) -> list[HeadlineItem]:
     return deduped
 
 
+def balanced_limit(items: list[HeadlineItem], limit: int) -> list[HeadlineItem]:
+    if limit <= 0 or len(items) <= limit:
+        return items[:limit]
+    sources: list[str] = []
+    buckets: dict[str, list[HeadlineItem]] = {}
+    for item in items:
+        source_id = item.source_id
+        if source_id not in buckets:
+            sources.append(source_id)
+            buckets[source_id] = []
+        buckets[source_id].append(item)
+    rows: list[HeadlineItem] = []
+    while len(rows) < limit:
+        added = False
+        for source_id in sources:
+            bucket = buckets[source_id]
+            if not bucket:
+                continue
+            rows.append(bucket.pop(0))
+            added = True
+            if len(rows) >= limit:
+                break
+        if not added:
+            break
+    return rows
+
+
 def canonical_key(item: HeadlineItem) -> str:
     parsed = urllib.parse.urlparse(item.url)
     path = parsed.path.rstrip("/")
@@ -586,7 +619,7 @@ def build_headline_river(args: argparse.Namespace) -> dict:
             all_items.extend(items)
             source_stats.append({**stat, "agenda_id": expansion["agenda_id"], "tickers": expansion["tickers"]})
 
-    items = dedupe_items(all_items)[: args.overall_limit]
+    items = balanced_limit(dedupe_items(all_items), args.overall_limit)
     payload = {
         "ok": True,
         "date": args.date,
