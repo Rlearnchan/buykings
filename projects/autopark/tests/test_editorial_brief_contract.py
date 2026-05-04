@@ -399,6 +399,29 @@ class EditorialBriefContractTest(unittest.TestCase):
 
         self.assertIn("biztoc-com-source-091", selected_ids)
         self.assertIn("x-1", selected_ids)
+        self.assertLessEqual(len(selected), 12)
+
+    def test_compact_candidate_minimal_uses_one_summary_field(self) -> None:
+        row = {
+            "id": "news-1",
+            "item_id": "news-1",
+            "title": "Long oil and rates headline",
+            "source": "Yahoo Finance",
+            "source_role": "speed_anchor",
+            "evidence_role": "analysis",
+            "summary": "Original summary should be secondary.",
+            "micro_content": "Microcopy summary is the preferred compact editorial context.",
+            "theme_keys": ["energy", "rates", "inflation", "earnings", "extra"],
+            "score": 42,
+        }
+
+        compact = brief_builder.compact_candidate(row, summary_limit=90, include_url=False, include_paths=False, minimal=True)
+
+        self.assertEqual("news-1", compact["id"])
+        self.assertEqual("Microcopy summary is the preferred compact editorial context.", compact["summary"])
+        self.assertNotIn("micro_content", compact)
+        self.assertNotIn("source_llm_policy", compact)
+        self.assertLessEqual(len(compact["theme_keys"]), 4)
 
     def test_select_editorial_candidates_keeps_positioning_support_beyond_top_scores(self) -> None:
         rows = [

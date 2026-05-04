@@ -242,7 +242,8 @@ class EvidenceMicrocopyContractTest(unittest.TestCase):
         self.assertEqual("유가 리스크와 가격 반응을 함께 확인했습니다.", focus_candidate["micro_content"])
         editorial_payload = editorial.build_input_payload(DATE, 5)
         editorial_candidate = next(item for item in editorial_payload["candidates"] if item["id"] == "oil-1")
-        self.assertEqual("유가 리스크와 가격 반응을 함께 확인했습니다.", editorial_candidate["micro_content"])
+        self.assertEqual("유가 리스크와 가격 반응을 함께 확인했습니다.", editorial_candidate["summary"])
+        self.assertNotIn("micro_content", editorial_candidate)
 
     def test_quality_gate_reviews_evidence_microcopy_artifact(self) -> None:
         self._write_json(

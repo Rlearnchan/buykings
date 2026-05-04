@@ -698,13 +698,13 @@ def select_editorial_candidates(rows: list[dict], max_candidates: int, required_
     editorial_support = editorial_support_candidates(rows)
     merged = []
     seen = set()
-    for item in [*selected, *required, *support, *market_reaction, *editorial_support]:
+    for item in [*required, *selected, *support, *market_reaction, *editorial_support]:
         item_id = str(item.get("id") or item.get("item_id") or item.get("url") or item.get("title") or "")
         if not item_id or item_id in seen:
             continue
         merged.append(item)
         seen.add(item_id)
-    return merged[: max(max_candidates + 10, 12)]
+    return merged[: max(max_candidates, 12)]
 
 
 def theme_keys_of(item: dict) -> set[str]:
@@ -774,25 +774,19 @@ def compact_candidate(
     micro_content = compact_text(item.get("micro_content") or "", 300)
     micro_title = compact_text(item.get("micro_title") or "", 28)
     if minimal:
+        summary_text = micro_content or compact_text(summary_source, summary_limit)
         return {
             "id": str(item.get("id") or ""),
             "item_id": str(item.get("item_id") or item.get("id") or ""),
-            "title": compact_text(title_of(item), 140),
+            "title": compact_text(title_of(item), 100),
             "micro_title": micro_title,
-            "source": source_of(item),
+            "source": compact_text(source_of(item), 60),
             "source_role": source_role,
             "evidence_role": evidence_role,
-            "source_tier": item.get("source_tier") or policy.get("tier") or "",
-            "source_authority": item.get("source_authority") or policy.get("authority") or "",
-            "source_use_role": item.get("source_use_role") or policy.get("use_role") or "",
-            "source_llm_policy": item.get("source_llm_policy") or policy.get("llm_policy") or "",
-            "source_lead_allowed": bool(item.get("source_lead_allowed") if "source_lead_allowed" in item else policy.get("lead_allowed")),
-            "asset_type": asset_type,
-            "talk_vs_slide": talk_vs_slide,
             "score": item.get("score") or item.get("final_score") or 0,
-            "theme_keys": (item.get("theme_keys") or item.get("market_hooks") or [])[:5],
-            "summary": sanitize_prompt_text(summary_source, summary_limit),
-            "micro_content": sanitize_prompt_text(micro_content, 300),
+            "theme_keys": (item.get("theme_keys") or item.get("market_hooks") or [])[:4],
+            "summary": sanitize_prompt_text(summary_text, summary_limit),
+            "market_reaction": compact_text(item.get("market_reaction") or "", 50),
             "asset_status": "visual_available" if item.get("visual_local_path") else "no_local_visual",
         }
     row = {
@@ -1167,7 +1161,7 @@ def compact_preflight_agenda(agenda: dict) -> dict:
 def compact_headline_river(river: dict, compact_retry: bool = False) -> dict:
     if not isinstance(river, dict) or not river:
         return {}
-    item_limit = 6 if compact_retry else 18
+    item_limit = 6 if compact_retry else 0
     return {
         "date": river.get("date") or "",
         "item_count": river.get("item_count") or len(river.get("items") or []),
@@ -1219,7 +1213,7 @@ def compact_headline_river(river: dict, compact_retry: bool = False) -> dict:
 def compact_analysis_river(river: dict, compact_retry: bool = False) -> dict:
     if not isinstance(river, dict) or not river:
         return {}
-    item_limit = 6 if compact_retry else 16
+    item_limit = 6 if compact_retry else 0
     return {
         "date": river.get("date") or "",
         "source": "analysis_river",
@@ -1274,8 +1268,8 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
     all_candidates = radar.get("candidates") or []
     if compact_retry:
         max_candidates = min(max_candidates, 4)
-    summary_limit = 80 if compact_retry else 260
-    finviz_limit = 1 if compact_retry else 5
+    summary_limit = 80 if compact_retry else 180
+    finviz_limit = 0
     finviz_news_limit = 1 if compact_retry else 2
     visual_limit = 4 if compact_retry else 8
     recent_days = 3 if compact_retry else 7
@@ -1318,7 +1312,7 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
         "market_preflight_agenda": compact_preflight_agenda(preflight_agenda),
         "headline_river": compact_headline_river(headline_river, compact_retry=compact_retry),
         "analysis_river": compact_analysis_river(analysis_river, compact_retry=compact_retry),
-        "market_radar_storylines": [compact_radar_storyline(story) for story in radar_storylines[:3 if compact_retry else 5]],
+        "market_radar_storylines": [compact_radar_storyline(story) for story in radar_storylines[:3]],
         "candidates": [
             compact_candidate(
                 item,
@@ -1326,7 +1320,7 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
                 include_url=False,
                 include_paths=False,
                 allow_text_fallback=False,
-                minimal=compact_retry,
+                minimal=True,
             )
             for item in candidates
             if item.get("id")

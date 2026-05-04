@@ -1321,7 +1321,8 @@ PUBLIC_MATERIAL_FALLBACKS = {
     "earnings": "실적 확인 자료",
     "market": "시장 반응 확인 자료",
 }
-MEDIA_FOCUS_MAX_CARDS = 20
+MEDIA_FOCUS_MAX_CARDS = 40
+DASHBOARD_MICROCOPY_MEDIA_CARD_LIMIT = 20
 INTERNAL_MEDIA_SOURCES = {"Autopark", "Market Focus", "Pre-flight Agenda"}
 
 CHART_PUBLIC_LABELS = {
@@ -3196,7 +3197,7 @@ def build_microcopy_context(
             ),
             "source_gap": clean(card.get("source_gap"), 240),
         }
-        for card in media_cards
+        for card in media_cards[:DASHBOARD_MICROCOPY_MEDIA_CARD_LIMIT]
     ]
     return {
         "target_date": target_date,
@@ -3751,6 +3752,17 @@ def supplemental_media_candidate_key(row: dict) -> str:
     return f"title:{title[:80]}"
 
 
+def unique_public_label(base_label: str, used_labels: set[str]) -> str:
+    base = clean(base_label, 24)
+    if valid_public_material_label(base) and base not in used_labels:
+        return base
+    for index in range(2, 100):
+        candidate = clean(f"{base} {index}", 28)
+        if valid_public_material_label(candidate) and candidate not in used_labels:
+            return candidate
+    return ""
+
+
 def supplemental_media_candidates(
     market_focus: dict,
     storylines: list[dict],
@@ -3780,14 +3792,15 @@ def supplemental_media_candidates(
         if score <= 0 and item_id not in priority:
             continue
         label = supplemental_public_material_label(row)
-        if label in used_labels:
+        if not valid_public_material_label(label):
             continue
         rows.append((priority.get(item_id, 999), -score, -float(row.get("score") or row.get("final_score") or 0), label, row_source, row))
 
     selected = []
     seen_keys = set()
-    for _, _, _, label, row_source, row in sorted(rows, key=lambda item: item[:4]):
-        if label in used_labels:
+    for _, _, _, base_label, row_source, row in sorted(rows, key=lambda item: item[:4]):
+        label = unique_public_label(base_label, used_labels)
+        if not label:
             continue
         key = supplemental_media_candidate_key(row)
         if key in seen_keys:

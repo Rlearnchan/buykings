@@ -59,6 +59,11 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         if test_root in resolved.parents and resolved.exists():
             shutil.rmtree(resolved)
 
+    def test_media_focus_expands_for_reader_scan_but_microcopy_stays_bounded(self) -> None:
+        self.assertGreaterEqual(dashboard.MEDIA_FOCUS_MAX_CARDS, 30)
+        self.assertLessEqual(dashboard.MEDIA_FOCUS_MAX_CARDS, 50)
+        self.assertLessEqual(dashboard.DASHBOARD_MICROCOPY_MEDIA_CARD_LIMIT, 20)
+
     def _write_json(self, name: str, payload: object) -> None:
         (self.processed / DATE / name).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
