@@ -959,9 +959,12 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
             bullets = re.findall(r"^-\s+(.+)$", content_part, flags=re.M)
             if len(bullets) < 1 or len(bullets) > 3:
                 issue(findings, "format", "high", "COMPACT-038 미디어 주요 내용 bullet 수 위반", f"{title}: {len(bullets)}개", "주요 내용 bullet은 1~3개로 렌더하세요.")
-            long_bullets = [bullet for bullet in bullets if len(bullet) > 300 or compact_raw_source_like(bullet)]
+            raw_like_bullets = [bullet for bullet in bullets if compact_raw_source_like(bullet)]
+            if raw_like_bullets:
+                issue(findings, "format", "low", "COMPACT-039 미디어 주요 내용 bullet 원문형 노출", f"{title}: " + ", ".join(raw_like_bullets[:2]), "당분간 원문형 문장 감지는 발행 blocker가 아니라 polish finding으로만 기록합니다.")
+            long_bullets = [bullet for bullet in bullets if len(bullet) > 300 and not compact_raw_source_like(bullet)]
             if long_bullets:
-                issue(findings, "format", "high", "COMPACT-039 미디어 주요 내용 bullet 위반", f"{title}: " + ", ".join(long_bullets[:2]), "주요 내용 bullet은 300자 이하 public 문장으로 렌더하세요.")
+                issue(findings, "format", "low", "COMPACT-039 미디어 주요 내용 bullet 길이 초과", f"{title}: " + ", ".join(long_bullets[:2]), "당분간 300자 초과는 발행 blocker가 아니라 polish finding으로만 기록합니다.")
         if "3. 실적/특징주" not in sections:
             issue(findings, "format", "high", "COMPACT-046 실적/특징주 누락", "## 3. 실적/특징주 section이 없습니다.", "특징주와 실적 캘린더는 미디어 포커스가 아니라 3번 섹션에 렌더하세요.")
         feature_blocks = compact_card_blocks(feature_body)

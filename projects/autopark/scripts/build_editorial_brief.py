@@ -30,6 +30,7 @@ DEFAULT_API_TIMEOUT_SECONDS = 120
 DEFAULT_MAX_OUTPUT_TOKENS = 16384
 COMPACT_RETRY_CODE = "editorial_timeout_retry_compact"
 COMPACT_OUTPUT_RETRY_CODE = "editorial_output_retry_compact"
+COMPACT_TRANSIENT_RETRY_CODE = "editorial_transient_retry_compact"
 RETROSPECTIVE_LEARNING_CONFIG = CONFIG_DIR / "retrospective_learning.json"
 
 
@@ -1121,7 +1122,7 @@ def compact_preflight_agenda(agenda: dict) -> dict:
 def compact_headline_river(river: dict, compact_retry: bool = False) -> dict:
     if not isinstance(river, dict) or not river:
         return {}
-    item_limit = 16 if compact_retry else 36
+    item_limit = 6 if compact_retry else 36
     return {
         "date": river.get("date") or "",
         "item_count": river.get("item_count") or len(river.get("items") or []),
@@ -1173,7 +1174,7 @@ def compact_headline_river(river: dict, compact_retry: bool = False) -> dict:
 def compact_analysis_river(river: dict, compact_retry: bool = False) -> dict:
     if not isinstance(river, dict) or not river:
         return {}
-    item_limit = 14 if compact_retry else 32
+    item_limit = 6 if compact_retry else 32
     return {
         "date": river.get("date") or "",
         "source": "analysis_river",
@@ -1227,11 +1228,11 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
     required_ids.update(referenced_candidate_ids_from_market_focus(market_focus))
     all_candidates = radar.get("candidates") or []
     if compact_retry:
-        max_candidates = min(max_candidates, 8)
-    summary_limit = 120 if compact_retry else 520
-    finviz_limit = 3 if compact_retry else 10
+        max_candidates = min(max_candidates, 4)
+    summary_limit = 80 if compact_retry else 520
+    finviz_limit = 1 if compact_retry else 10
     finviz_news_limit = 1 if compact_retry else 4
-    visual_limit = 8 if compact_retry else 16
+    visual_limit = 4 if compact_retry else 16
     recent_days = 3 if compact_retry else 7
     candidates = select_editorial_candidates(radar.get("candidates") or [], max_candidates, required_ids=required_ids)
     if compact_retry:
@@ -1272,7 +1273,7 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
         "market_preflight_agenda": compact_preflight_agenda(preflight_agenda),
         "headline_river": compact_headline_river(headline_river, compact_retry=compact_retry),
         "analysis_river": compact_analysis_river(analysis_river, compact_retry=compact_retry),
-        "market_radar_storylines": [compact_radar_storyline(story) for story in radar_storylines[:8]] if compact_retry else radar_storylines,
+        "market_radar_storylines": [compact_radar_storyline(story) for story in radar_storylines[:3]] if compact_retry else radar_storylines,
         "candidates": [
             compact_candidate(
                 item,
@@ -1301,9 +1302,9 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
             }
             for item in (visuals.get("cards") or visuals.get("items") or [])[:visual_limit]
         ],
-        "recent_briefs": load_recent_briefs(target_date, days=recent_days),
-        "recent_broadcast_feedback": load_recent_broadcast_feedback(target_date, days=recent_days),
-        "retrospective_learning": retrospective_learning,
+        "recent_briefs": [] if compact_retry else load_recent_briefs(target_date, days=recent_days),
+        "recent_broadcast_feedback": [] if compact_retry else load_recent_broadcast_feedback(target_date, days=recent_days),
+        "retrospective_learning": {} if compact_retry else retrospective_learning,
     }
 
 
@@ -1435,6 +1436,8 @@ def compact_retry_code_for_exception(exc: BaseException) -> str | None:
         return COMPACT_RETRY_CODE
     if is_output_limit_exception(exc):
         return COMPACT_OUTPUT_RETRY_CODE
+    if isinstance(exc, urllib.error.HTTPError) and exc.code in {502, 503, 504}:
+        return COMPACT_TRANSIENT_RETRY_CODE
     return None
 
 
@@ -2043,14 +2046,16 @@ def main() -> int:
             retry_code = compact_retry_code_for_exception(first_exception) if first_exception else None
             if brief is None and first_exception and retry_code:
                 retry_payload = build_input_payload(args.date, args.max_candidates, compact_retry=True)
-                retry_timeout_seconds = min(api_timeout_seconds, 40 if retry_code == COMPACT_RETRY_CODE else 75)
+                retry_timeout_seconds = min(api_timeout_seconds, 90)
+                retry_model = env.get("AUTOPARK_EDITORIAL_RETRY_MODEL") or "gpt-5-mini"
+                retry_max_output_tokens = min(max_output_tokens, 8192)
                 retry_brief, retry_response_id, retry_stats = run_openai_attempt(
                     attempt="retry_attempt",
                     input_payload=retry_payload,
                     token=token,
-                    model=model,
+                    model=retry_model,
                     timeout_seconds=retry_timeout_seconds,
-                    max_output_tokens=max_output_tokens,
+                    max_output_tokens=retry_max_output_tokens,
                     retry_code=retry_code,
                 )
                 debug_stats["retry_attempt"] = {key: value for key, value in retry_stats.items() if key != "_exception"}

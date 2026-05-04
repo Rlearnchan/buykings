@@ -669,7 +669,7 @@ def main() -> int:
         or "120",
         120,
     )
-    editorial_stage_timeout = editorial_api_timeout + 90
+    editorial_stage_timeout = editorial_api_timeout + 150
     publish_title = args.publish_title or run_env.get("AUTOPARK_PUBLISH_TITLE") or file_env.get("AUTOPARK_PUBLISH_TITLE")
     preflight_enabled = flag_enabled(run_env, "AUTOPARK_PREFLIGHT_ENABLED", True) and not args.skip_preflight_agenda
     market_focus_with_web = args.market_focus_with_web or flag_enabled(run_env, "AUTOPARK_MARKET_FOCUS_WITH_WEB_DEFAULT", False)

@@ -465,7 +465,7 @@ def group_size_from(value: object) -> int:
     return max(20, min(40, size))
 
 
-def build_microcopy(target_date: str, env: dict[str, str], *, limit: int, group_size: int, timeout: int) -> dict:
+def build_microcopy(target_date: str, env: dict[str, str], *, limit: int, group_size: int, timeout: int, max_elapsed: int = 210) -> dict:
     items, source_counts = microcopy_source_items(target_date, limit)
     enabled = env.get("AUTOPARK_EVIDENCE_MICROCOPY_ENABLED") == "1"
     model = env.get("AUTOPARK_EVIDENCE_MICROCOPY_MODEL") or DEFAULT_MODEL
@@ -483,11 +483,25 @@ def build_microcopy(target_date: str, env: dict[str, str], *, limit: int, group_
     if enabled and token:
         source = "openai_responses_api"
         by_id = {item_id_of(item): item for item in items}
-        for group in chunked(items, group_size):
+        groups = list(chunked(items, group_size))
+        for group_index, group in enumerate(groups):
             fallback_by_id = {item_id_of(item): deterministic_item(item, "openai_item_fallback") for item in group}
+            remaining_groups = groups[group_index:]
+            elapsed_so_far = time.monotonic() - started
+            remaining_budget = max_elapsed - elapsed_so_far
+            if remaining_budget < 30:
+                error = f"max_elapsed_budget_reached_after_{round(elapsed_so_far, 3)}s"
+                for fallback_group in remaining_groups:
+                    fallback_count += len(fallback_group)
+                    result_items.extend(
+                        deterministic_item(item, "openai_budget_fallback")
+                        for item in fallback_group
+                    )
+                break
             try:
                 request_count += 1
-                response, response_id = call_openai(build_prompt(target_date, group), token, model, timeout)
+                request_timeout = max(10, min(timeout, int(remaining_budget) - 10))
+                response, response_id = call_openai(build_prompt(target_date, group), token, model, request_timeout)
                 if response_id:
                     response_ids.append(response_id)
                 outputs = {
@@ -552,12 +566,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--limit", type=int, default=200)
     parser.add_argument("--group-size", type=int, default=None)
     parser.add_argument("--timeout", type=int, default=90)
+    parser.add_argument("--max-elapsed", type=int, default=None)
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(argv)
 
     env = {**load_env(args.env.resolve()), **os.environ}
     group_size = group_size_from(args.group_size or env.get("AUTOPARK_EVIDENCE_MICROCOPY_GROUP_SIZE"))
-    payload = build_microcopy(args.date, env, limit=args.limit, group_size=group_size, timeout=args.timeout)
+    max_elapsed = int(args.max_elapsed or env.get("AUTOPARK_EVIDENCE_MICROCOPY_MAX_ELAPSED_SECONDS") or 210)
+    payload = build_microcopy(args.date, env, limit=args.limit, group_size=group_size, timeout=args.timeout, max_elapsed=max_elapsed)
     output = args.output or (PROCESSED_DIR / args.date / "evidence-microcopy.json")
     if not args.dry_run:
         write_json(output, payload)
