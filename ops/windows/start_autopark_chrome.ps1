@@ -1,6 +1,6 @@
 param(
     [int]$Port = 9222,
-    [string]$RemoteAddress = "127.0.0.1",
+    [string]$RemoteAddress = "0.0.0.0",
     [string]$StartUrl = "https://x.com/wallstengine"
 )
 

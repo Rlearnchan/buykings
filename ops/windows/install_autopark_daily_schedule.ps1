@@ -49,7 +49,7 @@ $Settings = New-ScheduledTaskSettingsSet `
 
 $ChromeAction = New-ScheduledTaskAction `
     -Execute "powershell.exe" `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$ChromeScript`" -StartUrl https://finviz.com/" `
+    -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$ChromeScript`" -RemoteAddress 0.0.0.0 -StartUrl https://finviz.com/" `
     -WorkingDirectory $RepoRoot
 $ChromeTriggers = @()
 $ChromeTriggers += New-ScheduledTaskTrigger -AtLogOn

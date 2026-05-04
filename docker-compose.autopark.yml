@@ -100,7 +100,7 @@ services:
         required: false
     environment:
       TZ: Asia/Seoul
-      AUTOPARK_CDP_ENDPOINT: ${AUTOPARK_DOCKER_CDP_ENDPOINT:-http://127.0.0.1:9222}
+      AUTOPARK_CDP_ENDPOINT: ${AUTOPARK_DOCKER_CDP_ENDPOINT:-http://host.docker.internal:9222}
       AUTOPARK_USE_CDP: ${AUTOPARK_USE_CDP:-1}
       AUTOPARK_CHROME_PATH: ${AUTOPARK_CHROME_PATH:-/ms-playwright/chromium-1217/chrome-linux64/chrome}
       AUTOPARK_STATE_ROOT: /state
@@ -111,10 +111,8 @@ services:
       AUTOPARK_RUN_TIMES: ${AUTOPARK_RUN_TIMES:-06:00}
       AUTOPARK_RETRY_TIMES: ${AUTOPARK_RETRY_TIMES:-06:20}
       AUTOPARK_STEP_TIMEOUT: ${AUTOPARK_STEP_TIMEOUT:-120}
-    depends_on:
-      autopark-browser:
-        condition: service_healthy
-    network_mode: "service:autopark-browser"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./projects/autopark/data:/app/projects/autopark/data
       - ./projects/autopark/runtime:/app/projects/autopark/runtime
