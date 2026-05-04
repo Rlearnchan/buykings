@@ -2397,12 +2397,7 @@ def chart_takeaway(*chart_ids: str) -> str:
 
 
 def market_chart_basis() -> str:
-    rows = chart_rows()
-    subtitle = rows[0][2] if rows and rows[0][2] else ""
-    match = re.search(r"(\d{2}\.\d{2}\.\d{2})", subtitle)
-    if match:
-        return f"{match.group(1)} 미국장 종가 기준"
-    return subtitle or "-"
+    return "차트별 기준 시점 별도 표기"
 
 
 def render_compact_host_view(
@@ -3422,9 +3417,19 @@ def market_time_lines(card: dict, target_date: str) -> list[str]:
         return lines
 
     payload = market_chart_payload(target_date, asset_key)
-    last_date = ((payload.get("data") or {}).get("last_date") or "").strip()
-    if last_date:
-        lines.append(f"- 기준: `{display_dt(last_date)} 종가`")
+    data = payload.get("data") or {}
+    coverage = data.get("coverage") or {}
+    basis_label = clean(coverage.get("basis_label") or data.get("basis_label"))
+    if basis_label:
+        lines.append(f"- 기준: `{basis_label}`")
+    else:
+        last_date = (data.get("last_date") or "").strip()
+        if last_date:
+            lines.append(f"- 기준: `{display_dt(last_date)} 종가`")
+    checked_label = clean(coverage.get("checked_at_label") or data.get("checked_at_label"))
+    if checked_label:
+        lines.append(f"- 확인: `{checked_label}`")
+        return lines
     fetched = first_public_time(payload, ["captured_at", "fetched_at", "fetched_at_epoch", "created_at", "updated_at"])
     if fetched:
         lines.append(f"- 확인: `{fetched}`")
@@ -4175,7 +4180,7 @@ def render_compact_publish_dashboard(target_date: str) -> str:
         lines,
         created_at,
         collection_window,
-        f"{display_date_title(target_date)} 미국장 종가 기준",
+        "차트별 기준 시점 별도 표기",
         brief,
         market_focus,
         storylines,

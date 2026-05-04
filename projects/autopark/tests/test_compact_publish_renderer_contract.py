@@ -268,7 +268,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         lines = markdown.splitlines()
         self.assertRegex(lines[0], r"^문서 생성: `\d{2}\.\d{2}\.\d{2} \d{2}:\d{2} \(KST\)`$")
         self.assertRegex(lines[1], r"^자료 수집: `[^`]+ \(KST\)`$")
-        self.assertEqual("시장 차트: `26.05.03 미국장 종가 기준`", lines[2])
+        self.assertEqual("시장 차트: `차트별 기준 시점 별도 표기`", lines[2])
 
         top = [title for level, title in quality.heading_lines(markdown) if level == 1]
         self.assertEqual(["🎥 진행자용 요약", "🤖 자료 수집"], top)
@@ -530,7 +530,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
             [
                 "문서 생성: `26.05.04 05:30 (KST)`",
                 "자료 수집: `05:05-05:18 (KST)`",
-                "시장 차트: `26.05.03 미국장 종가 기준`",
+                "시장 차트: `차트별 기준 시점 별도 표기`",
                 "# 진행자용 요약",
                 "## 주요 뉴스",
                 "- 시장 반응을 확인한다.",

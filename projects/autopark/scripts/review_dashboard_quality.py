@@ -648,7 +648,7 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
     meta_patterns = [
         r"^문서 생성: `\d{2}\.\d{2}\.\d{2} \d{2}:\d{2} \(KST\)`$",
         r"^자료 수집: `[^`]+ \(KST\)`$",
-        r"^시장 차트: `\d{2}\.\d{2}\.\d{2} 미국장 종가 기준`$",
+        r"^시장 차트: `차트별 기준 시점 별도 표기`$",
     ]
     for index, pattern in enumerate(meta_patterns):
         if len(lines) <= index or not re.match(pattern, lines[index]):

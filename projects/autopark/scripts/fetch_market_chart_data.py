@@ -13,9 +13,10 @@ import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from math import floor, ceil
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from prepare_datawrapper_inputs import (
     DEFAULT_CONFIG,
@@ -41,7 +42,17 @@ def yahoo_symbol(symbol: dict) -> str:
     return symbol.get("yahoo_symbol") or symbol["symbol"]
 
 
-def fetch_yahoo_series(symbol: dict, range_value: str, interval: str) -> dict[str, float]:
+def date_from_epoch(timestamp: int | float, timezone_name: str | None = None) -> str:
+    tz = timezone.utc
+    if timezone_name:
+        try:
+            tz = ZoneInfo(timezone_name)
+        except ZoneInfoNotFoundError:
+            tz = timezone.utc
+    return datetime.fromtimestamp(float(timestamp), tz).date().isoformat()
+
+
+def fetch_yahoo_series(symbol: dict, range_value: str, interval: str) -> tuple[dict[str, float], dict]:
     encoded_symbol = urllib.parse.quote(yahoo_symbol(symbol), safe="")
     query = urllib.parse.urlencode(
         {
@@ -67,6 +78,8 @@ def fetch_yahoo_series(symbol: dict, range_value: str, interval: str) -> dict[st
         raise FetchError(f"Yahoo Finance returned no data for {yahoo_symbol(symbol)}: {error}")
 
     chart = result[0]
+    meta = chart.get("meta") or {}
+    exchange_timezone = meta.get("exchangeTimezoneName") or meta.get("timezone")
     timestamps = chart.get("timestamp") or []
     closes = chart.get("indicators", {}).get("quote", [{}])[0].get("close") or []
     scale = float(symbol.get("scale", 1))
@@ -74,9 +87,13 @@ def fetch_yahoo_series(symbol: dict, range_value: str, interval: str) -> dict[st
     for timestamp, close in zip(timestamps, closes, strict=False):
         if close is None:
             continue
-        day = date.fromtimestamp(timestamp).isoformat()
+        day = date_from_epoch(timestamp, exchange_timezone)
         series[day] = round(float(close) * scale, 6)
-    return series
+    return series, {
+        "exchange_timezone": exchange_timezone or "",
+        "regular_market_time": meta.get("regularMarketTime"),
+        "data_granularity": meta.get("dataGranularity") or interval,
+    }
 
 
 def fred_series_id(symbol: dict) -> str:
@@ -164,7 +181,7 @@ def fetch_coingecko_series(symbol: dict, days: str) -> dict[str, float]:
     scale = float(symbol.get("scale", 1))
     series: dict[str, float] = {}
     for timestamp_ms, value in prices:
-        day = date.fromtimestamp(timestamp_ms / 1000).isoformat()
+        day = datetime.fromtimestamp(timestamp_ms / 1000, timezone.utc).date().isoformat()
         series[day] = round(float(value) * scale, 6)
     return series
 
@@ -206,16 +223,17 @@ def build_rows_for_source(chart: dict, source: str, range_value: str, interval: 
     fetched: dict[str, dict[str, float]] = {}
     metadata = {"source": source, "symbols": []}
     for symbol in symbols:
+        symbol_extra: dict = {}
         if source == "fred":
             series = fetch_fred_series(symbol, observation_start)
         elif source == "coingecko":
             series = fetch_coingecko_series(symbol, "365" if chart.get("target_window") != "intraday_or_1d" else "1")
         elif source == "yahoo_finance":
-            series = fetch_yahoo_series(symbol, range_value, interval)
+            series, symbol_extra = fetch_yahoo_series(symbol, range_value, interval)
         else:
             raise FetchError(f"Unsupported data source for {chart['id']}: {source}")
         fetched[symbol["label"]] = series
-        symbol_meta = {"label": symbol["label"], "symbol": symbol["symbol"], "points": len(series)}
+        symbol_meta = {"label": symbol["label"], "symbol": symbol["symbol"], "points": len(series), **symbol_extra}
         if source == "fred":
             symbol_meta["fred_series_id"] = fred_series_id(symbol)
         if source == "yahoo_finance":
@@ -392,6 +410,45 @@ def display_collected_at(value: str | None, target_date: str) -> str:
     return target_date[2:].replace("-", ".")
 
 
+def short_date_label(value: str) -> str:
+    try:
+        return datetime.fromisoformat(value).strftime("%y.%m.%d")
+    except ValueError:
+        return value
+
+
+def checked_at_label(epoch: int | float | None = None) -> str:
+    checked = datetime.fromtimestamp(float(epoch or time.time()), timezone.utc).astimezone(ZoneInfo("Asia/Seoul"))
+    return checked.strftime("%y.%m.%d %H:%M KST")
+
+
+def chart_coverage_label(chart: dict, source: str, rows: list[dict], fetched_epoch: int | None = None) -> dict:
+    last_date = rows[-1]["date"] if rows else ""
+    day = short_date_label(last_date)
+    checked = checked_at_label(fetched_epoch)
+    chart_id = chart.get("id", "")
+    if source == "coingecko":
+        basis = f"UTC 일봉 {day} 00:00 기준"
+    elif source == "fred":
+        basis = f"최근 관측치 {day} 기준"
+    elif chart_id == "crude-oil-wti":
+        basis = f"WTI 일봉 {day} 기준(정산 구간 14:28-14:30 ET)"
+    elif chart_id == "crude-oil-brent":
+        basis = f"Brent 일봉 {day} 기준(정산 구간 19:28-19:30 London)"
+    elif chart_id == "usd-krw":
+        basis = f"Yahoo FX 일봉 {day} 기준"
+    elif chart_id == "bitcoin":
+        basis = f"BTC 일봉 {day} 기준"
+    else:
+        basis = f"최근 일봉 {day} 기준"
+    return {
+        "basis_date": last_date,
+        "basis_label": basis,
+        "checked_at_label": checked,
+        "coverage_label": f"{basis} · 확인 {checked}",
+    }
+
+
 def update_spec_from_rows(
     spec_path: Path,
     chart: dict,
@@ -404,13 +461,13 @@ def update_spec_from_rows(
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     labels = [symbol["label"] for symbol in chart.get("symbols", [])]
     source = metadata["source"]
+    coverage = metadata.get("coverage") or chart_coverage_label(chart, source, rows)
     if chart.get("subtitle_latest_value") and labels:
         current = latest_values(rows, chart, labels)
         if current:
             _, values = current
-            date_label = display_collected_at(collected_at, target_date)
             spec["title"] = f"{chart['title']}: {' / '.join(values)}"
-            spec["subtitle"] = subtitle_label or f"{date_label} 기준"
+            spec["subtitle"] = subtitle_label or coverage["coverage_label"]
             spec.setdefault("metadata", {}).setdefault("describe", {})["intro"] = spec["subtitle"]
             spec.setdefault("metadata", {}).setdefault("annotate", {})["notes"] = ""
     if chart["chart_type"] in {"d3-lines", "multiple-lines"}:
@@ -440,6 +497,8 @@ def main() -> None:
     rows, metadata = build_rows(chart, args.source, range_value, args.interval, observation_start)
     if not rows:
         raise SystemExit(f"No rows produced for {chart['id']}")
+    fetched_epoch = int(time.time())
+    metadata["coverage"] = chart_coverage_label(chart, metadata["source"], rows, fetched_epoch)
 
     csv_path = write_wide_csv(chart, args.date, rows)
     spec_path = write_chart_spec(
