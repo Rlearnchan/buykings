@@ -6,7 +6,7 @@
     "retrospective_enabled": true,
     "news_lookback_hours": 24,
     "batch_b_lookback_hours": 36,
-    "x_lookback_hours": 24,
+    "x_lookback_hours": 72,
     "news_limit": 80,
     "x_max_posts": 8,
     "note": "일반 방송일: 당일 아침 대시보드 생성 및 품질 게이트 통과 시 Notion 게시."

@@ -31,6 +31,36 @@ Working rule:
 
 ## 3. Proposed Source Architecture
 
+### 3.0 Current Fixed Source Order
+
+As of 2026-05-04, the source rivers are fixed as follows.
+
+Headline river, in priority order:
+
+1. Yahoo ticker RSS, including GPT pre-flight agenda expansion.
+2. Official X news accounts: Reuters, Bloomberg, CNBC, WSJ, FT, MarketWatch.
+3. BizToc API/RSS/Home and Finviz as fallback/anomaly sources.
+
+Analysis river, without strict ranking:
+
+- Kobeissi Letter: fast macro indicators, market sentiment, chart-led story hooks.
+- Wall St Engine: earnings calendar, earnings reactions, chart snippets, short news summaries.
+- Liz Ann Sonders: macro direction, labor/inflation/leading data, sector/ETF flows.
+- Charlie Bilello: historical cycles, long-run market statistics, simple charts.
+- Nick Timiraos: FOMC, Fed comments, minutes, post-data Fed interpretation.
+- ZeroHedge: non-consensus risk narrative and market-anxiety check.
+- The Economist: global policy flow, high-level charts, elite macro framing.
+- IsabelNet: daily data visualizations.
+- FactSet: weekly high-quality earnings and market context.
+
+Pre-flight does not write free-form search queries into Yahoo. Instead, the pre-flight agenda text is mapped by local rules into controlled ticker baskets. This keeps GPT useful for agenda expansion without letting it shrink or over-direct the information universe.
+
+Operational schedule:
+
+- Main publish run: `05:00 KST`
+- Retry: `05:20 KST`
+- X lookback default: `72 hours`, so lower-cadence analysis accounts are still considered.
+
 ### 3.1 News Layer
 
 The news layer captures what the market/news flow is saying today.

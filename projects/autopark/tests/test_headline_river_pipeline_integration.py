@@ -324,7 +324,7 @@ class HeadlineRiverPipelineIntegrationTest(unittest.TestCase):
         tradingview = next(row for row in rows if row["id"] == "tradingview-old")
         corporate_pr = next(row for row in rows if row["id"] == "corporate-pr")
         self.assertLess(mismatch["source_quality_adjustment"], 0)
-        self.assertGreater(factset["source_quality_adjustment"], 0)
+        self.assertLess(factset["source_quality_adjustment"], 0)
         self.assertLess(tradingview["source_quality_adjustment"], 0)
         self.assertLess(corporate_pr["source_quality_adjustment"], 0)
         self.assertEqual(1, factset["recency_penalty"])

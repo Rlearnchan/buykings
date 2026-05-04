@@ -1,8 +1,8 @@
 param(
     [string]$TaskName = "Autopark Daily Publish",
     [string]$ChromeTaskName = "Autopark Chrome CDP",
-    [string]$RunAt = "05:30",
-    [string]$ChromeAt = "05:20",
+    [string]$RunAt = "05:00",
+    [string]$ChromeAt = "04:50",
     [switch]$SkipPublish,
     [switch]$Unregister
 )

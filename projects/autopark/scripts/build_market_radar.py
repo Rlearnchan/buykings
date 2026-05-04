@@ -37,19 +37,40 @@ CORE_SOURCE_WEIGHTS = {
     "wall st engine": 9,
     "wallstengine": 9,
     "isabelnet": 9,
+    "nick timiraos": 9,
+    "nicktimiraos": 9,
+    "the economist": 8,
+    "charlie bilello": 8,
+    "charliebilello": 8,
+    "liz ann": 8,
+    "lizannsonders": 8,
+    "reuters": 9,
+    "wsj": 9,
+    "wall street journal": 9,
+    "financial times": 8,
+    "marketwatch": 7,
     "stockmarket.news": 7,
     "investinq": 7,
     "bespoke": 7,
-    "charlie bilello": 7,
-    "liz ann": 6,
     "kevin gordon": 6,
-    "reuters": 6,
-    "bloomberg": 6,
-    "cnbc": 6,
-    "financial times": 6,
-    "factset": 5,
-    "tradingview": 5,
-    "yahoo": 5,
+    "zerohedge": 5,
+    "bloomberg": 8,
+    "cnbc": 7,
+    "factset": 7,
+    "tradingview": 4,
+    "yahoo agenda": 8,
+    "yahoo finance ticker rss": 8,
+    "yahoo": 7,
+    "finviz": 3,
+    "biztoc": 2,
+}
+
+TRADINGVIEW_WEAK_PROVIDERS = {
+    "zawya",
+    "dpa-afx",
+    "pressetext",
+    "quartr",
+    "mt newswires",
 }
 
 THEMES = {
@@ -182,16 +203,21 @@ def source_quality_adjustment(material: dict, themes: dict[str, list[str]], rece
     ).lower()
     adjustment = 0
     if source_id.startswith("biztoc"):
-        adjustment -= 2
+        adjustment -= 6
         if not themes:
             adjustment -= 3
+    if source_id == "finviz-news":
+        adjustment -= 4
     if source_id == "cnbc-world":
         if recency_days is None:
             adjustment -= 1
         elif recency_days > 3:
             adjustment -= min(5, recency_days)
-    if source_id == "tradingview-news" and recency_days is not None and recency_days > 1:
-        adjustment -= min(3, recency_days - 1)
+    if source_id == "tradingview-news" or "tradingview" in source_blob(material):
+        if any(provider in content_blob for provider in TRADINGVIEW_WEAK_PROVIDERS):
+            adjustment -= 8
+        if recency_days is not None and recency_days > 1:
+            adjustment -= min(3, recency_days - 1)
     if source_id.startswith("yahoo-agenda-"):
         agenda_text = " ".join(str(value) for value in (material.get("agenda_links") or [])).lower()
         agenda_fit = True
@@ -206,10 +232,14 @@ def source_quality_adjustment(material: dict, themes: dict[str, list[str]], rece
         if not agenda_fit:
             adjustment -= 3
     if source_id == "factset-insight":
-        if "earnings season update" in blob or "s&p 500 earnings" in blob or "mag 7" in blob:
-            adjustment += 3
+        if "earnings season update" in blob or "s&p 500 earnings" in blob:
+            adjustment += 4 if recency_days is None or recency_days <= 7 else -2
+        elif "mag 7" in blob:
+            adjustment += 1 if recency_days is None or recency_days <= 14 else -2
         elif "acquire" in blob or "acquisition" in blob:
             adjustment -= 2
+        elif recency_days is not None and recency_days > 7:
+            adjustment -= 3
     if source_id in {"finviz-news", "yahoo-finance-ticker-rss"} or source_id.startswith("yahoo-agenda-"):
         pr_markers = [
             "appoints",
@@ -353,6 +383,10 @@ def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> 
                 recency_bucket = "analysis_window"
         if "tradingview" in source_blob(material) and recency_days is not None and recency_days > 3:
             continue
+        if clean(material.get("source_id") or "").lower() == "tradingview-news" or "tradingview" in source_blob(material):
+            tradingview_blob = material_blob(material)
+            if any(provider in tradingview_blob for provider in TRADINGVIEW_WEAK_PROVIDERS):
+                continue
         quality_adjustment = source_quality_adjustment(material, themes, recency_days)
         visual_bonus = 2 if visual_path(material) else 0
         theme_bonus = min(10, sum(len(values) for values in themes.values()))
