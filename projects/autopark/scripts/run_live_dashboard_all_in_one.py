@@ -697,7 +697,10 @@ def main() -> int:
             "build visual cards",
             "capture finviz market images",
             "fetch/publish/export datawrapper charts",
+            "collect headline river",
+            "collect analysis river",
             "build market radar",
+            "build evidence microcopy",
             "build market focus brief",
             "build editorial brief",
             "render notion markdown",
@@ -1165,6 +1168,43 @@ def main() -> int:
                 now = now_kst().isoformat(timespec="seconds")
                 result = StepResult(f"export png {calendar_slug}", "warn", now, now, 0.0, [], None, str(exc), [])
             append_step(results, result)
+
+    result, _ = run(
+        [
+            py,
+            "projects/autopark/scripts/collect_headline_river.py",
+            "--date",
+            args.date,
+            "--include-support",
+            "--limit-per-source",
+            "60",
+            "--overall-limit",
+            "300",
+        ],
+        "collect headline river",
+        180,
+        allow_fail=True,
+        env=run_env,
+    )
+    append_step(results, result)
+
+    result, _ = run(
+        [
+            py,
+            "projects/autopark/scripts/collect_analysis_river.py",
+            "--date",
+            args.date,
+            "--limit-per-source",
+            "20",
+            "--overall-limit",
+            "160",
+        ],
+        "collect analysis river",
+        180,
+        allow_fail=True,
+        env=run_env,
+    )
+    append_step(results, result)
 
     result, _ = run(
         [

@@ -115,6 +115,143 @@ EVIDENCE_MICROCOPY_FORBIDDEN = [
 ]
 
 
+def source_stat_count(stats: list[dict], source_id: str) -> int:
+    for stat in stats:
+        if isinstance(stat, dict) and stat.get("source_id") == source_id:
+            try:
+                return int(stat.get("item_count") or 0)
+            except (TypeError, ValueError):
+                return 0
+    return 0
+
+
+def review_headline_river_contract(target_date: str) -> list[Finding]:
+    findings: list[Finding] = []
+    path = PROCESSED_DIR / target_date / "headline-river.json"
+    payload, error = load_json(path)
+    if error:
+        issue(
+            findings,
+            "content",
+            "low",
+            "Headline river artifact missing",
+            f"`{path}` could not be loaded: {error}.",
+            "Run collect_headline_river.py before market-radar so the broad headline baseline is visible.",
+        )
+        return findings
+    items = payload.get("items") or []
+    stats = [stat for stat in (payload.get("source_stats") or []) if isinstance(stat, dict)]
+    if not items:
+        issue(
+            findings,
+            "content",
+            "low",
+            "Headline river has no items",
+            "headline-river.json exists but contains zero collected headlines.",
+            "Keep deterministic downstream fallbacks, but inspect Finviz/Yahoo/BizToc collection health.",
+        )
+    required_sources = {
+        "finviz-news": "Finviz headline baseline",
+        "yahoo-finance-ticker-rss": "Yahoo base ticker RSS",
+        "biztoc-feed": "BizToc RSS anomaly feed",
+        "biztoc-home": "BizToc home anomaly scan",
+    }
+    for source_id, label in required_sources.items():
+        if source_stat_count(stats, source_id) <= 0:
+            issue(
+                findings,
+                "content",
+                "low",
+                f"{label} weak or missing",
+                f"`{source_id}` produced no headline river items.",
+                "Treat this as a source-layer warning, not a publish blocker; check source URL/parser drift if repeated.",
+            )
+    anomaly = payload.get("anomaly_summary") or {}
+    if not (anomaly.get("top_keywords") or []):
+        issue(
+            findings,
+            "content",
+            "low",
+            "BizToc anomaly keywords missing",
+            "headline-river anomaly_summary.top_keywords is empty.",
+            "Use BizToc as a noisy keyword detector; if empty repeatedly, inspect the feed/home parser.",
+        )
+    if not (payload.get("agenda_expansions") or []):
+        issue(
+            findings,
+            "content",
+            "low",
+            "Preflight agenda expansion absent",
+            "No agenda-linked Yahoo ticker expansion was generated.",
+            "This is acceptable on quiet/fallback days, but review agenda-to-ticker mapping if it repeats.",
+        )
+    return findings
+
+
+def review_analysis_river_contract(target_date: str) -> list[Finding]:
+    findings: list[Finding] = []
+    path = PROCESSED_DIR / target_date / "analysis-river.json"
+    payload, error = load_json(path)
+    if error:
+        issue(
+            findings,
+            "content",
+            "low",
+            "Analysis river artifact missing",
+            f"`{path}` could not be loaded: {error}.",
+            "Run collect_analysis_river.py before market-radar so specialist analysis context is visible.",
+        )
+        return findings
+    items = payload.get("items") or []
+    if not items:
+        issue(
+            findings,
+            "content",
+            "low",
+            "Analysis river has no items",
+            "analysis-river.json exists but contains zero normalized specialist items.",
+            "This is not a publish blocker, but repeated emptiness means X/FactSet/IsabelNet source health should be inspected.",
+        )
+    news_distribution = [
+        item.get("source_id") or item.get("source_label")
+        for item in items
+        if isinstance(item, dict) and item.get("source_role") == "news_distribution"
+    ]
+    if news_distribution:
+        issue(
+            findings,
+            "integrity",
+            "medium",
+            "News distribution leaked into analysis river",
+            f"analysis-river contains news-distribution sources: {', '.join(str(item) for item in news_distribution[:6])}.",
+            "Keep Reuters/Bloomberg/CNBC news distribution in the news/headline layer unless they provide a sanitized analysis candidate elsewhere.",
+        )
+    for index, item in enumerate(items[:80], start=1):
+        if not isinstance(item, dict):
+            continue
+        text = " ".join(str(item.get(key) or "") for key in ["title", "summary", "source_label"])
+        lowered = text.lower()
+        if any(token.lower() in lowered for token in EVIDENCE_MICROCOPY_FORBIDDEN):
+            issue(
+                findings,
+                "integrity",
+                "medium",
+                "Forbidden token in analysis river",
+                f"`{item.get('item_id') or index}` contains a public-forbidden token.",
+                "Keep role/id/hash tokens internal and out of publish-facing candidate summaries.",
+            )
+        if len(normalize(str(item.get("summary") or ""))) > 900:
+            issue(
+                findings,
+                "integrity",
+                "medium",
+                "Analysis river summary too long",
+                f"`{item.get('item_id') or index}` has a long summary that may resemble raw body text.",
+                "Store only sanitized excerpts/summaries; never raw article bodies or full X threads.",
+            )
+    return findings
+
+
 def review_evidence_microcopy_contract(target_date: str) -> list[Finding]:
     findings: list[Finding] = []
     path = PROCESSED_DIR / target_date / "evidence-microcopy.json"
@@ -163,7 +300,17 @@ def review_evidence_microcopy_contract(target_date: str) -> list[Finding]:
                 "high",
                 "Evidence microcopy content missing",
                 f"`{item.get('item_id') or index}` has no one-line content.",
-                "Each evidence microcopy item needs exactly one content line.",
+                "Each evidence microcopy item needs one content field with 1-3 complete sentences.",
+            )
+        sentence_count = len([part for part in re.split(r"(?<=[.!?。])\s+|(?<=다\.)\s+|(?<=요\.)\s+|\n+", content) if normalize(part)])
+        if content and (sentence_count < 1 or sentence_count > 3):
+            issue(
+                findings,
+                "integrity",
+                "high",
+                "Evidence microcopy sentence count invalid",
+                f"`{item.get('item_id') or index}` content has {sentence_count} sentence-like parts.",
+                "Keep evidence microcopy content to one core point in 1-3 complete sentences.",
             )
         for field, value in [("content", content)]:
             text = normalize(str(value or ""))
@@ -1999,6 +2146,8 @@ def main() -> int:
     if is_compact_publish_markdown(markdown):
         findings = (
             review_compact_publish_contract(markdown)
+            + review_headline_river_contract(args.date)
+            + review_analysis_river_contract(args.date)
             + review_market_focus_contract(args.date, markdown)
             + review_evidence_microcopy_contract(args.date)
         )
@@ -2007,6 +2156,8 @@ def main() -> int:
             review_format(markdown, args.date)
             + review_content(markdown)
             + review_integrity(args.date, markdown)
+            + review_headline_river_contract(args.date)
+            + review_analysis_river_contract(args.date)
             + review_market_focus_contract(args.date, markdown)
             + review_evidence_microcopy_contract(args.date)
         )

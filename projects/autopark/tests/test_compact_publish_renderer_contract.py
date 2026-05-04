@@ -468,6 +468,47 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertIn("OPENAI_API_KEY", findings)
         self.assertIn("X-Amz-Signature", findings)
 
+    def test_sourcebook_records_evidence_microcopy_source_counts(self) -> None:
+        output = self.runtime_root / "sourcebook.md"
+        processed = self.processed / DATE
+        payload = {
+            "ok": True,
+            "enabled": False,
+            "source": "deterministic_disabled",
+            "model": "gpt-5-mini",
+            "request_count": 0,
+            "item_count": 7,
+            "source_item_count": 7,
+            "radar_candidate_count": 3,
+            "headline_item_count": 4,
+            "analysis_item_count": 2,
+            "fallback_count": 7,
+            "invalid_output_count": 0,
+            "estimated_tokens": 123,
+            "generated_fields": ["title", "content"],
+            "items": [{"item_id": "oil-1", "source_label": "Reuters", "title": "유가 리스크", "content": "유가 리스크를 확인했습니다."}],
+        }
+        (processed / "evidence-microcopy.json").write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+        original_processed = sourcebook.PROCESSED_DIR
+        original_runtime = sourcebook.RUNTIME_DIR
+        original_exports = sourcebook.EXPORTS_DIR
+        sourcebook.PROCESSED_DIR = self.processed
+        sourcebook.RUNTIME_DIR = self.runtime_root / "runtime"
+        sourcebook.EXPORTS_DIR = self.exports
+        try:
+            sourcebook.build_sourcebook(DATE, output)
+        finally:
+            sourcebook.PROCESSED_DIR = original_processed
+            sourcebook.RUNTIME_DIR = original_runtime
+            sourcebook.EXPORTS_DIR = original_exports
+        markdown = output.read_text(encoding="utf-8")
+
+        self.assertIn("- source_item_count: `7`", markdown)
+        self.assertIn("- radar_candidate_count: `3`", markdown)
+        self.assertIn("- headline_item_count: `4`", markdown)
+        self.assertIn("- analysis_item_count: `2`", markdown)
+
     def test_microcopy_validation_falls_back_per_invalid_item(self) -> None:
         context = {
             "storylines": [
@@ -525,6 +566,31 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertEqual(1, len(market_cards))
         self.assertEqual(1, len(media_cards))
         self.assertEqual("advanced-us10y-chart.png", media_cards[0]["image"])
+
+    def test_media_focus_microcopy_sentence_paragraph_splits_to_bullets(self) -> None:
+        lines: list[str] = []
+        dashboard.render_media_focus_card(
+            lines,
+            {
+                "label": "Fed 인플레이션 발언 기사",
+                "source": "Reuters",
+                "url": "https://example.com/fed",
+                "captured_at": "2026-05-04T05:12:00+09:00",
+                "summary": "fallback",
+            },
+            set(),
+            1,
+            {
+                "card_key": "card-1",
+                "content_bullets": ["Fed 인사가 인플레이션 데이터 부담을 언급했습니다. 시장은 금리 경로가 편해졌는지 다시 확인했습니다."],
+            },
+        )
+        body = "\n".join(lines).split("**주요 내용**", 1)[1]
+        bullets = re.findall(r"^-\s+(.+)$", body, flags=re.M)
+        self.assertEqual(
+            ["Fed 인사가 인플레이션 데이터 부담을 언급했습니다.", "시장은 금리 경로가 편해졌는지 다시 확인했습니다."],
+            bullets,
+        )
 
     def test_quality_gate_allows_blank_fedwatch_card(self) -> None:
         markdown = "\n".join(

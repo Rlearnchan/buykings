@@ -46,6 +46,7 @@ DEFAULT_BATCH_B_IDS = [
 ]
 SOURCE_FEEDS = {
     "biztoc-com-source": "https://biztoc.com/feed",
+    "finance-yahoo-com-source": "https://feeds.finance.yahoo.com/rss/2.0/headline?s=%5EGSPC,%5EIXIC,%5EDJI,CL%3DF,%5ETNX,NVDA,MSFT,AMZN,GOOGL",
     "insight-factset-com-source": "https://insight.factset.com/rss.xml",
 }
 
@@ -217,7 +218,10 @@ def parse_rss_items(feed_text: str) -> list[dict]:
         title = clean_text(item.findtext("title") or "")
         link = clean_text(item.findtext("link") or "")
         pub_date = clean_text(item.findtext("pubDate") or "")
-        description = clean_text(strip_tags(item.findtext("description") or ""))
+        description = truncate_text(strip_tags(item.findtext("description") or ""), 520)
+        source_node = item.find("source")
+        source_label = clean_text(source_node.text if source_node is not None else "")
+        source_url = clean_text(source_node.attrib.get("url", "") if source_node is not None else "")
         if not title or not link:
             continue
         published_at = None
@@ -225,13 +229,18 @@ def parse_rss_items(feed_text: str) -> list[dict]:
             try:
                 published_at = parsedate_to_datetime(pub_date).date().isoformat()
             except (TypeError, ValueError, IndexError):
-                published_at = None
+                try:
+                    published_at = datetime.fromisoformat(pub_date.replace("Z", "+00:00")).date().isoformat()
+                except ValueError:
+                    published_at = None
         items.append(
             {
                 "title": title,
                 "url": link,
                 "published_at": published_at,
                 "summary": description,
+                "source_label": source_label,
+                "source_url": source_url,
             }
         )
     return items
@@ -239,8 +248,16 @@ def parse_rss_items(feed_text: str) -> list[dict]:
 
 def clean_text(value: str) -> str:
     value = html.unescape(value)
+    value = re.sub(r"[\u200b-\u200f\ufeff]", "", value)
     value = re.sub(r"\s+", " ", value).strip()
     return value
+
+
+def truncate_text(value: str, limit: int) -> str:
+    text = clean_text(value)
+    if len(text) <= limit:
+        return text
+    return text[: limit - 1].rstrip() + "…"
 
 
 def strip_tags(value: str) -> str:
@@ -660,6 +677,14 @@ def build_candidates(
         evidence = [{"kind": "headline", "text": item["title"], "source_url": item["url"]}]
         if summary and summary != item["title"]:
             evidence.append({"kind": "summary", "text": summary, "source_url": item["url"]})
+        if item.get("source_label"):
+            evidence.append(
+                {
+                    "kind": "syndicated_source",
+                    "text": item["source_label"],
+                    "source_url": item.get("source_url") or item["url"],
+                }
+            )
         if source["id"] == "biztoc-com-source":
             evidence.append(
                 {
@@ -678,7 +703,7 @@ def build_candidates(
                 id=candidate_id,
                 headline=item["title"],
                 source_id=source["id"],
-                source_name=source["name"],
+                source_name=item.get("source_label") or source["name"],
                 url=item["url"],
                 published_at=item_date.isoformat() if item_date else item.get("published_at"),
                 captured_at=captured_at,

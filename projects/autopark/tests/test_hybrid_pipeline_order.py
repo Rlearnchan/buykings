@@ -40,7 +40,11 @@ class HybridPipelineOrderTest(unittest.TestCase):
         planned = payload["planned"]
 
         self.assertLess(planned.index("build market preflight agenda"), planned.index("collect news batch a/b"))
-        self.assertLess(planned.index("collect news batch a/b"), planned.index("build market radar"))
+        self.assertLess(planned.index("collect news batch a/b"), planned.index("collect headline river"))
+        self.assertLess(planned.index("collect headline river"), planned.index("build market radar"))
+        self.assertLess(planned.index("collect headline river"), planned.index("collect analysis river"))
+        self.assertLess(planned.index("collect analysis river"), planned.index("build market radar"))
+        self.assertLess(planned.index("build market radar"), planned.index("build evidence microcopy"))
         self.assertLess(planned.index("build market radar"), planned.index("build market focus brief"))
         self.assertLess(planned.index("build market focus brief"), planned.index("build editorial brief"))
         self.assertTrue(payload["editorial"]["preflight_enabled"])
@@ -50,6 +54,8 @@ class HybridPipelineOrderTest(unittest.TestCase):
         payload = self.run_dry("--skip-preflight-agenda")
 
         self.assertNotIn("build market preflight agenda", payload["planned"])
+        self.assertIn("collect headline river", payload["planned"])
+        self.assertIn("collect analysis river", payload["planned"])
         self.assertIn("build market focus brief", payload["planned"])
         self.assertFalse(payload["editorial"]["preflight_enabled"])
 

@@ -668,6 +668,111 @@ def compact_preflight_agenda(agenda: dict) -> dict:
     }
 
 
+def compact_headline_river(river: dict) -> dict:
+    if not isinstance(river, dict) or not river:
+        return {}
+    return {
+        "date": river.get("date") or "",
+        "source": "headline_river",
+        "item_count": river.get("item_count") or len(river.get("items") or []),
+        "baseline_source_ids": unique_strings(river.get("baseline_source_ids") or [])[:8],
+        "support_source_ids": unique_strings(river.get("support_source_ids") or [])[:8],
+        "agenda_expansions": [
+            {
+                "agenda_id": compact_text(item.get("agenda_id"), 80),
+                "rank": item.get("rank") or index,
+                "tickers": unique_strings(item.get("tickers") or [])[:12],
+            }
+            for index, item in enumerate((river.get("agenda_expansions") or [])[:8], start=1)
+            if isinstance(item, dict)
+        ],
+        "source_stats": [
+            {
+                "source_id": compact_text(stat.get("source_id"), 80),
+                "source_label": compact_text(stat.get("source_label"), 80),
+                "status": compact_text(stat.get("status"), 40),
+                "source_role": compact_text(stat.get("source_role"), 60),
+                "item_count": stat.get("item_count") or 0,
+            }
+            for stat in (river.get("source_stats") or [])[:16]
+            if isinstance(stat, dict)
+        ],
+        "anomaly_summary": {
+            "top_keywords": [
+                {"keyword": compact_text(row.get("keyword"), 40), "count": row.get("count") or 0}
+                for row in ((river.get("anomaly_summary") or {}).get("top_keywords") or [])[:12]
+                if isinstance(row, dict)
+            ],
+            "top_hosts": [
+                {"host": compact_text(row.get("host"), 80), "count": row.get("count") or 0}
+                for row in ((river.get("anomaly_summary") or {}).get("top_hosts") or [])[:12]
+                if isinstance(row, dict)
+            ],
+            "top_title_tokens": [
+                {"token": compact_text(row.get("token"), 40), "count": row.get("count") or 0}
+                for row in ((river.get("anomaly_summary") or {}).get("top_title_tokens") or [])[:16]
+                if isinstance(row, dict)
+            ],
+        },
+        "sample_items": [
+            {
+                "item_id": compact_text(item.get("item_id"), 80),
+                "source_label": compact_text(item.get("source_label"), 80),
+                "publisher": compact_text(item.get("publisher"), 80),
+                "title": sanitized_text(item.get("title"), 140),
+                "snippet": sanitized_text(item.get("snippet"), 220),
+                "source_role": compact_text(item.get("source_role"), 60),
+                "source_authority": compact_text(item.get("source_authority"), 40),
+                "agenda_links": unique_strings(item.get("agenda_links") or [])[:6],
+                "content_level": compact_text(item.get("content_level"), 40),
+            }
+            for item in (river.get("items") or [])[:40]
+            if isinstance(item, dict)
+        ],
+    }
+
+
+def compact_analysis_river(river: dict) -> dict:
+    if not isinstance(river, dict) or not river:
+        return {}
+    return {
+        "date": river.get("date") or "",
+        "source": "analysis_river",
+        "item_count": river.get("item_count") or len(river.get("items") or []),
+        "analysis_source_ids": unique_strings(river.get("analysis_source_ids") or [])[:16],
+        "role_counts": [
+            {"role": compact_text(row.get("role"), 60), "count": row.get("count") or 0}
+            for row in (river.get("role_counts") or [])[:12]
+            if isinstance(row, dict)
+        ],
+        "source_stats": [
+            {
+                "source_id": compact_text(stat.get("source_id"), 80),
+                "source_label": compact_text(stat.get("source_label"), 80),
+                "status": compact_text(stat.get("status"), 40),
+                "source_role": compact_text(stat.get("source_role"), 60),
+                "item_count": stat.get("item_count") or 0,
+            }
+            for stat in (river.get("source_stats") or [])[:20]
+            if isinstance(stat, dict)
+        ],
+        "sample_items": [
+            {
+                "item_id": compact_text(item.get("item_id"), 80),
+                "source_label": compact_text(item.get("source_label"), 80),
+                "title": sanitized_text(item.get("title"), 140),
+                "summary": sanitized_text(item.get("summary"), 240),
+                "source_role": compact_text(item.get("source_role"), 60),
+                "source_authority": compact_text(item.get("source_authority"), 40),
+                "content_level": compact_text(item.get("content_level"), 40),
+                "detected_keywords": unique_strings(item.get("detected_keywords") or [])[:8],
+            }
+            for item in (river.get("items") or [])[:36]
+            if isinstance(item, dict)
+        ],
+    }
+
+
 def sanitize_local_packet(payload: dict) -> dict:
     aliases: dict[str, str] = {}
     radar = payload.get("market_radar") or {}
@@ -683,6 +788,8 @@ def sanitize_local_packet(payload: dict) -> dict:
             "preflight_is_hypothesis_only": True,
         },
         "market_preflight_agenda": compact_preflight_agenda(payload.get("market_preflight_agenda") or {}),
+        "headline_river": compact_headline_river(payload.get("headline_river") or {}),
+        "analysis_river": compact_analysis_river(payload.get("analysis_river") or {}),
         "market_radar": {
             "candidate_count": radar.get("candidate_count") or len(radar.get("candidates") or []),
             "storylines": [sanitize_storyline(story, aliases) for story in (radar.get("storylines") or [])[:8]],
@@ -754,6 +861,8 @@ def build_input_payload(target_date: str, max_candidates: int, max_raw_files: in
         "charts": collect_charts(),
         "available_assets": collect_screenshot_assets(target_date, max_assets),
         "market_preflight_agenda": load_optional_json(processed / "market-preflight-agenda.json"),
+        "headline_river": load_optional_json(processed / "headline-river.json"),
+        "analysis_river": load_optional_json(processed / "analysis-river.json"),
     }
     return sanitize_local_packet(raw_payload)
 
@@ -895,8 +1004,9 @@ def build_prompt(payload: dict, with_web: bool = False) -> str:
 
 Runtime mode:
 - {web_note}
-- candidates[].micro_title is a short public title; candidates[].micro_content is a 120-300 character description of what the material says; do not let either change source order or promote unsupported stories.
+- candidates[].micro_title is a short public title; candidates[].micro_content is one core summary in 1-3 sentences; do not let either change source order or promote unsupported stories.
 - candidates[].source_tier/source_authority/source_use_role are trust hints only. Premium Reuters/Bloomberg/WSJ can anchor facts via sanitized summaries; market_data confirms reaction but not causality; social sources cannot be standalone fact evidence.
+- market_preflight_agenda is today's hypothesis map. headline_river is the broad headline/anomaly layer. analysis_river is specialist commentary/chart/earnings context. Use them to spot missing angles, source gaps, and corroboration, but do not promote an issue unless candidates[] or charts provide local evidence.
 
 Return JSON matching the provided schema. Do not wrap it in Markdown.
 

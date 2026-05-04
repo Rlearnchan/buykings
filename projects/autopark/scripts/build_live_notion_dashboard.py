@@ -274,6 +274,7 @@ def sanitize_story_public_text(storyline: dict, value: str | None, limit: int = 
     text = re.sub(r"\s*\(후속:[^)]+\)", "", text)
     text = text.replace("요약하면, ", "").replace("요약하면 ", "")
     text = text.replace("후속: ", "")
+    text = text.replace("유가 프리미엄", "유가 부담").replace("프리미엄", "부담")
     text = re.sub(r"\.\s*\.", ".", text)
     if story_axis(storyline) == "oil" and oil_price_reaction_weak():
         if re.search(r"프리미엄|급등|되살아난|부활", text):
@@ -3556,6 +3557,29 @@ def content_bullets(card: dict) -> list[str]:
     return [clean(part, 300) for part in parts[:3]]
 
 
+def content_bullets_from_values(values: list[object]) -> list[str]:
+    rows: list[str] = []
+    for value in values:
+        raw = sentence_split_safe(markdown_plain(value))
+        for part in re.split(r"(?<=[.!?。])\s+|(?<=다\.)\s+|(?<=요\.)\s+|\n+", raw):
+            text = clean(remove_host_forbidden(str(part or "")), 300)
+            if text and text not in rows:
+                rows.append(text)
+            if len(rows) >= 3:
+                return rows
+    return rows
+
+
+def sentence_split_safe(value: object) -> str:
+    text = str(value or "")
+    return (
+        text.replace("U.S.", "US")
+        .replace("U.K.", "UK")
+        .replace("U.N.", "UN")
+        .replace("E.U.", "EU")
+    )
+
+
 def circled_number(index: int) -> str:
     return CIRCLED_NUMBERS[index - 1] if 1 <= index <= len(CIRCLED_NUMBERS) else f"({index})"
 
@@ -3610,7 +3634,8 @@ def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str
     if image:
         lines.extend(["", notion_image(label, image)])
     lines.extend(["", "**주요 내용**", ""])
-    bullets = (microcopy_card or {}).get("content_bullets") or content_bullets(card)
+    raw_bullets = (microcopy_card or {}).get("content_bullets") or content_bullets(card)
+    bullets = content_bullets_from_values(raw_bullets) or content_bullets(card)
     for bullet in bullets[:3]:
         text = clean(remove_host_forbidden(str(bullet or "")), 300) or "자료의 가격 반응과 방송 연결 포인트를 확인한다."
         lines.append(f"- {text}")

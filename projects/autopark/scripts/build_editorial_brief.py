@@ -1094,6 +1094,124 @@ def compact_retrospective_learning(payload: dict, max_days: int = 2) -> dict:
     }
 
 
+def compact_preflight_agenda(agenda: dict) -> dict:
+    if not isinstance(agenda, dict) or not agenda:
+        return {}
+    return {
+        "date": agenda.get("date") or agenda.get("target_date") or "",
+        "fallback": bool(agenda.get("fallback")),
+        "fallback_code": agenda.get("fallback_code") or "",
+        "preflight_summary": sanitize_prompt_text(agenda.get("preflight_summary"), 140),
+        "agenda_items": [
+            {
+                "rank": item.get("rank") or index,
+                "agenda_id": sanitize_prompt_text(item.get("agenda_id"), 80),
+                "market_question": sanitize_prompt_text(item.get("market_question"), 180),
+                "why_to_check": sanitize_prompt_text(item.get("why_to_check"), 220),
+                "expected_broadcast_use": sanitize_prompt_text(item.get("expected_broadcast_use"), 80),
+                "must_verify_with_local_evidence": bool(item.get("must_verify_with_local_evidence")) is True,
+            }
+            for index, item in enumerate((agenda.get("agenda_items") or [])[:6], start=1)
+            if isinstance(item, dict)
+        ],
+        "source_gaps_to_watch": [sanitize_prompt_text(item, 140) for item in (agenda.get("source_gaps_to_watch") or [])[:8]],
+    }
+
+
+def compact_headline_river(river: dict, compact_retry: bool = False) -> dict:
+    if not isinstance(river, dict) or not river:
+        return {}
+    item_limit = 16 if compact_retry else 36
+    return {
+        "date": river.get("date") or "",
+        "item_count": river.get("item_count") or len(river.get("items") or []),
+        "baseline_source_ids": (river.get("baseline_source_ids") or [])[:8],
+        "agenda_expansions": [
+            {
+                "agenda_id": sanitize_prompt_text(item.get("agenda_id"), 80),
+                "rank": item.get("rank") or index,
+                "tickers": (item.get("tickers") or [])[:12],
+            }
+            for index, item in enumerate((river.get("agenda_expansions") or [])[:8], start=1)
+            if isinstance(item, dict)
+        ],
+        "anomaly_summary": {
+            "top_keywords": [
+                {"keyword": sanitize_prompt_text(row.get("keyword"), 40), "count": row.get("count") or 0}
+                for row in ((river.get("anomaly_summary") or {}).get("top_keywords") or [])[:12]
+                if isinstance(row, dict)
+            ],
+            "top_hosts": [
+                {"host": sanitize_prompt_text(row.get("host"), 80), "count": row.get("count") or 0}
+                for row in ((river.get("anomaly_summary") or {}).get("top_hosts") or [])[:12]
+                if isinstance(row, dict)
+            ],
+            "top_title_tokens": [
+                {"token": sanitize_prompt_text(row.get("token"), 40), "count": row.get("count") or 0}
+                for row in ((river.get("anomaly_summary") or {}).get("top_title_tokens") or [])[:16]
+                if isinstance(row, dict)
+            ],
+        },
+        "sample_items": [
+            {
+                "item_id": sanitize_prompt_text(item.get("item_id"), 80),
+                "source_label": sanitize_prompt_text(item.get("source_label"), 80),
+                "publisher": sanitize_prompt_text(item.get("publisher"), 80),
+                "title": sanitize_prompt_text(item.get("title"), 140),
+                "snippet": sanitize_prompt_text(item.get("snippet"), 180 if compact_retry else 240),
+                "source_role": sanitize_prompt_text(item.get("source_role"), 60),
+                "source_authority": sanitize_prompt_text(item.get("source_authority"), 40),
+                "agenda_links": (item.get("agenda_links") or [])[:6],
+                "content_level": sanitize_prompt_text(item.get("content_level"), 40),
+            }
+            for item in (river.get("items") or [])[:item_limit]
+            if isinstance(item, dict)
+        ],
+    }
+
+
+def compact_analysis_river(river: dict, compact_retry: bool = False) -> dict:
+    if not isinstance(river, dict) or not river:
+        return {}
+    item_limit = 14 if compact_retry else 32
+    return {
+        "date": river.get("date") or "",
+        "source": "analysis_river",
+        "item_count": river.get("item_count") or len(river.get("items") or []),
+        "analysis_source_ids": (river.get("analysis_source_ids") or [])[:16],
+        "role_counts": [
+            {"role": sanitize_prompt_text(row.get("role"), 60), "count": row.get("count") or 0}
+            for row in (river.get("role_counts") or [])[:12]
+            if isinstance(row, dict)
+        ],
+        "source_stats": [
+            {
+                "source_id": sanitize_prompt_text(stat.get("source_id"), 80),
+                "source_label": sanitize_prompt_text(stat.get("source_label"), 80),
+                "status": sanitize_prompt_text(stat.get("status"), 40),
+                "source_role": sanitize_prompt_text(stat.get("source_role"), 60),
+                "item_count": stat.get("item_count") or 0,
+            }
+            for stat in (river.get("source_stats") or [])[:20]
+            if isinstance(stat, dict)
+        ],
+        "sample_items": [
+            {
+                "item_id": sanitize_prompt_text(item.get("item_id"), 80),
+                "source_label": sanitize_prompt_text(item.get("source_label"), 80),
+                "title": sanitize_prompt_text(item.get("title"), 140),
+                "summary": sanitize_prompt_text(item.get("summary"), 180 if compact_retry else 260),
+                "source_role": sanitize_prompt_text(item.get("source_role"), 60),
+                "source_authority": sanitize_prompt_text(item.get("source_authority"), 40),
+                "content_level": sanitize_prompt_text(item.get("content_level"), 40),
+                "detected_keywords": (item.get("detected_keywords") or [])[:8],
+            }
+            for item in (river.get("items") or [])[:item_limit]
+            if isinstance(item, dict)
+        ],
+    }
+
+
 def build_input_payload(target_date: str, max_candidates: int, compact_retry: bool = False) -> dict:
     processed = PROCESSED_DIR / target_date
     radar = load_json(processed / "market-radar.json")
@@ -1101,6 +1219,9 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
     if evidence_microcopy:
         radar = {**radar, "candidates": attach_evidence_microcopy(radar.get("candidates") or [], evidence_microcopy)}
     market_focus = load_optional_json(processed / "market-focus-brief.json")
+    preflight_agenda = load_optional_json(processed / "market-preflight-agenda.json")
+    headline_river = load_optional_json(processed / "headline-river.json")
+    analysis_river = load_optional_json(processed / "analysis-river.json")
     radar_storylines = radar.get("storylines") or []
     required_ids = referenced_candidate_ids_from_storylines(radar_storylines)
     required_ids.update(referenced_candidate_ids_from_market_focus(market_focus))
@@ -1148,6 +1269,9 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
             "operation_note": os.environ.get("AUTOPARK_OPERATION_NOTE") or "",
         },
         "market_focus_brief": compact_market_focus_brief(market_focus, compact_retry=compact_retry),
+        "market_preflight_agenda": compact_preflight_agenda(preflight_agenda),
+        "headline_river": compact_headline_river(headline_river, compact_retry=compact_retry),
+        "analysis_river": compact_analysis_river(analysis_river, compact_retry=compact_retry),
         "market_radar_storylines": [compact_radar_storyline(story) for story in radar_storylines[:8]] if compact_retry else radar_storylines,
         "candidates": [
             compact_candidate(
@@ -1197,6 +1321,9 @@ Rules:
 - Use only the provided candidates and evidence IDs.
 - Do not invent facts, prices, dates, or claims outside the evidence.
 - Treat market_focus_brief as the upstream ranking prior for the lead and storyline order, not as standalone evidence.
+- Treat market_preflight_agenda as a hypothesis map from the early news editor. Use it to understand today's intended search direction, source gaps, and watchpoints, not as proof.
+- Treat headline_river as the broad headline/anomaly river. Use it to avoid missing a widely repeated theme, but only candidates[] and market_focus_brief evidence IDs can support public storyline decisions.
+- Treat analysis_river as specialist commentary, chart context, and earnings reaction. It can improve framing and source-gap awareness, but it cannot override candidate evidence quality or invent market causality.
 - Treat candidates[].micro_title and candidates[].micro_content as public wording helpers; they do not rank, select, or prove causality by themselves.
 - If market_focus_brief marks an issue as source_gap or lacks local evidence_ids/source_ids, do not promote it as a public storyline.
 - When market_focus_brief conflicts with candidate evidence, evidence quality wins; explain the downgrade in evidence_to_drop or retrospective_watchpoints.

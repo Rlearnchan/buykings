@@ -153,7 +153,7 @@ def item_id_of(item: dict) -> str:
 
 
 def source_label_of(item: dict) -> str:
-    return clean(item.get("source") or item.get("source_name") or item.get("source_id") or item.get("type") or "Autopark", 80)
+    return clean(item.get("source") or item.get("source_label") or item.get("publisher") or item.get("source_name") or item.get("source_id") or item.get("type") or "Autopark", 80)
 
 
 def title_of(item: dict) -> str:
@@ -161,7 +161,7 @@ def title_of(item: dict) -> str:
 
 
 def summary_of(item: dict) -> str:
-    return clean(item.get("summary") or item.get("description") or item.get("selection_reason") or item.get("text") or title_of(item), 420)
+    return clean(item.get("summary") or item.get("snippet") or item.get("description") or item.get("selection_reason") or item.get("text") or title_of(item), 420)
 
 
 def theme_keys_of(item: dict) -> list[str]:
@@ -178,6 +178,8 @@ def compact_item_for_prompt(item: dict) -> dict:
         "summary": summary_of(item),
         "published_at": clean(item.get("published_at") or item.get("captured_at") or "", 40),
         "theme_keys": theme_keys_of(item),
+        "agenda_links": [clean(value, 80) for value in (item.get("agenda_links") or []) if clean(value, 80)][:6],
+        "content_level": clean(item.get("content_level") or "", 40),
         "radar_question": clean(item.get("radar_question") or "", 160),
         "market_reaction": clean(item.get("market_reaction") or "", 160),
         "korea_open_relevance": clean(item.get("korea_open_relevance") or "", 140),
@@ -209,6 +211,103 @@ def radar_candidates(radar: dict, limit: int) -> list[dict]:
     return rows
 
 
+def headline_river_items(payload: dict, limit: int) -> list[dict]:
+    rows: list[dict] = []
+    seen: set[str] = set()
+    for item in payload.get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        item_id = item_id_of(item)
+        if not item_id or item_id in seen:
+            continue
+        rows.append(
+            {
+                "id": item_id,
+                "item_id": item_id,
+                "title": item.get("title") or "",
+                "summary": item.get("snippet") or item.get("title") or "",
+                "source": item.get("publisher") or item.get("source_label") or item.get("source_id") or "Headline River",
+                "source_name": item.get("source_label") or item.get("source_id") or "",
+                "source_id": item.get("source_id") or "",
+                "url": item.get("url") or "",
+                "type": "headline_river",
+                "published_at": item.get("published_at") or item.get("captured_at") or "",
+                "captured_at": item.get("captured_at") or "",
+                "source_role": item.get("source_role") or "",
+                "source_authority": item.get("source_authority") or "",
+                "agenda_links": item.get("agenda_links") or [],
+                "content_level": item.get("content_level") or "",
+                "detected_keywords": item.get("detected_keywords") or [],
+            }
+        )
+        seen.add(item_id)
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def analysis_river_items(payload: dict, limit: int) -> list[dict]:
+    rows: list[dict] = []
+    seen: set[str] = set()
+    for item in payload.get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        item_id = item_id_of(item)
+        if not item_id or item_id in seen:
+            continue
+        rows.append(
+            {
+                "id": item_id,
+                "item_id": item_id,
+                "title": item.get("title") or "",
+                "summary": item.get("summary") or item.get("title") or "",
+                "source": item.get("source_label") or item.get("source_id") or "Analysis River",
+                "source_name": item.get("source_label") or item.get("source_id") or "",
+                "source_id": item.get("source_id") or "",
+                "url": item.get("url") or "",
+                "type": "analysis_river",
+                "published_at": item.get("published_at") or item.get("captured_at") or "",
+                "captured_at": item.get("captured_at") or "",
+                "source_role": item.get("source_role") or "",
+                "source_authority": item.get("source_authority") or "",
+                "content_level": item.get("content_level") or "",
+                "detected_keywords": item.get("detected_keywords") or [],
+            }
+        )
+        seen.add(item_id)
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def microcopy_source_items(target_date: str, limit: int) -> tuple[list[dict], dict[str, int]]:
+    radar = load_json(PROCESSED_DIR / target_date / "market-radar.json")
+    headline = load_json(PROCESSED_DIR / target_date / "headline-river.json")
+    analysis = load_json(PROCESSED_DIR / target_date / "analysis-river.json")
+    rows: list[dict] = []
+    seen: set[str] = set()
+    counts = {
+        "radar_candidate_count": len(radar.get("candidates") or []),
+        "headline_item_count": len(headline.get("items") or []),
+        "analysis_item_count": len(analysis.get("items") or []),
+    }
+    for source_rows in [radar_candidates(radar, limit), headline_river_items(headline, limit), analysis_river_items(analysis, limit)]:
+        for item in source_rows:
+            key = item_id_of(item)
+            url_key = clean(item.get("url") or "").lower()
+            title_key = f"{source_label_of(item).lower()}::{title_of(item).lower()}"
+            dedupe_key = url_key or title_key or key
+            if not key or dedupe_key in seen:
+                continue
+            rows.append(item)
+            seen.add(dedupe_key)
+            if len(rows) >= limit:
+                counts["source_item_count"] = len(rows)
+                return rows, counts
+    counts["source_item_count"] = len(rows)
+    return rows, counts
+
+
 def chunked(items: list[dict], size: int) -> list[list[dict]]:
     return [items[index : index + size] for index in range(0, len(items), size)]
 
@@ -217,8 +316,19 @@ def fallback_content(item: dict) -> str:
     title = title_of(item)
     summary = summary_of(item)
     if summary and summary != title:
-        return sanitize_line(summary, MAX_CONTENT_CHARS) or sanitize_line(title, MAX_CONTENT_CHARS)
-    return sanitize_line(title, MAX_CONTENT_CHARS) or "자료의 핵심 내용을 정리했습니다."
+        return contract_content(summary) or contract_content(title) or "자료의 핵심 내용을 정리했습니다."
+    return contract_content(title) or "자료의 핵심 내용을 정리했습니다."
+
+
+def contract_content(value: object) -> str:
+    text = sanitize_line(re.sub(r"\b\d+\.\s+", "", str(value or "")), MAX_CONTENT_CHARS)
+    if not text:
+        return ""
+    parts = content_sentences(text)
+    if len(parts) <= 3:
+        return text
+    clipped = " ".join(parts[:3])
+    return sanitize_line(clipped, MAX_CONTENT_CHARS)
 
 
 def deterministic_item(item: dict, reason: str = "deterministic") -> dict:
@@ -247,6 +357,9 @@ def validate_item(output: dict, source_item: dict) -> tuple[dict, list[str]]:
     )
     if not content:
         errors.append("missing_content")
+    sentence_count = len(content_sentences(content))
+    if sentence_count < 1 or sentence_count > 3:
+        errors.append("content_sentence_count")
     text_blob = " ".join([source_label, title, content])
     if forbidden_hit(text_blob):
         errors.append("forbidden_token")
@@ -261,6 +374,14 @@ def validate_item(output: dict, source_item: dict) -> tuple[dict, list[str]]:
         },
         errors,
     )
+
+
+def content_sentences(value: str) -> list[str]:
+    text = clean(value)
+    if not text:
+        return []
+    parts = [clean(part) for part in re.split(r"(?<=[.!?。])\s+|(?<=다\.)\s+|(?<=요\.)\s+|\n+", text) if clean(part)]
+    return parts or [text]
 
 
 def build_prompt(target_date: str, items: list[dict]) -> str:
@@ -280,9 +401,10 @@ def build_prompt(target_date: str, items: list[dict]) -> str:
 
 Task:
 - For each item, write a short public title around 20 Korean characters, hard max 24 characters.
-- For each item, write exactly one content paragraph, 120-300 characters when source detail allows.
-- The content should say what the news/material says, with enough context for a host to understand it quickly.
+- For each item, write exactly one content field: one core point in 1-3 complete sentences.
+- The content should say only what the news/material says, with enough context for a host to understand it quickly.
 - Korean should be the base language, but English market terms or quoted phrases are allowed when useful.
+- Do not split the content into separate meaning/use/caution bullets.
 - Do not add unsupported interpretation, PPT usage, cautions, or phrases like "자료입니다".
 
 Strict rules:
@@ -344,8 +466,7 @@ def group_size_from(value: object) -> int:
 
 
 def build_microcopy(target_date: str, env: dict[str, str], *, limit: int, group_size: int, timeout: int) -> dict:
-    radar = load_json(PROCESSED_DIR / target_date / "market-radar.json")
-    items = radar_candidates(radar, limit)
+    items, source_counts = microcopy_source_items(target_date, limit)
     enabled = env.get("AUTOPARK_EVIDENCE_MICROCOPY_ENABLED") == "1"
     model = env.get("AUTOPARK_EVIDENCE_MICROCOPY_MODEL") or DEFAULT_MODEL
     fallback_mode = env.get("AUTOPARK_EVIDENCE_MICROCOPY_FALLBACK") or DEFAULT_FALLBACK
@@ -409,7 +530,8 @@ def build_microcopy(target_date: str, env: dict[str, str], *, limit: int, group_
         "request_count": request_count,
         "group_size": group_size,
         "item_count": len(result_items),
-        "candidate_count": len(radar.get("candidates") or []),
+        "candidate_count": source_counts.get("radar_candidate_count", 0),
+        **source_counts,
         "fallback_count": fallback_count,
         "invalid_output_count": invalid_output_count,
         "estimated_tokens": estimated_tokens,

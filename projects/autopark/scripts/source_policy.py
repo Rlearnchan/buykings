@@ -148,6 +148,19 @@ def source_blob(item: dict) -> str:
 
 def infer_source_policy(item: dict) -> dict:
     blob = source_blob(item)
+    if "finance-yahoo-com-source" in blob or "finance.yahoo.com/news" in blob or "finance.yahoo.com/topic" in blob:
+        return asdict(
+            SourcePolicy(
+                tier="primary",
+                authority="medium",
+                use_role="speed_anchor",
+                auth_profile="",
+                publish_policy="title_source_summary_link_only",
+                llm_policy="sanitized_summary_only",
+                lead_allowed=True,
+                notes="Accessible Yahoo Finance news/RSS source. Use for fast market context and confirm with market data.",
+            )
+        )
     if "x.com" in blob or "twitter.com" in blob or "reddit" in blob:
         for hints, policy in POLICIES:
             if "x.com" in hints:

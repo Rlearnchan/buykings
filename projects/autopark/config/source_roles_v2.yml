@@ -1,0 +1,235 @@
+version: 2
+description: "Autopark source role registry for post-MVP source quality upgrades."
+
+principles:
+  - "Pre-flight expands collection; it must not gate or shrink the baseline headline river."
+  - "Headline aggregators discover topics; they do not confirm facts by themselves."
+  - "X and social accounts are sentiment, attention, or specialist-analysis signals unless paired with fact/data evidence."
+  - "Charts and heatmaps show market reaction; they do not prove causality alone."
+  - "Final publish format remains compact; this registry improves internal evidence handling."
+
+role_codes:
+  baseline_headline:
+    layer: news
+    evidence_role: context
+    broadcast_role: discovery
+    standalone_fact_allowed: false
+  agenda_deepening:
+    layer: news
+    evidence_role: context
+    broadcast_role: discovery
+    standalone_fact_allowed: false
+  anomaly_detector:
+    layer: news
+    evidence_role: context
+    broadcast_role: watch_only
+    standalone_fact_allowed: false
+  support_context:
+    layer: news
+    evidence_role: context
+    broadcast_role: supporting_context
+    standalone_fact_allowed: false
+  speed_anchor:
+    layer: news
+    evidence_role: fact
+    broadcast_role: supporting_context
+    standalone_fact_allowed: false
+  market_attention:
+    layer: analysis
+    evidence_role: sentiment
+    broadcast_role: hook_or_watch
+    standalone_fact_allowed: false
+  chart_context:
+    layer: analysis
+    evidence_role: visual
+    broadcast_role: supporting_chart
+    standalone_fact_allowed: false
+  earnings_reaction:
+    layer: analysis
+    evidence_role: analysis
+    broadcast_role: earnings_context
+    standalone_fact_allowed: false
+  earnings_context:
+    layer: analysis
+    evidence_role: analysis
+    broadcast_role: structural_context
+    standalone_fact_allowed: true
+  macro_chart_context:
+    layer: analysis
+    evidence_role: analysis
+    broadcast_role: structural_context
+    standalone_fact_allowed: false
+  news_distribution:
+    layer: news
+    evidence_role: context
+    broadcast_role: headline_reference
+    standalone_fact_allowed: false
+
+sources:
+  finviz-news:
+    label: "Finviz News"
+    url: "https://finviz.com/news.ashx?v=3"
+    collection_method: "html"
+    role: "baseline_headline"
+    authority: "medium"
+    collection_ease: "high"
+    always_collect: true
+    notes: "Baseline market headline river. Store headline/link/host; use as discovery, not final evidence."
+
+  yahoo-finance-ticker-rss:
+    label: "Yahoo Finance Ticker RSS"
+    url: "https://feeds.finance.yahoo.com/rss/2.0/headline?s=%5EGSPC,%5EIXIC,%5EDJI,CL%3DF,%5ETNX,NVDA,MSFT,AMZN,GOOGL"
+    collection_method: "rss"
+    role: "agenda_deepening"
+    authority: "medium"
+    collection_ease: "high"
+    always_collect: true
+    notes: "Stable ticker-seeded RSS. Add agenda-specific ticker sets without replacing baseline collection."
+
+  biztoc-feed:
+    label: "BizToc RSS"
+    url: "https://biztoc.com/feed"
+    collection_method: "rss"
+    role: "anomaly_detector"
+    authority: "medium_low"
+    collection_ease: "high"
+    always_collect: true
+    notes: "High-volume headline and summary feed. Best used for repeated keyword/source anomaly detection."
+
+  biztoc-home:
+    label: "BizToc Home"
+    url: "https://biztoc.com/"
+    collection_method: "html"
+    role: "anomaly_detector"
+    authority: "medium_low"
+    collection_ease: "medium"
+    always_collect: true
+    notes: "Homepage headline grid. Useful for anomaly detection; noisy without filtering."
+
+  cnbc-world:
+    label: "CNBC World"
+    url: "https://www.cnbc.com/world/?region=world"
+    collection_method: "html"
+    role: "support_context"
+    authority: "medium_high"
+    collection_ease: "medium"
+    always_collect: false
+    notes: "Broadcast-friendly fast market context. Pair with data/fact evidence for lead claims."
+
+  tradingview-news:
+    label: "TradingView News"
+    url: "https://www.tradingview.com/news/"
+    collection_method: "html"
+    role: "support_context"
+    authority: "medium"
+    collection_ease: "medium"
+    always_collect: false
+    notes: "Ticker-oriented headline/context pool. Deduplicate syndicated items."
+
+  x-kobeissiletter:
+    label: "Kobeissi Letter"
+    url: "https://x.com/KobeissiLetter"
+    collection_method: "x_profile_or_search"
+    role: "market_attention"
+    authority: "medium"
+    collection_ease: "medium"
+    notes: "Good at detecting what market participants are loudly watching. Confirm before using as evidence."
+
+  x-wallstengine:
+    label: "Wall St Engine"
+    url: "https://x.com/wallstengine"
+    collection_method: "x_profile_or_search"
+    role: "earnings_reaction"
+    authority: "medium"
+    collection_ease: "medium"
+    notes: "Earnings numbers, company quotes, and post-earnings reactions. Verify numbers with company/market data."
+
+  isabelnet:
+    label: "IsabelNet"
+    url: "https://www.isabelnet.com/blog/"
+    collection_method: "html"
+    role: "chart_context"
+    authority: "medium_high"
+    collection_ease: "medium"
+    notes: "Slide-friendly data and chart context. Check chart date/source before using."
+
+  factset-insight:
+    label: "FactSet Insight"
+    url: "https://insight.factset.com/rss.xml"
+    collection_method: "rss"
+    role: "earnings_context"
+    authority: "high"
+    collection_ease: "high"
+    notes: "Strong earnings-season and market-context analysis; lower cadence."
+
+  x-bespokeinvest:
+    label: "Bespoke"
+    url: "https://x.com/bespokeinvest"
+    collection_method: "x_profile_or_search"
+    role: "macro_chart_context"
+    authority: "medium_high"
+    collection_ease: "medium"
+    notes: "Breadth, seasonality, performance, and positioning charts."
+
+  x-charliebilello:
+    label: "Charlie Bilello"
+    url: "https://x.com/charliebilello"
+    collection_method: "x_profile_or_search"
+    role: "macro_chart_context"
+    authority: "medium"
+    collection_ease: "medium"
+    notes: "Long-run asset and macro statistics; usually context rather than breaking news."
+
+  x-lizannsonders:
+    label: "Liz Ann Sonders"
+    url: "https://x.com/LizAnnSonders"
+    collection_method: "x_profile_or_search"
+    role: "macro_chart_context"
+    authority: "medium_high"
+    collection_ease: "medium"
+    notes: "Macro and market-structure charts; verify underlying source/date."
+
+  x-kevrgordon:
+    label: "Kevin Gordon"
+    url: "https://x.com/KevRGordon"
+    collection_method: "x_profile_or_search"
+    role: "macro_chart_context"
+    authority: "medium"
+    collection_ease: "medium"
+    notes: "Macro chart/context source; verify source/date."
+
+  x-reuters:
+    label: "Reuters X"
+    collection_method: "x_profile_or_search"
+    role: "news_distribution"
+    authority: "high"
+    collection_ease: "medium"
+    notes: "News distribution surface. Keep in news layer, not analysis layer."
+
+  x-bloomberg:
+    label: "Bloomberg X"
+    collection_method: "x_profile_or_search"
+    role: "news_distribution"
+    authority: "high"
+    collection_ease: "medium"
+    notes: "News distribution surface. Useful headline reference; not analysis-role evidence by default."
+
+  x-cnbc:
+    label: "CNBC X"
+    collection_method: "x_profile_or_search"
+    role: "news_distribution"
+    authority: "medium_high"
+    collection_ease: "medium"
+    notes: "News distribution surface. Keep separate from analysis sources."
+
+pairing_rules:
+  baseline_headline:
+    required_for_lead: ["data_anchor", "fact_anchor", "market_reaction"]
+  anomaly_detector:
+    required_for_lead: ["baseline_headline", "data_anchor"]
+  market_attention:
+    required_for_lead: ["fact_anchor", "data_anchor"]
+  chart_context:
+    required_for_lead: ["fact_anchor", "market_reaction"]
+  support_context:
+    required_for_lead: ["data_anchor", "fact_anchor"]

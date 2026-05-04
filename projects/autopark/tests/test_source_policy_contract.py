@@ -9,6 +9,7 @@ PROJECT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT / "scripts"))
 
 import build_evidence_microcopy as evidence_microcopy
+import collect_today_misc
 import build_market_focus_brief as market_focus
 import build_editorial_brief as editorial
 import source_policy
@@ -40,6 +41,42 @@ class SourcePolicyContractTest(unittest.TestCase):
         self.assertEqual("market_data", market_data["tier"])
         self.assertEqual("market_reaction", market_data["use_role"])
         self.assertFalse(market_data["lead_allowed"])
+
+    def test_yahoo_news_is_speed_anchor_but_quote_pages_remain_market_data(self) -> None:
+        news = source_policy.infer_source_policy(
+            {
+                "source_id": "finance-yahoo-com-source",
+                "source": "Yahoo Finance",
+                "url": "https://finance.yahoo.com/news/example-123456789.html",
+            }
+        )
+        chart = source_policy.infer_source_policy(
+            {"source": "Yahoo Finance", "url": "https://finance.yahoo.com/quote/%5ETNX"}
+        )
+
+        self.assertEqual("primary", news["tier"])
+        self.assertEqual("speed_anchor", news["use_role"])
+        self.assertTrue(news["lead_allowed"])
+        self.assertEqual("market_data", chart["tier"])
+        self.assertEqual("market_reaction", chart["use_role"])
+        self.assertFalse(chart["lead_allowed"])
+
+    def test_yahoo_rss_parser_keeps_syndicated_source_and_iso_pubdate(self) -> None:
+        rss = """<?xml version="1.0" encoding="UTF-8"?>
+        <rss><channel><item>
+          <title>Stocks rise as Fed path comes back into focus</title>
+          <link>https://finance.yahoo.com/news/stocks-rise-123456789.html</link>
+          <pubDate>2026-05-04T00:56:01Z</pubDate>
+          <source url="https://www.reuters.com/">Reuters</source>
+          <description><![CDATA[Markets are watching rates and earnings.]]></description>
+        </item></channel></rss>"""
+
+        items = collect_today_misc.parse_rss_items(rss)
+
+        self.assertEqual(1, len(items))
+        self.assertEqual("2026-05-04", items[0]["published_at"])
+        self.assertEqual("Reuters", items[0]["source_label"])
+        self.assertEqual("https://www.reuters.com/", items[0]["source_url"])
 
     def test_evidence_microcopy_prompt_carries_source_policy(self) -> None:
         item = {

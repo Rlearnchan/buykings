@@ -276,6 +276,8 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
     focus = read_json(processed / "market-focus-brief.json")
     editorial = read_json(processed / "editorial-brief.json")
     radar = read_json(processed / "market-radar.json")
+    headline_river = read_json(processed / "headline-river.json")
+    analysis_river = read_json(processed / "analysis-river.json")
     batch_a = read_json(processed / "today-misc-batch-a-candidates.json")
     batch_b = read_json(processed / "today-misc-batch-b-candidates.json")
     x_posts = read_json(processed / "x-timeline-posts.json")
@@ -312,6 +314,8 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
                 [
                     "Pre-flight Market Agenda: web-enabled discovery agenda and collection targets",
                     "News batch A/B: collect candidate news and record source failures",
+                    "Headline River: keep broad Finviz/Yahoo/BizToc headline baseline and preflight-linked Yahoo expansions",
+                    "Analysis River: normalize specialist X/chart/earnings sources as context, separate from news distribution",
                     "X/earnings timeline: collect X timeline posts and earnings calendar context",
                     "Visual cards and captures: collect Finviz, market charts, FedWatch, Fear & Greed, and chart exports",
                     "Market Radar: merge local candidates into a candidate DB with internal source/evidence roles",
@@ -351,6 +355,71 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
     )
 
     lines.append("## 3. News / X / Earnings Collection")
+    lines.extend(
+        [
+            "### Headline River",
+            f"- item_count: `{headline_river.get('item_count') or len(headline_river.get('items') or [])}`",
+            f"- baseline_source_ids: `{', '.join(headline_river.get('baseline_source_ids') or [])}`",
+            f"- support_source_ids: `{', '.join(headline_river.get('support_source_ids') or [])}`",
+            f"- agenda_expansions: `{len(headline_river.get('agenda_expansions') or [])}`",
+            "- Role: broad headline/anomaly layer. It expands later reasoning but does not select public storylines by itself.",
+            markdown_table(
+                ["source", "status", "role", "count"],
+                [
+                    [
+                        stat.get("source_label") or stat.get("source_id"),
+                        stat.get("status"),
+                        stat.get("source_role"),
+                        stat.get("item_count"),
+                    ]
+                    for stat in (headline_river.get("source_stats") or [])[:20]
+                    if isinstance(stat, dict)
+                ],
+            ),
+            "Agenda-linked expansions",
+            markdown_table(
+                ["rank", "agenda_id", "tickers"],
+                [
+                    [item.get("rank"), item.get("agenda_id"), ", ".join(item.get("tickers") or [])]
+                    for item in (headline_river.get("agenda_expansions") or [])[:8]
+                    if isinstance(item, dict)
+                ],
+            ),
+            "BizToc / headline anomaly summary",
+            markdown_table(
+                ["kind", "top signals"],
+                [
+                    [
+                        "keywords",
+                        ", ".join(f"{row.get('keyword')}({row.get('count')})" for row in ((headline_river.get("anomaly_summary") or {}).get("top_keywords") or [])[:12]),
+                    ],
+                    [
+                        "hosts",
+                        ", ".join(f"{row.get('host')}({row.get('count')})" for row in ((headline_river.get("anomaly_summary") or {}).get("top_hosts") or [])[:12]),
+                    ],
+                    [
+                        "title_tokens",
+                        ", ".join(f"{row.get('token')}({row.get('count')})" for row in ((headline_river.get("anomaly_summary") or {}).get("top_title_tokens") or [])[:12]),
+                    ],
+                ],
+            ),
+            markdown_table(
+                ["item_id", "source", "role", "title", "agenda_links"],
+                [
+                    [
+                        item.get("item_id"),
+                        item.get("source_label"),
+                        item.get("source_role"),
+                        item.get("title"),
+                        ", ".join(item.get("agenda_links") or []),
+                    ]
+                    for item in (headline_river.get("items") or [])[:25]
+                    if isinstance(item, dict)
+                ],
+            ),
+            "",
+        ]
+    )
     for label, payload, key in [
         ("News batch A", batch_a, "candidates"),
         ("News batch B", batch_b, "candidates"),
@@ -368,6 +437,51 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
         if source_result_rows(payload):
             lines.extend(["", markdown_table(["source", "status", "count", "error/fallback"], source_result_rows(payload)[:20])])
         lines.extend(["", "Representative candidates", markdown_table(["#", "title/headline", "source", "role", "url"], candidate_rows(payload.get(key) or [])), ""])
+    lines.extend(
+        [
+            "### Analysis River",
+            f"- item_count: `{analysis_river.get('item_count') or len(analysis_river.get('items') or [])}`",
+            f"- source_count: `{analysis_river.get('source_count') or len(analysis_river.get('analysis_source_ids') or [])}`",
+            f"- analysis_source_ids: `{', '.join(analysis_river.get('analysis_source_ids') or [])}`",
+            "- Role: specialist commentary, chart context, and earnings reaction. It enriches framing but does not replace local evidence.",
+            markdown_table(
+                ["role", "count"],
+                [
+                    [row.get("role"), row.get("count")]
+                    for row in (analysis_river.get("role_counts") or [])[:12]
+                    if isinstance(row, dict)
+                ],
+            ),
+            markdown_table(
+                ["source", "status", "role", "count"],
+                [
+                    [
+                        stat.get("source_label") or stat.get("source_id"),
+                        stat.get("status"),
+                        stat.get("source_role"),
+                        stat.get("item_count"),
+                    ]
+                    for stat in (analysis_river.get("source_stats") or [])[:24]
+                    if isinstance(stat, dict)
+                ],
+            ),
+            markdown_table(
+                ["item_id", "source", "role", "title", "content_level"],
+                [
+                    [
+                        item.get("item_id"),
+                        item.get("source_label"),
+                        item.get("source_role"),
+                        item.get("title"),
+                        item.get("content_level"),
+                    ]
+                    for item in (analysis_river.get("items") or [])[:25]
+                    if isinstance(item, dict)
+                ],
+            ),
+            "",
+        ]
+    )
     lines.extend(
         [
             "### Economic / earnings / feature-stock support",
@@ -458,10 +572,15 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
             f"- source: `{evidence_microcopy.get('source') or ''}`",
             f"- request_count: `{evidence_microcopy.get('request_count') or 0}`",
             f"- item_count: `{evidence_microcopy.get('item_count') or len(evidence_microcopy.get('items') or [])}`",
+            f"- source_item_count: `{evidence_microcopy.get('source_item_count') or evidence_microcopy.get('item_count') or len(evidence_microcopy.get('items') or [])}`",
+            f"- radar_candidate_count: `{evidence_microcopy.get('radar_candidate_count') or evidence_microcopy.get('candidate_count') or 0}`",
+            f"- headline_item_count: `{evidence_microcopy.get('headline_item_count') or 0}`",
+            f"- analysis_item_count: `{evidence_microcopy.get('analysis_item_count') or 0}`",
             f"- fallback_count: `{evidence_microcopy.get('fallback_count') or 0}`",
             f"- invalid_output_count: `{evidence_microcopy.get('invalid_output_count') or 0}`",
             f"- estimated_tokens: `{evidence_microcopy.get('estimated_tokens') or 0}`",
             f"- generated fields: `{', '.join(evidence_microcopy.get('generated_fields') or ['title', 'content'])}`",
+            "- Input rule: market-radar candidates, headline-river items, and analysis-river items are deduped by URL or source/title before microcopy generation.",
             markdown_table(
                 ["item_id", "source", "title", "content"],
                 [
@@ -605,6 +724,8 @@ def build_sourcebook(target_date: str, output: Path) -> Path:
             bullet_list(
                 [
                     repo_path(processed / "market-preflight-agenda.json"),
+                    repo_path(processed / "headline-river.json"),
+                    repo_path(processed / "analysis-river.json"),
                     repo_path(processed / "today-misc-batch-a-candidates.json"),
                     repo_path(processed / "today-misc-batch-b-candidates.json"),
                     repo_path(processed / "x-timeline-posts.json"),

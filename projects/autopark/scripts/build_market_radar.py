@@ -192,10 +192,82 @@ def load_extra_x_posts(date: str, limit: int) -> list[dict]:
     return rows
 
 
+def load_headline_river_items(date: str, limit: int = 300) -> list[dict]:
+    payload = load_json(PROCESSED_DIR / date / "headline-river.json")
+    rows = []
+    for item in (payload.get("items") or [])[:limit]:
+        if not isinstance(item, dict):
+            continue
+        title = clean(item.get("title") or item.get("headline") or "", 180)
+        if not title:
+            continue
+        rows.append(
+            {
+                "id": item.get("item_id") or item.get("url") or title,
+                "item_id": item.get("item_id") or item.get("url") or title,
+                "title": title,
+                "headline": title,
+                "summary": clean(item.get("snippet") or title, 420),
+                "source": item.get("publisher") or item.get("source_label") or item.get("source_id") or "Headline River",
+                "source_name": item.get("source_label") or item.get("source_id") or "",
+                "source_id": item.get("source_id") or "",
+                "url": item.get("url") or "",
+                "type": "headline_river",
+                "published_at": item.get("published_at") or item.get("captured_at") or "",
+                "captured_at": item.get("captured_at") or "",
+                "source_role": item.get("source_role") or "",
+                "source_authority": item.get("source_authority") or "",
+                "source_use_role": item.get("source_role") or "",
+                "collection_method": item.get("collection_method") or "",
+                "content_level": item.get("content_level") or "headline",
+                "agenda_links": item.get("agenda_links") or [],
+                "detected_keywords": item.get("detected_keywords") or [],
+            }
+        )
+    return rows
+
+
+def load_analysis_river_items(date: str, limit: int = 160) -> list[dict]:
+    payload = load_json(PROCESSED_DIR / date / "analysis-river.json")
+    rows = []
+    for item in (payload.get("items") or [])[:limit]:
+        if not isinstance(item, dict):
+            continue
+        title = clean(item.get("title") or item.get("headline") or "", 180)
+        if not title:
+            continue
+        rows.append(
+            {
+                "id": item.get("item_id") or item.get("url") or title,
+                "item_id": item.get("item_id") or item.get("url") or title,
+                "title": title,
+                "headline": title,
+                "summary": clean(item.get("summary") or title, 420),
+                "source": item.get("source_label") or item.get("source_id") or "Analysis River",
+                "source_name": item.get("source_label") or item.get("source_id") or "",
+                "source_id": item.get("source_id") or "",
+                "url": item.get("url") or "",
+                "type": "analysis_river",
+                "published_at": item.get("published_at") or item.get("captured_at") or "",
+                "captured_at": item.get("captured_at") or "",
+                "source_role": item.get("source_role") or "",
+                "source_authority": item.get("source_authority") or "",
+                "source_use_role": item.get("source_role") or "",
+                "collection_method": item.get("collection_method") or "",
+                "content_level": item.get("content_level") or "",
+                "detected_keywords": item.get("detected_keywords") or [],
+                "image_refs": item.get("image_refs") or [],
+            }
+        )
+    return rows
+
+
 def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> list[dict]:
     target_day = datetime.fromisoformat(date)
     materials = gather_materials(date, limit_news, limit_x, limit_visuals)
     materials.extend(load_extra_x_posts(date, limit_x))
+    materials.extend(load_headline_river_items(date))
+    materials.extend(load_analysis_river_items(date))
     rows = []
     seen = set()
     for material in materials:
@@ -211,9 +283,13 @@ def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> 
         visual_bonus = 2 if visual_path(material) else 0
         theme_bonus = min(10, sum(len(values) for values in themes.values()))
         x_bonus = 2 if material.get("type") in {"x_social", "visual_card"} else 0
+        headline_bonus = 2 if material.get("type") == "headline_river" else 0
+        analysis_bonus = 3 if material.get("type") == "analysis_river" else 0
+        agenda_bonus = min(4, len(material.get("agenda_links") or []) * 2)
+        keyword_bonus = min(3, len(material.get("detected_keywords") or []) // 2)
         bridge_bonus = 2 if len(themes) >= 2 else 0
         side_penalty = 3 if set(themes) == {"side_dish"} else 0
-        score = weight + visual_bonus + theme_bonus + x_bonus + bridge_bonus - side_penalty - recency_penalty
+        score = weight + visual_bonus + theme_bonus + x_bonus + headline_bonus + analysis_bonus + agenda_bonus + keyword_bonus + bridge_bonus - side_penalty - recency_penalty
         if score < 7 and recency_bucket in {"old", "stale"}:
             continue
         if score < 7 and not themes:
@@ -240,6 +316,9 @@ def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> 
             "theme_keys": sorted(themes),
             "visual_local_path": visual_path(material),
             "tickers": material.get("tickers") or [],
+            "agenda_links": material.get("agenda_links") or [],
+            "detected_keywords": material.get("detected_keywords") or [],
+            "content_level": material.get("content_level") or "",
             "radar_question": radar_question(themes),
             "suggested_slot": suggested_slot(themes),
         }
