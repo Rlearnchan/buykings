@@ -260,10 +260,7 @@ def calendar_group_note(group: str) -> str:
 def economic_calendar_subtitle(target_date: str, collected_at: str | None, group: str) -> str:
     title_date = target_date.replace("-", ".")[2:]
     note = calendar_group_note(group)
-    if collected_at:
-        checked = collected_at if "KST" in collected_at else f"{collected_at} KST"
-        return f"KST 일정 {title_date} 기준 · 확인 {checked}, {note}"
-    return f"KST 일정 {title_date} 기준, {note}"
+    return f"{title_date} KST 일정 기준, {note}"
 
 
 def write_one_datawrapper_input(

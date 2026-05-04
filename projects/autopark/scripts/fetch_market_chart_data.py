@@ -417,35 +417,56 @@ def short_date_label(value: str) -> str:
         return value
 
 
-def checked_at_label(epoch: int | float | None = None) -> str:
-    checked = datetime.fromtimestamp(float(epoch or time.time()), timezone.utc).astimezone(ZoneInfo("Asia/Seoul"))
+def kst_label_from_epoch(epoch: int | float | None) -> str:
+    if epoch in ("", None):
+        return ""
+    try:
+        checked = datetime.fromtimestamp(float(epoch), timezone.utc).astimezone(ZoneInfo("Asia/Seoul"))
+    except (OSError, OverflowError, ValueError):
+        return ""
     return checked.strftime("%y.%m.%d %H:%M KST")
 
 
-def chart_coverage_label(chart: dict, source: str, rows: list[dict], fetched_epoch: int | None = None) -> dict:
+def kst_label_for_utc_midnight(day: str) -> str:
+    try:
+        dt = datetime.fromisoformat(day).replace(tzinfo=timezone.utc).astimezone(ZoneInfo("Asia/Seoul"))
+        return dt.strftime("%y.%m.%d %H:%M KST")
+    except ValueError:
+        return short_date_label(day)
+
+
+def kst_label_for_local_time(day: str, hour: int, minute: int) -> str:
+    try:
+        dt = datetime.fromisoformat(day).replace(hour=hour, minute=minute, tzinfo=ZoneInfo("Asia/Seoul"))
+        return dt.strftime("%y.%m.%d %H:%M KST")
+    except ValueError:
+        return short_date_label(day)
+
+
+def latest_regular_market_time(metadata: dict | None) -> str:
+    epochs = [
+        item.get("regular_market_time")
+        for item in (metadata or {}).get("symbols") or []
+        if item.get("regular_market_time")
+    ]
+    return kst_label_from_epoch(max(epochs)) if epochs else ""
+
+
+def chart_coverage_label(chart: dict, source: str, rows: list[dict], fetched_epoch: int | None = None, metadata: dict | None = None) -> dict:
     last_date = rows[-1]["date"] if rows else ""
-    day = short_date_label(last_date)
-    checked = checked_at_label(fetched_epoch)
     chart_id = chart.get("id", "")
     if source == "coingecko":
-        basis = f"UTC 일봉 {day} 00:00 기준"
+        basis = kst_label_for_utc_midnight(last_date)
+    elif chart_id == "us10y":
+        basis = kst_label_for_local_time(last_date, 17, 5)
     elif source == "fred":
-        basis = f"최근 관측치 {day} 기준"
-    elif chart_id == "crude-oil-wti":
-        basis = f"WTI 일봉 {day} 기준(정산 구간 14:28-14:30 ET)"
-    elif chart_id == "crude-oil-brent":
-        basis = f"Brent 일봉 {day} 기준(정산 구간 19:28-19:30 London)"
-    elif chart_id == "usd-krw":
-        basis = f"Yahoo FX 일봉 {day} 기준"
-    elif chart_id == "bitcoin":
-        basis = f"BTC 일봉 {day} 기준"
+        basis = short_date_label(last_date)
     else:
-        basis = f"최근 일봉 {day} 기준"
+        basis = latest_regular_market_time(metadata) or short_date_label(last_date)
     return {
         "basis_date": last_date,
         "basis_label": basis,
-        "checked_at_label": checked,
-        "coverage_label": f"{basis} · 확인 {checked}",
+        "coverage_label": basis,
     }
 
 
@@ -461,7 +482,7 @@ def update_spec_from_rows(
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     labels = [symbol["label"] for symbol in chart.get("symbols", [])]
     source = metadata["source"]
-    coverage = metadata.get("coverage") or chart_coverage_label(chart, source, rows)
+    coverage = metadata.get("coverage") or chart_coverage_label(chart, source, rows, metadata=metadata)
     if chart.get("subtitle_latest_value") and labels:
         current = latest_values(rows, chart, labels)
         if current:
@@ -498,7 +519,7 @@ def main() -> None:
     if not rows:
         raise SystemExit(f"No rows produced for {chart['id']}")
     fetched_epoch = int(time.time())
-    metadata["coverage"] = chart_coverage_label(chart, metadata["source"], rows, fetched_epoch)
+    metadata["coverage"] = chart_coverage_label(chart, metadata["source"], rows, fetched_epoch, metadata)
 
     csv_path = write_wide_csv(chart, args.date, rows)
     spec_path = write_chart_spec(

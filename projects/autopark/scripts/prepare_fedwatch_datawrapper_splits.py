@@ -130,7 +130,7 @@ def display_dt(value: str | None) -> str:
 def fedwatch_subtitle(target_date: str, base: dict) -> str:
     payload = load_json(RAW_DIR / target_date / "cme-fedwatch.json")
     captured = display_dt(payload.get("captured_at") or payload.get("created_at") or payload.get("updated_at"))
-    basis = f"CME FedWatch 화면 {captured} 기준" if captured else f"CME FedWatch 화면 {datetime.fromisoformat(target_date).strftime('%y.%m.%d')} 기준"
+    basis = captured or datetime.fromisoformat(target_date).strftime("%y.%m.%d")
     base_subtitle = clean(base.get("subtitle"))
     suffix = ""
     if "현재 기준금리" in base_subtitle:

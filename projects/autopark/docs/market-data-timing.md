@@ -8,20 +8,20 @@ Autopark separates three concepts in public dashboard metadata:
 
 For Datawrapper chart subtitles, keep this as one public-facing line:
 
-`{basis_label} · 확인 {YY.MM.DD HH:MM KST}`
+`{YY.MM.DD HH:MM KST}`
 
 Source-specific basis rules:
 
 - Yahoo Finance daily market charts: interpret candle timestamps in the exchange timezone when available, not host local time.
-- WTI: label as `WTI 일봉 {date} 기준(정산 구간 14:28-14:30 ET)`.
-- Brent: label as `Brent 일봉 {date} 기준(정산 구간 19:28-19:30 London)`.
-- CoinGecko: label daily crypto data as `UTC 일봉 {date} 00:00 기준`; crypto has no US-style closing bell.
+- US 10Y: label the representative KST basis timestamp, e.g. `26.05.01 17:05 KST`.
+- WTI, Brent, DXY, and USD/KRW: label the latest Yahoo market timestamp in KST.
+- CoinGecko: label daily crypto data at UTC midnight converted to KST, e.g. `26.05.04 09:00 KST`; crypto has no US-style closing bell.
 - FRED: label as `최근 관측치 {date} 기준`; do not imply market close.
-- USD/KRW: label as `Yahoo FX 일봉 {date} 기준`; do not call it a US close.
+- FedWatch: label the captured CME screen time in KST and keep the current policy-rate range, e.g. `26.05.04 09:58 KST · 현재 기준금리 3.50-3.75%`.
+- Economic calendar: label the schedule date and filter rule only, e.g. `26.05.04 KST 일정 기준, 미국 2★ 이상`.
 
 Reference notes:
 
 - CoinGecko market chart daily data is timestamped, daily data is at 00:00 UTC, and the latest completed UTC day is available shortly after UTC midnight.
 - CME describes NYMEX energy daily settlement as using the 14:28-14:30 ET window on normal trading days.
 - ICE describes Brent crude daily settlement as a weighted average during the two-minute period from 19:28 London time.
-

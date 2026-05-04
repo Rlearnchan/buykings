@@ -25,24 +25,23 @@ class MarketChartTimingContractTest(unittest.TestCase):
             [{"date": "2026-05-04", "BTC/USD": 78174.06}],
             1777854600,
         )
-        self.assertIn("UTC 일봉 26.05.04 00:00 기준", coverage["coverage_label"])
-        self.assertIn("확인", coverage["coverage_label"])
+        self.assertEqual("26.05.04 09:00 KST", coverage["coverage_label"])
 
-    def test_oil_charts_explain_settlement_window_without_calling_it_collection(self) -> None:
+    def test_treasury_chart_uses_single_kst_basis_timestamp(self) -> None:
         coverage = charts.chart_coverage_label(
-            {"id": "crude-oil-wti"},
+            {"id": "us10y"},
             "yahoo_finance",
-            [{"date": "2026-05-01", "WTI": 63.02}],
+            [{"date": "2026-05-01", "US10Y": 4.378}],
             1777854600,
         )
-        self.assertIn("WTI 일봉 26.05.01 기준", coverage["basis_label"])
-        self.assertIn("14:28-14:30 ET", coverage["basis_label"])
-        self.assertNotIn("수집", coverage["coverage_label"])
+        self.assertEqual("26.05.01 17:05 KST", coverage["basis_label"])
+        self.assertNotIn("확인", coverage["coverage_label"])
 
-    def test_economic_calendar_subtitle_separates_schedule_date_from_check_time(self) -> None:
+    def test_economic_calendar_subtitle_keeps_rules_without_check_time(self) -> None:
         subtitle = economic_calendar.economic_calendar_subtitle("2026-05-04", "26.05.04 05:36", "us")
-        self.assertIn("KST 일정 26.05.04 기준", subtitle)
-        self.assertIn("확인 26.05.04 05:36 KST", subtitle)
+        self.assertIn("26.05.04 KST 일정 기준", subtitle)
+        self.assertIn("미국 2", subtitle)
+        self.assertNotIn("확인", subtitle)
         self.assertNotIn("수집", subtitle)
 
 

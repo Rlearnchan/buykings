@@ -3403,7 +3403,13 @@ def market_chart_payload(target_date: str, chart_id: str) -> dict:
 def market_time_lines(card: dict, target_date: str) -> list[str]:
     asset_key = clean(card.get("asset_key") or card.get("chart_id") or card.get("item_id"))
     lines: list[str] = []
-    if asset_key in {"finviz-index-futures", "finviz-sp500-heatmap", "finviz-russell-heatmap", "cnn-fear-greed", "fedwatch"}:
+    if asset_key == "fedwatch":
+        captured = first_public_time(raw_source_payload(target_date, "cme-fedwatch"), ["captured_at", "created_at", "updated_at"])
+        if captured:
+            lines.append(f"- 기준: `{captured} KST`" if not captured.endswith("KST") else f"- 기준: `{captured}`")
+        return lines
+
+    if asset_key in {"finviz-index-futures", "finviz-sp500-heatmap", "finviz-russell-heatmap", "cnn-fear-greed"}:
         source_id = "cme-fedwatch" if asset_key == "fedwatch" else asset_key
         captured = first_public_time(raw_source_payload(target_date, source_id), ["captured_at", "created_at", "updated_at"])
         if captured:
@@ -3411,9 +3417,7 @@ def market_time_lines(card: dict, target_date: str) -> list[str]:
         return lines
 
     if asset_key == "economic-calendar":
-        html_path = PROJECT_ROOT / "data" / "raw" / target_date / "tradingeconomics-calendar-importance2.html"
-        if html_path.exists():
-            lines.append(f"- 확인: `{captured_from_file(html_path)}`")
+        lines.append(f"- 기준: `{display_date_title(target_date)} KST 일정`")
         return lines
 
     payload = market_chart_payload(target_date, asset_key)
@@ -3426,13 +3430,6 @@ def market_time_lines(card: dict, target_date: str) -> list[str]:
         last_date = (data.get("last_date") or "").strip()
         if last_date:
             lines.append(f"- 기준: `{display_dt(last_date)} 종가`")
-    checked_label = clean(coverage.get("checked_at_label") or data.get("checked_at_label"))
-    if checked_label:
-        lines.append(f"- 확인: `{checked_label}`")
-        return lines
-    fetched = first_public_time(payload, ["captured_at", "fetched_at", "fetched_at_epoch", "created_at", "updated_at"])
-    if fetched:
-        lines.append(f"- 확인: `{fetched}`")
     return lines
 
 
@@ -3871,10 +3868,8 @@ def build_compact_collection_cards(
             ("fedwatch-conditional-probabilities-short-term", "fedwatch-conditional-probabilities-short-term.png"),
             ("fedwatch-conditional-probabilities-long-term", "fedwatch-conditional-probabilities-long-term.png"),
         ]:
-            images = screenshots_for(target_date, f"*{source_id}*.png")[:1]
-            if not images:
-                png = EXPORTS_DIR / filename
-                images = [str(png)] if png.exists() else []
+            png = EXPORTS_DIR / filename
+            images = [str(png)] if png.exists() else screenshots_for(target_date, f"*{source_id}*.png")[:1]
             fedwatch_images.extend(crop_bottom_whitespace(image, target_date) for image in images[:1])
     collection_cards.append(
         {
