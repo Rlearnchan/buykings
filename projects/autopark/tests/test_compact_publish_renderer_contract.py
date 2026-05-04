@@ -348,7 +348,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertTrue(all(re.match(r"^### [①②③④⑤⑥⑦⑧⑨⑩]", block.splitlines()[0]) for block in media_blocks[:3]))
         for block in media_blocks:
             self.assertIn("- 출처:", block)
-            self.assertIn("- 수집 시점:", block)
+            self.assertRegex(block, r"(?m)^-\s+(?:게시|확인):\s+`[^`]+`")
             self.assertIn("- 내용:", block)
             bullets = re.findall(r"^\s{2}-\s+(.+)$", block.split("- 내용:", 1)[1], flags=re.M)
             self.assertGreaterEqual(len(bullets), 1)

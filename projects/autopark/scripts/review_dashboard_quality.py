@@ -791,8 +791,8 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
         elif "FedWatch" in market_titles and "오늘의 경제지표" in market_titles:
             if market_titles.index("오늘의 경제지표") != market_titles.index("FedWatch") + 1 or market_titles.index("오늘의 경제지표") != len(market_titles) - 1:
                 issue(findings, "format", "high", "COMPACT-054 FedWatch/경제지표 순서 위반", f"시장 카드: {market_titles}", "오늘의 경제지표는 FedWatch 바로 뒤, 시장 섹션 최하단에 렌더하세요.")
-        if re.search(r"^-\s+(?:요약|원문 제목|기준 시점):", market_body, flags=re.M):
-            issue(findings, "format", "high", "COMPACT-032 시장 카드 설명 필드 위반", "시장 차트 카드에 요약/원문 제목/기준 시점 필드가 있습니다.", "시장 차트에는 출처/수집 시점/이미지만 렌더하세요.")
+        if re.search(r"^-\s+(?:요약|원문 제목|기준 시점|내용):", market_body, flags=re.M):
+            issue(findings, "format", "high", "COMPACT-032 시장 카드 설명 필드 위반", "시장 차트 카드에 요약/원문 제목/기준 시점/내용 필드가 있습니다.", "시장 차트에는 출처와 기준/캡처/확인 메타, 이미지만 렌더하세요.")
         if "원/달러 환율 차트" not in market_titles and "원/달러" in markdown:
             issue(findings, "format", "high", "COMPACT-033 원/달러 label 누락", "원/달러 자료가 시장 카드 label로 보이지 않습니다.", "usd-krw는 원/달러 환율 차트로 렌더하세요.")
         if "2. 미디어 포커스" not in sections:
@@ -802,8 +802,8 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
             title = card_title(block)
             if not re.match(r"^(?:[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\))\s+", title):
                 issue(findings, "format", "high", "COMPACT-035 미디어 포커스 순번 누락", f"자료명 `{title}`에 원형 숫자가 없습니다.", "미디어 포커스 자료명은 ①부터 순서대로 시작하세요.")
-            if "- 출처:" not in block or "- 수집 시점:" not in block:
-                issue(findings, "format", "high", "COMPACT-036 미디어 카드 출처/수집 시점 누락", title, "각 미디어 포커스 카드에는 출처와 수집 시점을 렌더하세요.")
+            if "- 출처:" not in block or not re.search(r"^-\s+(?:게시|확인):\s+`[^`]+`", block, flags=re.M):
+                issue(findings, "format", "high", "COMPACT-036 미디어 카드 출처/시간 메타 누락", title, "각 미디어 포커스 카드에는 출처와 게시 또는 확인 시점을 렌더하세요.")
             if re.search(r"^-\s+출처:\s+(?:Autopark|Market Focus|Pre-flight Agenda)\s*$", block, flags=re.M):
                 issue(findings, "format", "high", "COMPACT-052 미디어 카드 내부 단계 출처 노출", title, "미디어 포커스의 출처는 뉴스/자료 제공자/원자료 사이트명이어야 합니다.")
             if "- 내용:" not in block:

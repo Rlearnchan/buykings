@@ -58,6 +58,17 @@ def display_dt(value: str | None) -> str:
         return value[:16]
 
 
+def display_any_dt(value: str | int | float | None) -> str:
+    if value is None or value == "":
+        return "-"
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(value), ZoneInfo("UTC")).astimezone(ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M")
+        except (OSError, OverflowError, ValueError):
+            return "-"
+    return display_dt(str(value))
+
+
 def display_date_title(target_date: str) -> str:
     dt = datetime.fromisoformat(target_date)
     return dt.strftime("%y.%m.%d")
@@ -412,7 +423,13 @@ def screenshots_for(target_date: str, *names: str) -> list[str]:
         for name in names:
             paths.extend(root.glob(name))
             paths.extend(root.glob(f"**/{name}"))
-    return [str(path) for path in sorted(set(paths))]
+    return [
+        str(path)
+        for path in sorted(
+            set(paths),
+            key=lambda path: ("fallback" in path.name.lower(), str(path).lower()),
+        )
+    ]
 
 
 def image_path(value: str | None) -> str:
@@ -2557,7 +2574,7 @@ def material_visual_path(row: dict) -> str:
 
 def market_focus_material_row(item_id: str, radar_by_id: dict, candidate_by_id: dict) -> dict:
     if item_id in radar_by_id:
-        return radar_by_id[item_id]
+        return {**candidate_by_id.get(item_id, {}), **radar_by_id[item_id]}
     if item_id in candidate_by_id:
         row = candidate_by_id[item_id]
         return {
@@ -3370,12 +3387,58 @@ FIXED_ASSET_ORDER = {
 CIRCLED_NUMBERS = ["①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩", "⑪", "⑫", "⑬", "⑭", "⑮", "⑯", "⑰", "⑱", "⑲", "⑳"]
 
 
-def public_collected_at(row: dict) -> str:
-    for key in ["captured_at", "published_at", "created_at", "updated_at"]:
+def first_public_time(row: dict, keys: list[str]) -> str:
+    for key in keys:
         value = row.get(key)
         if value:
-            return display_dt(value)
-    return datetime.now(ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M")
+            rendered = display_any_dt(value)
+            if rendered and rendered != "-":
+                return rendered
+    return ""
+
+
+def raw_source_payload(target_date: str, source_id: str) -> dict:
+    return load_json(PROJECT_ROOT / "data" / "raw" / target_date / f"{source_id}.json")
+
+
+def market_chart_payload(target_date: str, chart_id: str) -> dict:
+    return load_json(PROJECT_ROOT / "data" / "raw" / target_date / f"{chart_id}-market-data.json")
+
+
+def market_time_lines(card: dict, target_date: str) -> list[str]:
+    asset_key = clean(card.get("asset_key") or card.get("chart_id") or card.get("item_id"))
+    lines: list[str] = []
+    if asset_key in {"finviz-index-futures", "finviz-sp500-heatmap", "finviz-russell-heatmap", "cnn-fear-greed", "fedwatch"}:
+        source_id = "cme-fedwatch" if asset_key == "fedwatch" else asset_key
+        captured = first_public_time(raw_source_payload(target_date, source_id), ["captured_at", "created_at", "updated_at"])
+        if captured:
+            lines.append(f"- 캡처: `{captured}`")
+        return lines
+
+    if asset_key == "economic-calendar":
+        html_path = PROJECT_ROOT / "data" / "raw" / target_date / "tradingeconomics-calendar-importance2.html"
+        if html_path.exists():
+            lines.append(f"- 확인: `{captured_from_file(html_path)}`")
+        return lines
+
+    payload = market_chart_payload(target_date, asset_key)
+    last_date = ((payload.get("data") or {}).get("last_date") or "").strip()
+    if last_date:
+        lines.append(f"- 기준: `{display_dt(last_date)} 종가`")
+    fetched = first_public_time(payload, ["captured_at", "fetched_at", "fetched_at_epoch", "created_at", "updated_at"])
+    if fetched:
+        lines.append(f"- 확인: `{fetched}`")
+    return lines
+
+
+def media_time_line(card: dict) -> str:
+    published = first_public_time(card, ["published_at"])
+    if published:
+        return f"- 게시: `{published}`"
+    checked = first_public_time(card, ["captured_at", "created_at", "updated_at"])
+    if checked:
+        return f"- 확인: `{checked}`"
+    return ""
 
 
 def material_dedupe_keys(card: dict) -> set[str]:
@@ -3465,7 +3528,7 @@ def circled_number(index: int) -> str:
     return CIRCLED_NUMBERS[index - 1] if 1 <= index <= len(CIRCLED_NUMBERS) else f"({index})"
 
 
-def render_market_material_card(lines: list[str], card: dict, rendered_keys: set[str]) -> bool:
+def render_market_material_card(lines: list[str], card: dict, rendered_keys: set[str], target_date: str) -> bool:
     label = public_material_label(card)
     card = {**card, "label": label}
     keys = material_dedupe_keys(card)
@@ -3479,9 +3542,7 @@ def render_market_material_card(lines: list[str], card: dict, rendered_keys: set
         lines.append(f"- 출처: {link(source, url)}")
     else:
         lines.append(f"- 출처: {source if source and source != 'source' else 'Autopark'}")
-    collected_at = public_collected_at(card)
-    if collected_at:
-        lines.append(f"- 수집 시점: `{collected_at}`")
+    lines.extend(market_time_lines(card, target_date))
     images = [clean(image) for image in (card.get("images") or []) if clean(image)]
     image = clean(card.get("image") or card.get("visual_local_path") or card.get("local_path"))
     if image:
@@ -3510,9 +3571,9 @@ def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str
         lines.append(f"- 출처: {link(source, url)}")
     else:
         lines.append(f"- 출처: {source if source and source != 'source' else 'Autopark'}")
-    collected_at = public_collected_at(card)
-    if collected_at:
-        lines.append(f"- 수집 시점: `{collected_at}`")
+    time_line = media_time_line(card)
+    if time_line:
+        lines.append(time_line)
     lines.append("- 내용:")
     bullets = (microcopy_card or {}).get("content_bullets") or content_bullets(card)
     for bullet in bullets[:3]:
@@ -3956,6 +4017,18 @@ def evidence_microcopy_lookup(payload: dict) -> dict[str, dict]:
     }
 
 
+def rows_with_payload_time(rows: list[dict], payload: dict) -> list[dict]:
+    captured_at = clean(payload.get("captured_at") or payload.get("created_at") or payload.get("updated_at"))
+    if not captured_at:
+        return [dict(row) for row in rows]
+    stamped = []
+    for row in rows:
+        item = dict(row)
+        item.setdefault("captured_at", captured_at)
+        stamped.append(item)
+    return stamped
+
+
 def attach_evidence_microcopy(rows: list[dict], payload: dict) -> list[dict]:
     lookup = evidence_microcopy_lookup(payload)
     enriched = []
@@ -3974,11 +4047,11 @@ def attach_evidence_microcopy(rows: list[dict], payload: dict) -> list[dict]:
     return enriched
 
 
-def render_compact_collection_section(lines: list[str], market_cards: list[dict], media_cards: list[dict], microcopy: dict) -> None:
+def render_compact_collection_section(lines: list[str], market_cards: list[dict], media_cards: list[dict], microcopy: dict, target_date: str) -> None:
     lines.append("# 🤖 자료 수집")
     lines.append("## 1. 시장은 지금")
     for card in market_cards:
-        render_market_material_card(lines, card, set())
+        render_market_material_card(lines, card, set(), target_date)
     lines.append("## 2. 미디어 포커스")
     card_copy = microcopy_card_by_key(microcopy)
     for card in media_cards:
@@ -3989,16 +4062,14 @@ def render_compact_feature_section(lines: list[str], target_date: str, finviz_fe
     lines.append("## 3. 실적/특징주")
     earnings_image = screenshot_for(target_date, "*earnings-calendar*.jpg", "*earnings-calendar*.png")
     if earnings_image:
-        earnings_captured = capture_meta(target_date, "earnings-calendar-x")
-        if earnings_captured.endswith("`-`"):
-            file_time = captured_from_file(earnings_image)
-            earnings_captured = f"수집 시점: `{file_time}`" if file_time else earnings_captured
+        file_time = captured_from_file(earnings_image)
+        earnings_checked = f"- 확인: `{file_time}`" if file_time else ""
         lines.extend(
             [
                 "### 실적 캘린더",
                 "",
                 "- 출처: [Earnings Whispers](https://x.com/eWhispers)",
-                f"- {earnings_captured}",
+                earnings_checked,
                 "",
                 notion_image("실적 캘린더", earnings_image),
                 "",
@@ -4010,7 +4081,6 @@ def render_compact_feature_section(lines: list[str], target_date: str, finviz_fe
                 "### 실적 캘린더",
                 "",
                 "- 출처: [Earnings Whispers](https://x.com/eWhispers)",
-                "- 수집 시점: `-`",
                 "- 내용: 실적 캘린더 이미지를 찾지 못했습니다.",
                 "",
             ]
@@ -4038,7 +4108,9 @@ def render_compact_publish_dashboard(target_date: str) -> str:
     radar_candidates = attach_evidence_microcopy(market_radar.get("candidates") or [], evidence_microcopy)
     radar_by_id = {row.get("id"): row for row in radar_candidates if row.get("id")}
     extra_candidates = attach_evidence_microcopy(
-        (batch_a.get("candidates") or []) + (batch_b.get("candidates") or []) + (x_timeline.get("posts") or []),
+        rows_with_payload_time(batch_a.get("candidates") or [], batch_a)
+        + rows_with_payload_time(batch_b.get("candidates") or [], batch_b)
+        + rows_with_payload_time(x_timeline.get("posts") or [], x_timeline),
         evidence_microcopy,
     )
     candidate_by_id = {
@@ -4113,7 +4185,7 @@ def render_compact_publish_dashboard(target_date: str) -> str:
         media_cards,
         microcopy,
     )
-    render_compact_collection_section(lines, market_cards, media_cards, microcopy)
+    render_compact_collection_section(lines, market_cards, media_cards, microcopy, target_date)
     render_compact_feature_section(lines, target_date, finviz_features)
     return "\n".join(lines).rstrip() + "\n"
 
