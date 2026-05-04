@@ -239,6 +239,98 @@ class HeadlineRiverPipelineIntegrationTest(unittest.TestCase):
         headline_row = next(row for row in rows if row["id"] == "headline-only")
         self.assertGreater(summary_row["score"], headline_row["score"])
 
+    def test_market_radar_applies_source_quality_adjustments(self) -> None:
+        headline_river = json.loads((self.day_dir / "headline-river.json").read_text(encoding="utf-8"))
+        headline_river["items"] = [
+            {
+                "item_id": "agenda-mismatch",
+                "source_id": "yahoo-agenda-agenda_oil_risk",
+                "source_label": "Yahoo Agenda RSS: agenda_oil_risk",
+                "publisher": "",
+                "title": "High growth tech stocks in Asia draw investor attention",
+                "url": "https://finance.yahoo.com/markets/stocks/articles/high-growth-tech-stocks-asia.html",
+                "published_at": "2026-05-04T01:00:00+00:00",
+                "snippet": "Asian technology shares were in focus.",
+                "source_role": "agenda_deepening",
+                "source_authority": "medium",
+                "content_level": "headline+summary",
+                "agenda_links": ["agenda_oil_risk"],
+                "detected_keywords": ["ai"],
+            },
+            {
+                "item_id": "tradingview-old",
+                "source_id": "tradingview-news",
+                "source_label": "TradingView News",
+                "publisher": "",
+                "title": "3 days ago TradingView AAPL: Apple stock rises after revenue beat",
+                "url": "https://www.tradingview.com/news/tradingview:aapl/",
+                "published_at": "",
+                "snippet": "Apple shares moved after earnings.",
+                "source_role": "support_context",
+                "source_authority": "medium",
+                "content_level": "headline",
+                "agenda_links": [],
+                "detected_keywords": ["earnings"],
+            },
+            {
+                "item_id": "corporate-pr",
+                "source_id": "yahoo-finance-ticker-rss",
+                "source_label": "Yahoo Finance Ticker RSS",
+                "publisher": "",
+                "title": "CTCI Ranked No. 1 in Sustainability Yearbook and Maintains Industry Lead",
+                "url": "https://finance.yahoo.com/markets/stocks/articles/ctci-ranked.html",
+                "published_at": "2026-05-04T01:00:00+00:00",
+                "snippet": "The company announced a sustainability ranking.",
+                "source_role": "agenda_deepening",
+                "source_authority": "medium",
+                "content_level": "headline+summary",
+                "agenda_links": [],
+                "detected_keywords": [],
+            },
+        ]
+        analysis_river = json.loads((self.day_dir / "analysis-river.json").read_text(encoding="utf-8"))
+        analysis_river["items"] = [
+            {
+                "item_id": "factset-weekly",
+                "source_id": "factset-insight",
+                "source_label": "FactSet Insight",
+                "title": "S&P 500 Earnings Season Update: April 24, 2026",
+                "url": "https://insight.factset.com/sp-500-earnings-season-update-april-24-2026",
+                "published_at": "2026-04-24T17:37:10+00:00",
+                "summary": "S&P 500 earnings season update discusses margins and earnings surprises.",
+                "source_role": "earnings_context",
+                "source_authority": "high",
+                "content_level": "headline+summary",
+                "detected_keywords": ["earnings", "s&p"],
+            }
+        ]
+        (self.day_dir / "headline-river.json").write_text(json.dumps(headline_river), encoding="utf-8")
+        (self.day_dir / "analysis-river.json").write_text(json.dumps(analysis_river), encoding="utf-8")
+        original_processed = market_radar.PROCESSED_DIR
+        original_gather = market_radar.gather_materials
+        original_extra_x = market_radar.load_extra_x_posts
+        market_radar.PROCESSED_DIR = self.processed
+        market_radar.gather_materials = lambda *args, **kwargs: []
+        market_radar.load_extra_x_posts = lambda *args, **kwargs: []
+        try:
+            rows = market_radar.build_rows("2026-05-04", 10, 10, 10)
+        finally:
+            market_radar.PROCESSED_DIR = original_processed
+            market_radar.gather_materials = original_gather
+            market_radar.load_extra_x_posts = original_extra_x
+
+        mismatch = next(row for row in rows if row["id"] == "agenda-mismatch")
+        factset = next(row for row in rows if row["id"] == "factset-weekly")
+        tradingview = next(row for row in rows if row["id"] == "tradingview-old")
+        corporate_pr = next(row for row in rows if row["id"] == "corporate-pr")
+        self.assertLess(mismatch["source_quality_adjustment"], 0)
+        self.assertGreater(factset["source_quality_adjustment"], 0)
+        self.assertLess(tradingview["source_quality_adjustment"], 0)
+        self.assertLess(corporate_pr["source_quality_adjustment"], 0)
+        self.assertEqual(1, factset["recency_penalty"])
+        self.assertEqual(10, factset["recency_days"])
+        self.assertEqual(3, tradingview["recency_days"])
+
     def test_market_focus_payload_includes_preflight_and_headline_river(self) -> None:
         original_processed = market_focus.PROCESSED_DIR
         original_raw = market_focus.RAW_DIR

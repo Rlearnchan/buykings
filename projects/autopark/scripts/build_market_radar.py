@@ -137,6 +137,7 @@ def infer_material_date(material: dict, target_day: datetime) -> datetime | None
             for key in ["title", "headline", "summary"]
         )
     )
+    url = clean(material.get("url") or "")
     lowered = text.lower()
     if "today" in lowered:
         return target_day
@@ -144,6 +145,10 @@ def infer_material_date(material: dict, target_day: datetime) -> datetime | None
         return target_day - timedelta(days=1)
     if match := re.search(r"\b(\d{1,2})\s+hours?\s+ago\b", lowered):
         return target_day - timedelta(hours=int(match.group(1)))
+    if match := re.search(r"\b(\d{1,2})\s+days?\s+ago\b", lowered):
+        return target_day - timedelta(days=int(match.group(1)))
+    if match := re.search(r"/(20\d{2})/(\d{1,2})/(\d{1,2})/", url):
+        return datetime(int(match.group(1)), int(match.group(2)), int(match.group(3)))
     if match := re.search(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\s+(\d{1,2})\b", lowered):
         month = MONTH_LOOKUP[match.group(1)]
         day = int(match.group(2))
@@ -166,6 +171,59 @@ def recency_adjustment(material: dict, target_day: datetime) -> tuple[int, int |
     if age_days <= 7:
         return 3, age_days, "old"
     return 6, age_days, "stale"
+
+
+def source_quality_adjustment(material: dict, themes: dict[str, list[str]], recency_days: int | None) -> int:
+    source_id = clean(material.get("source_id") or "").lower()
+    blob = f"{source_blob(material)} {material_blob(material)}"
+    content_blob = " ".join(
+        clean(str(material.get(key) or ""))
+        for key in ["title", "headline", "summary", "url"]
+    ).lower()
+    adjustment = 0
+    if source_id.startswith("biztoc"):
+        adjustment -= 2
+        if not themes:
+            adjustment -= 3
+    if source_id == "cnbc-world":
+        if recency_days is None:
+            adjustment -= 1
+        elif recency_days > 3:
+            adjustment -= min(5, recency_days)
+    if source_id == "tradingview-news" and recency_days is not None and recency_days > 1:
+        adjustment -= min(3, recency_days - 1)
+    if source_id.startswith("yahoo-agenda-"):
+        agenda_text = " ".join(str(value) for value in (material.get("agenda_links") or [])).lower()
+        agenda_fit = True
+        if "oil" in agenda_text:
+            agenda_fit = any(term in content_blob for term in ["oil", "crude", "wti", "brent", "energy", "hormuz", "gas"])
+        elif "rate" in agenda_text or "dollar" in agenda_text:
+            agenda_fit = any(term in content_blob for term in ["rate", "fed", "dollar", "treasury", "yield", "dxy"])
+        elif "ai" in agenda_text:
+            agenda_fit = any(term in content_blob for term in ["ai", "chip", "semiconductor", "cloud", "capex", "earnings"])
+        elif "breadth" in agenda_text or "index" in agenda_text:
+            agenda_fit = any(term in content_blob for term in ["index", "breadth", "futures", "s&p", "nasdaq", "dow", "russell"])
+        if not agenda_fit:
+            adjustment -= 3
+    if source_id == "factset-insight":
+        if "earnings season update" in blob or "s&p 500 earnings" in blob or "mag 7" in blob:
+            adjustment += 3
+        elif "acquire" in blob or "acquisition" in blob:
+            adjustment -= 2
+    if source_id in {"finviz-news", "yahoo-finance-ticker-rss"} or source_id.startswith("yahoo-agenda-"):
+        pr_markers = [
+            "appoints",
+            "appointment",
+            "grants options",
+            "grants rsus",
+            "named entitlement sponsor",
+            "sustainability yearbook",
+            "ranked no.",
+            "maintains industry lead",
+        ]
+        if any(marker in content_blob for marker in pr_markers):
+            adjustment -= 4
+    return adjustment
 
 
 def detect_themes(material: dict) -> dict[str, list[str]]:
@@ -289,8 +347,13 @@ def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> 
         themes = detect_themes(material)
         weight = source_weight(material)
         recency_penalty, recency_days, recency_bucket = recency_adjustment(material, target_day)
+        if clean(material.get("source_id") or "").lower() == "factset-insight" and recency_days is not None and recency_days <= 21:
+            recency_penalty = min(recency_penalty, 1)
+            if recency_bucket == "stale":
+                recency_bucket = "analysis_window"
         if "tradingview" in source_blob(material) and recency_days is not None and recency_days > 3:
             continue
+        quality_adjustment = source_quality_adjustment(material, themes, recency_days)
         visual_bonus = 2 if visual_path(material) else 0
         theme_bonus = min(10, sum(len(values) for values in themes.values()))
         x_bonus = 2 if material.get("type") in {"x_social", "visual_card"} else 0
@@ -301,7 +364,7 @@ def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> 
         keyword_bonus = min(3, len(material.get("detected_keywords") or []) // 2)
         bridge_bonus = 2 if len(themes) >= 2 else 0
         side_penalty = 3 if set(themes) == {"side_dish"} else 0
-        score = weight + visual_bonus + theme_bonus + x_bonus + headline_bonus + analysis_bonus + depth_bonus + agenda_bonus + keyword_bonus + bridge_bonus - side_penalty - recency_penalty
+        score = weight + visual_bonus + theme_bonus + x_bonus + headline_bonus + analysis_bonus + depth_bonus + agenda_bonus + keyword_bonus + bridge_bonus + quality_adjustment - side_penalty - recency_penalty
         if score < 7 and recency_bucket in {"old", "stale"}:
             continue
         if score < 7 and not themes:
@@ -322,6 +385,7 @@ def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> 
             "recency_bucket": recency_bucket,
             "recency_penalty": recency_penalty,
             "content_level_bonus": depth_bonus,
+            "source_quality_adjustment": quality_adjustment,
             "themes": [
                 {"theme": theme, "label": THEME_LABELS.get(theme, theme), "hits": hits}
                 for theme, hits in sorted(themes.items())
