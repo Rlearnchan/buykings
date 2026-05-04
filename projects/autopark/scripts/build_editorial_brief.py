@@ -283,6 +283,51 @@ EDITORIAL_SCHEMA = {
     },
 }
 
+EMERGENCY_STORYLINE_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "storyline_id",
+        "rank",
+        "title",
+        "recommendation_stars",
+        "lead_candidate_reason",
+        "hook",
+        "why_now",
+        "core_argument",
+        "first_5min_fit",
+        "korea_open_relevance",
+        "slide_plan",
+        "selected_item_ids",
+    ],
+    "properties": {
+        "storyline_id": {"type": "string"},
+        "rank": {"type": "integer", "minimum": 1, "maximum": 3},
+        "title": {"type": "string"},
+        "recommendation_stars": {"type": "integer", "minimum": 1, "maximum": 3},
+        "lead_candidate_reason": {"type": "string"},
+        "hook": {"type": "string"},
+        "why_now": {"type": "string"},
+        "core_argument": {"type": "string"},
+        "first_5min_fit": {"type": "string"},
+        "korea_open_relevance": {"type": "string"},
+        "slide_plan": {"type": "array", "maxItems": 3, "items": {"type": "string"}},
+        "selected_item_ids": {"type": "array", "maxItems": 4, "items": {"type": "string"}},
+    },
+}
+
+EMERGENCY_EDITORIAL_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["daily_thesis", "host_headline_lines", "editorial_summary", "storylines"],
+    "properties": {
+        "daily_thesis": {"type": "string"},
+        "host_headline_lines": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string"}},
+        "editorial_summary": {"type": "string"},
+        "storylines": {"type": "array", "minItems": 3, "maxItems": 3, "items": EMERGENCY_STORYLINE_SCHEMA},
+    },
+}
+
 
 def load_env(path: Path) -> dict[str, str]:
     values: dict[str, str] = {}
@@ -534,11 +579,11 @@ def compact_market_focus_brief(brief: dict, compact_retry: bool = False) -> dict
                 if isinstance(item, dict)
             ],
         }
-    focus_limit = 4 if compact_retry else 8
-    gap_limit = 5 if compact_retry else 10
-    order_limit = 4 if compact_retry else 8
-    summary_limit = 180 if compact_retry else 360
-    detail_limit = 140 if compact_retry else 220
+    focus_limit = 4 if compact_retry else 5
+    gap_limit = 5 if compact_retry else 6
+    order_limit = 4 if compact_retry else 5
+    summary_limit = 180 if compact_retry else 260
+    detail_limit = 140 if compact_retry else 160
     return {
         "available": True,
         "fallback": bool(brief.get("fallback")),
@@ -554,9 +599,9 @@ def compact_market_focus_brief(brief: dict, compact_retry: bool = False) -> dict
                 "confidence": item.get("confidence") or 0,
                 "suggested_story_title": compact_text(item.get("suggested_story_title"), 100 if compact_retry else 120),
                 "one_sentence_for_host": compact_text(item.get("one_sentence_for_host"), 120 if compact_retry else 180),
-                "source_ids": (item.get("source_ids") or [])[:8 if compact_retry else 40],
-                "evidence_ids": (item.get("evidence_ids") or [])[:8 if compact_retry else 40],
-                "missing_assets": (item.get("missing_assets") or [])[:4 if compact_retry else 20],
+                "source_ids": (item.get("source_ids") or [])[:8 if compact_retry else 12],
+                "evidence_ids": (item.get("evidence_ids") or [])[:8 if compact_retry else 12],
+                "missing_assets": (item.get("missing_assets") or [])[:4 if compact_retry else 8],
             }
             for item in (brief.get("what_market_is_watching") or [])[:focus_limit]
             if isinstance(item, dict)
@@ -589,8 +634,8 @@ def compact_market_focus_brief(brief: dict, compact_retry: bool = False) -> dict
                 "focus_rank": item.get("focus_rank"),
                 "suggested_story_title": compact_text(item.get("suggested_story_title"), 100 if compact_retry else 120),
                 "broadcast_use": item.get("broadcast_use") or "",
-                "one_sentence_for_host": compact_text(item.get("one_sentence_for_host"), 120 if compact_retry else 180),
-                "evidence_ids": (item.get("evidence_ids") or [])[:8 if compact_retry else 40],
+                "one_sentence_for_host": compact_text(item.get("one_sentence_for_host"), 120 if compact_retry else 150),
+                "evidence_ids": (item.get("evidence_ids") or [])[:8 if compact_retry else 12],
             }
             for item in (brief.get("suggested_broadcast_order") or [])[:order_limit]
             if isinstance(item, dict)
@@ -659,7 +704,7 @@ def select_editorial_candidates(rows: list[dict], max_candidates: int, required_
             continue
         merged.append(item)
         seen.add(item_id)
-    return merged
+    return merged[: max(max_candidates + 10, 12)]
 
 
 def theme_keys_of(item: dict) -> set[str]:
@@ -1122,7 +1167,7 @@ def compact_preflight_agenda(agenda: dict) -> dict:
 def compact_headline_river(river: dict, compact_retry: bool = False) -> dict:
     if not isinstance(river, dict) or not river:
         return {}
-    item_limit = 6 if compact_retry else 36
+    item_limit = 6 if compact_retry else 18
     return {
         "date": river.get("date") or "",
         "item_count": river.get("item_count") or len(river.get("items") or []),
@@ -1174,7 +1219,7 @@ def compact_headline_river(river: dict, compact_retry: bool = False) -> dict:
 def compact_analysis_river(river: dict, compact_retry: bool = False) -> dict:
     if not isinstance(river, dict) or not river:
         return {}
-    item_limit = 6 if compact_retry else 32
+    item_limit = 6 if compact_retry else 16
     return {
         "date": river.get("date") or "",
         "source": "analysis_river",
@@ -1229,10 +1274,10 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
     all_candidates = radar.get("candidates") or []
     if compact_retry:
         max_candidates = min(max_candidates, 4)
-    summary_limit = 80 if compact_retry else 520
-    finviz_limit = 1 if compact_retry else 10
-    finviz_news_limit = 1 if compact_retry else 4
-    visual_limit = 4 if compact_retry else 16
+    summary_limit = 80 if compact_retry else 260
+    finviz_limit = 1 if compact_retry else 5
+    finviz_news_limit = 1 if compact_retry else 2
+    visual_limit = 4 if compact_retry else 8
     recent_days = 3 if compact_retry else 7
     candidates = select_editorial_candidates(radar.get("candidates") or [], max_candidates, required_ids=required_ids)
     if compact_retry:
@@ -1273,14 +1318,14 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
         "market_preflight_agenda": compact_preflight_agenda(preflight_agenda),
         "headline_river": compact_headline_river(headline_river, compact_retry=compact_retry),
         "analysis_river": compact_analysis_river(analysis_river, compact_retry=compact_retry),
-        "market_radar_storylines": [compact_radar_storyline(story) for story in radar_storylines[:3]] if compact_retry else radar_storylines,
+        "market_radar_storylines": [compact_radar_storyline(story) for story in radar_storylines[:3 if compact_retry else 5]],
         "candidates": [
             compact_candidate(
                 item,
                 summary_limit=summary_limit,
-                include_url=not compact_retry,
-                include_paths=not compact_retry,
-                allow_text_fallback=not compact_retry,
+                include_url=False,
+                include_paths=False,
+                allow_text_fallback=False,
                 minimal=compact_retry,
             )
             for item in candidates
@@ -1302,9 +1347,9 @@ def build_input_payload(target_date: str, max_candidates: int, compact_retry: bo
             }
             for item in (visuals.get("cards") or visuals.get("items") or [])[:visual_limit]
         ],
-        "recent_briefs": [] if compact_retry else load_recent_briefs(target_date, days=recent_days),
-        "recent_broadcast_feedback": [] if compact_retry else load_recent_broadcast_feedback(target_date, days=recent_days),
-        "retrospective_learning": {} if compact_retry else retrospective_learning,
+        "recent_briefs": [],
+        "recent_broadcast_feedback": [],
+        "retrospective_learning": {},
     }
 
 
@@ -1373,6 +1418,77 @@ Input:
 """
 
 
+def build_emergency_prompt(payload: dict) -> str:
+    return f"""You are the emergency editor for a Korean morning markets broadcast.
+
+The full editorial request failed or timed out. Produce only the minimum fields needed
+to keep the dashboard publishable.
+
+Rules:
+- Use only candidates[].id and market_radar_storylines from the input.
+- Do not invent facts, prices, dates, causality, or source names.
+- Pick exactly 3 storylines.
+- Keep Korean public-facing prose short and human.
+- host_headline_lines must be exactly 2 complete Korean sentences:
+  1) previous US market flow,
+  2) today's broadcast flow.
+- selected_item_ids must come from candidates[].id only.
+- Do not output any text outside JSON.
+
+Input:
+{json.dumps(payload, ensure_ascii=False, indent=2)}
+"""
+
+
+def emergency_retry_payload(payload: dict) -> dict:
+    focuses = []
+    for item in (payload.get("market_focus_brief") or {}).get("what_market_is_watching") or []:
+        if not isinstance(item, dict):
+            continue
+        focuses.append(
+            {
+                "rank": item.get("rank"),
+                "focus": compact_text(item.get("focus"), 80),
+                "why_it_matters": compact_text(item.get("why_it_matters"), 120),
+                "one_sentence_for_host": compact_text(item.get("one_sentence_for_host"), 120),
+                "evidence_ids": (item.get("evidence_ids") or [])[:4],
+            }
+        )
+        if len(focuses) >= 4:
+            break
+    return {
+        "date": payload.get("date") or "",
+        "policy": {
+            "role": "emergency_editorial_retry",
+            "exact_storyline_count": 3,
+            "use_only_candidate_ids": True,
+            "do_not_invent_facts": True,
+        },
+        "input_limits": payload.get("input_limits") or {},
+        "market_focus": focuses,
+        "market_radar_storylines": (payload.get("market_radar_storylines") or [])[:3],
+        "candidates": [
+            {
+                "id": item.get("id") or "",
+                "title": compact_text(item.get("title"), 80),
+                "source": compact_text(item.get("source"), 40),
+                "summary": compact_text(item.get("summary") or item.get("micro_content"), 120),
+                "source_role": item.get("source_role") or "",
+                "evidence_role": item.get("evidence_role") or "",
+            }
+            for item in (payload.get("candidates") or [])[:4]
+        ],
+        "visual_cards": [
+            {
+                "id": item.get("id") or "",
+                "title": compact_text(item.get("title"), 80),
+                "asset_status": item.get("asset_status") or "",
+            }
+            for item in (payload.get("visual_cards") or [])[:3]
+        ],
+    }
+
+
 def extract_output_text(raw: dict) -> str:
     if raw.get("output_text"):
         return str(raw["output_text"]).strip()
@@ -1384,7 +1500,16 @@ def extract_output_text(raw: dict) -> str:
     ).strip()
 
 
-def call_openai(prompt: str, token: str, model: str, timeout: int, max_output_tokens: int) -> tuple[dict, str | None, dict]:
+def call_openai(
+    prompt: str,
+    token: str,
+    model: str,
+    timeout: int,
+    max_output_tokens: int,
+    *,
+    schema: dict | None = None,
+    schema_name: str = "autopark_editorial_brief",
+) -> tuple[dict, str | None, dict]:
     payload = {
         "model": model,
         "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
@@ -1392,9 +1517,9 @@ def call_openai(prompt: str, token: str, model: str, timeout: int, max_output_to
         "text": {
             "format": {
                 "type": "json_schema",
-                "name": "autopark_editorial_brief",
+                "name": schema_name,
                 "strict": True,
-                "schema": EDITORIAL_SCHEMA,
+                "schema": schema or EDITORIAL_SCHEMA,
             }
         },
     }
@@ -1513,12 +1638,21 @@ def run_openai_attempt(
     timeout_seconds: int,
     max_output_tokens: int,
     retry_code: str | None = None,
+    emergency_schema: bool = False,
 ) -> tuple[dict | None, str | None, dict]:
-    prompt = build_prompt(input_payload)
+    prompt = build_emergency_prompt(input_payload) if emergency_schema else build_prompt(input_payload)
     started_at = now_iso()
     monotonic = time.monotonic()
     try:
-        brief, response_id, raw = call_openai(prompt, token, model, timeout_seconds, max_output_tokens)
+        brief, response_id, raw = call_openai(
+            prompt,
+            token,
+            model,
+            timeout_seconds,
+            max_output_tokens,
+            schema=EMERGENCY_EDITORIAL_SCHEMA if emergency_schema else EDITORIAL_SCHEMA,
+            schema_name="autopark_emergency_editorial_brief" if emergency_schema else "autopark_editorial_brief",
+        )
         elapsed = time.monotonic() - monotonic
         stats = prompt_debug_stats(
             attempt=attempt,
@@ -1679,6 +1813,79 @@ def normalize_storyline(story: dict, index: int, candidates: dict[str, dict]) ->
         "counterpoint": compact_text(story.get("counterpoint"), 300),
         "what_would_change_my_mind": compact_text(story.get("what_would_change_my_mind") or "추가 fact/data evidence가 반대 방향으로 확인되면 조정합니다.", 260),
         "closing_line": compact_text(story.get("closing_line") or story.get("hook"), 220),
+    }
+
+
+def expand_emergency_brief(brief: dict, input_payload: dict) -> dict:
+    """Convert the tiny retry schema into the full editorial shape."""
+    candidates = known_candidates(input_payload)
+    candidate_ids = list(candidates.keys())
+    storylines = []
+    for index, story in enumerate((brief.get("storylines") or [])[:3], start=1):
+        selected_ids = [
+            str(item_id)
+            for item_id in (story.get("selected_item_ids") or [])
+            if str(item_id) in candidates
+        ][:4]
+        if not selected_ids and candidate_ids:
+            selected_ids = [candidate_ids[(index - 1) % len(candidate_ids)]]
+        evidence_to_use = [
+            {
+                "item_id": item_id,
+                "evidence_id": item_id,
+                "title": candidates[item_id].get("title") or item_id,
+                "source_role": resolved_source_role(candidates[item_id]),
+                "evidence_role": resolved_evidence_role(candidates[item_id], resolved_source_role(candidates[item_id])),
+                "reason": "emergency retry selected this local candidate as storyline support.",
+            }
+            for item_id in selected_ids
+        ]
+        assets = [
+            asset_from_candidate(candidates[item_id], str(story.get("storyline_id") or f"storyline-{index}"), pos)
+            for pos, item_id in enumerate(selected_ids, start=1)
+            if is_visual_candidate(candidates[item_id])
+        ][:3]
+        storylines.append(
+            {
+                "storyline_id": story.get("storyline_id") or f"emergency-{index}",
+                "rank": index,
+                "title": story.get("title") or f"스토리라인 {index}",
+                "recommendation_stars": story.get("recommendation_stars") or (3 if index == 1 else 2),
+                "rating_reason": story.get("lead_candidate_reason") or story.get("why_now") or "",
+                "lead_candidate_reason": story.get("lead_candidate_reason") or story.get("why_now") or "",
+                "hook": story.get("hook") or story.get("core_argument") or "",
+                "why_now": story.get("why_now") or story.get("lead_candidate_reason") or "",
+                "core_argument": story.get("core_argument") or story.get("hook") or "",
+                "signal_or_noise": "watch",
+                "market_causality": "emergency_retry_needs_human_causality_check",
+                "expectation_gap": "check_if_relevant",
+                "prepricing_risk": "check_if_relevant",
+                "first_5min_fit": story.get("first_5min_fit") or "medium",
+                "korea_open_relevance": story.get("korea_open_relevance") or "medium",
+                "talk_track": story.get("core_argument") or story.get("hook") or "",
+                "slide_order": story.get("slide_plan") or [],
+                "slide_plan": story.get("slide_plan") or [],
+                "ppt_asset_queue": assets,
+                "evidence_to_use": evidence_to_use,
+                "evidence_to_drop": [],
+                "drop_code": "",
+                "counterpoint": "Emergency retry used a compact packet; verify causality before broadcast.",
+                "what_would_change_my_mind": "A stronger fact/data/analysis source contradicting this angle would downgrade it.",
+                "closing_line": story.get("hook") or story.get("core_argument") or "",
+            }
+        )
+    return {
+        "broadcast_mode": "normal",
+        "daily_thesis": brief.get("daily_thesis") or "",
+        "one_line_market_frame": brief.get("daily_thesis") or "",
+        "host_headline_lines": brief.get("host_headline_lines") or [],
+        "market_map_summary": "시장 지도는 별도 차트와 히트맵으로 확인합니다.",
+        "editorial_summary": brief.get("editorial_summary") or "Emergency retry generated a compact editorial brief.",
+        "ppt_asset_queue": [asset for story in storylines for asset in story.get("ppt_asset_queue", [])],
+        "talk_only_queue": [],
+        "drop_list": [],
+        "retrospective_watchpoints": ["emergency_editorial_retry_used"],
+        "storylines": storylines,
     }
 
 
@@ -1965,7 +2172,7 @@ def main() -> int:
     parser.add_argument("--date", required=True)
     parser.add_argument("--env", type=Path, default=DEFAULT_ENV)
     parser.add_argument("--model", default=None)
-    parser.add_argument("--max-candidates", type=int, default=28)
+    parser.add_argument("--max-candidates", type=int, default=16)
     parser.add_argument("--timeout", type=int, default=DEFAULT_API_TIMEOUT_SECONDS)
     parser.add_argument("--api-timeout-seconds", type=int, default=None)
     parser.add_argument("--max-output-tokens", type=int, default=None)
@@ -2045,7 +2252,7 @@ def main() -> int:
             first_exception = first_stats.get("_exception")
             retry_code = compact_retry_code_for_exception(first_exception) if first_exception else None
             if brief is None and first_exception and retry_code:
-                retry_payload = build_input_payload(args.date, args.max_candidates, compact_retry=True)
+                retry_payload = emergency_retry_payload(build_input_payload(args.date, args.max_candidates, compact_retry=True))
                 retry_timeout_seconds = min(api_timeout_seconds, 90)
                 retry_model = env.get("AUTOPARK_EDITORIAL_RETRY_MODEL") or "gpt-5-mini"
                 retry_max_output_tokens = min(max_output_tokens, 8192)
@@ -2057,12 +2264,13 @@ def main() -> int:
                     timeout_seconds=retry_timeout_seconds,
                     max_output_tokens=retry_max_output_tokens,
                     retry_code=retry_code,
+                    emergency_schema=True,
                 )
                 debug_stats["retry_attempt"] = {key: value for key, value in retry_stats.items() if key != "_exception"}
                 if retry_brief is None:
                     retry_exception = retry_stats.get("_exception") or first_exception
                     raise retry_exception
-                brief = retry_brief
+                brief = retry_brief if "ppt_asset_queue" in retry_brief else expand_emergency_brief(retry_brief, retry_payload)
                 response_id = retry_response_id
                 input_payload = retry_payload
             elif brief is None and first_exception:
