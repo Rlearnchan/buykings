@@ -3275,6 +3275,33 @@ def compact_story_quote_line(lines: list[str], fallback: str) -> str:
     return text
 
 
+def compact_host_headline_lines(brief: dict, market_focus: dict, storylines: list[dict]) -> list[str]:
+    raw_lines = brief.get("host_headline_lines") if isinstance(brief.get("host_headline_lines"), list) else []
+    seeds = [compact_public_text(line, 120, "") for line in raw_lines if compact_public_text(line, 120, "")]
+    if not seeds:
+        story_titles = [
+            compact_public_text(public_story_title(story, index), 34, fallback_story_title(story_public_axis(story), index))
+            for index, story in enumerate(storylines[:3], start=1)
+        ]
+        story_titles = [title for title in story_titles if title]
+        seeds = [
+            "전날 미국장은 주요 가격 변수와 실적 기대가 엇갈리며 랠리의 지속력을 다시 확인하는 흐름이었습니다.",
+            f"오늘 방송은 {' → '.join(story_titles)} 순서로 시장 반응과 자료 근거를 붙입니다." if story_titles else "",
+        ]
+    fallback_lines = [
+        "전날 시장은 가격 반응과 실적 기대가 엇갈리며 랠리의 다음 근거를 확인하는 흐름이었습니다.",
+        "오늘 방송은 지수·금리·유가·달러로 시장 온도를 잡고, 주요 자료로 리드 스토리의 근거를 붙입니다.",
+    ]
+    rows: list[str] = []
+    for line in [*seeds, *fallback_lines]:
+        line = compact_public_text(line, 120, "")
+        if not line or line in rows:
+            continue
+        rows.append(line)
+        if len(rows) >= 2:
+            break
+    return rows[:2] if len(rows) >= 2 else fallback_lines
+
 def render_compact_publish_host(
     lines: list[str],
     created_at: str,
@@ -3294,6 +3321,7 @@ def render_compact_publish_host(
     media_number_by_label = {clean(card.get("label")): clean(card.get("media_number")) for card in media_cards if card.get("label")}
     copy_by_story = microcopy_story_by_id(microcopy)
     used_story_labels: set[str] = set()
+    headline_lines = compact_host_headline_lines(brief, market_focus, storylines)
     lines.extend(
         [
             f"문서 생성: `{created_at} (KST)`",
@@ -3301,10 +3329,12 @@ def render_compact_publish_host(
             f"시장 차트: `{chart_basis}`",
             "",
             "# 🎥 진행자용 요약",
-            f"> **{compact_public_text(brief.get('daily_thesis') or brief.get('one_line_market_frame') or market_focus.get('market_focus_summary'), 90, '가격 반응과 로컬 근거가 같은 방향인지 확인한다.')}**",
-            "## 주요 뉴스",
         ]
     )
+    headline_quote = " ".join(line.rstrip(".。") + "." for line in headline_lines if clean(line)).strip()
+    lines.append(f"> {headline_quote}")
+    lines.append("")
+    lines.append("## 주요 뉴스")
     for bullet in compact_top_news(brief, market_focus, storylines):
         lines.append(f"- {compact_public_text(bullet, 80, '시장 반응과 핵심 변수를 짧게 확인한다.')}")
     lines.extend(["## 방송 순서", f"- `시장은 지금`: {compact_public_text(compact_market_map_line(brief), 64, '지수·금리·달러·유가의 방향을 먼저 확인한다.')}"])
@@ -3576,15 +3606,15 @@ def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str
     time_line = media_time_line(card)
     if time_line:
         lines.append(time_line)
+    image = clean(card.get("image") or card.get("visual_local_path") or card.get("local_path"))
+    if image:
+        lines.extend(["", notion_image(label, image)])
     lines.extend(["", "**주요 내용**", ""])
     bullets = (microcopy_card or {}).get("content_bullets") or content_bullets(card)
     for bullet in bullets[:3]:
         text = clean(remove_host_forbidden(str(bullet or "")), 300) or "자료의 가격 반응과 방송 연결 포인트를 확인한다."
         lines.append(f"- {text}")
     lines.append("")
-    image = clean(card.get("image") or card.get("visual_local_path") or card.get("local_path"))
-    if image:
-        lines.append(notion_image(label, image))
     return True
 
 

@@ -256,6 +256,7 @@ EDITORIAL_SCHEMA = {
         "broadcast_mode",
         "daily_thesis",
         "one_line_market_frame",
+        "host_headline_lines",
         "market_map_summary",
         "editorial_summary",
         "ppt_asset_queue",
@@ -268,6 +269,7 @@ EDITORIAL_SCHEMA = {
         "broadcast_mode": {"type": "string"},
         "daily_thesis": {"type": "string"},
         "one_line_market_frame": {"type": "string"},
+        "host_headline_lines": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string"}},
         "market_map_summary": {"type": "string"},
         "editorial_summary": {"type": "string"},
         "ppt_asset_queue": {"type": "array", "items": PPT_ASSET_SCHEMA},
@@ -1218,6 +1220,7 @@ Rules:
 Output requirements:
 - broadcast_mode should be one of normal, earnings_heavy, fed_day, macro_shock, guest_early, no_guest_long_host, holiday_korea_market_open unless the evidence strongly implies another short code.
 - market_map_summary is the market-map reading, not the causal explanation.
+- host_headline_lines should be exactly 2 Korean public-facing lines under the dashboard headline. Line 1 explains the previous US market flow. Line 2 explains today's broadcast flow. Write each line as a complete prose sentence, not sentence fragments split for style.
 - The first storyline by rank should be the lead candidate. It must include lead_candidate_reason.
 - For each ppt_asset_queue item, fill all fields even if risks_or_caveats is "none".
 - For evidence_to_use/evidence_to_drop, evidence_id may equal item_id when the candidate has no separate evidence_id.
@@ -1580,6 +1583,29 @@ def repair_storyline_evidence_support(stories: list[dict], candidates: dict[str,
     return stories
 
 
+def normalize_host_headline_lines(value: object, brief: dict, stories: list[dict]) -> list[str]:
+    raw_lines = value if isinstance(value, list) else []
+    seeds = [compact_text(item, 120) for item in raw_lines if compact_text(item, 120)]
+    if not seeds:
+        story_titles = [compact_text(story.get("title"), 34) for story in stories[:3] if compact_text(story.get("title"), 34)]
+        seeds = [
+            "전날 미국장은 주요 가격 변수와 실적 기대가 엇갈리며 랠리의 지속력을 다시 확인하는 흐름이었습니다.",
+            f"오늘 방송은 {' → '.join(story_titles)} 순서로 시장 반응과 자료 근거를 붙입니다." if story_titles else "",
+        ]
+    fallback_lines = [
+        "전날 시장은 가격 반응과 실적 기대가 엇갈리며 랠리의 다음 근거를 확인하는 흐름이었습니다.",
+        "오늘 방송은 지수·금리·유가·달러로 시장 온도를 잡고, 주요 자료로 리드 스토리의 근거를 붙입니다.",
+    ]
+    rows: list[str] = []
+    for line in [*seeds, *fallback_lines]:
+        line = compact_text(line, 120)
+        if not line or line in rows:
+            continue
+        rows.append(line)
+        if len(rows) >= 2:
+            break
+    return rows[:2] if len(rows) >= 2 else fallback_lines
+
 def normalize_brief(brief: dict, input_payload: dict) -> dict:
     candidates = known_candidates(input_payload)
     stories = [normalize_storyline(story, index, candidates) for index, story in enumerate(brief.get("storylines") or [], start=1)]
@@ -1598,10 +1624,12 @@ def normalize_brief(brief: dict, input_payload: dict) -> dict:
         point = compact_text(f"retrospective_learning: {action}", 180)
         if point and point not in watchpoints:
             watchpoints.append(point)
+    headline_lines = normalize_host_headline_lines(brief.get("host_headline_lines"), brief, stories)
     return {
         "broadcast_mode": brief.get("broadcast_mode") or "normal",
         "daily_thesis": compact_text(brief.get("daily_thesis"), 180),
         "one_line_market_frame": compact_text(brief.get("one_line_market_frame") or brief.get("daily_thesis"), 180),
+        "host_headline_lines": headline_lines,
         "market_map_summary": compact_text(brief.get("market_map_summary") or "시장 지도는 별도 차트와 히트맵으로 확인합니다.", 260),
         "editorial_summary": compact_text(brief.get("editorial_summary"), 900),
         "ppt_asset_queue": [normalize_asset(item, item.get("storyline_id") or "brief", pos) for pos, item in enumerate(brief.get("ppt_asset_queue") or ppt_assets, start=1)],
@@ -1728,6 +1756,7 @@ def fallback_brief(
         "broadcast_mode": "normal",
         "daily_thesis": compact_text((storylines[0]["hook"] if storylines else "") or "오늘 시장의 핵심 질문을 선별합니다.", 140),
         "one_line_market_frame": compact_text((storylines[0]["hook"] if storylines else "") or "오늘 시장의 핵심 질문을 선별합니다.", 140),
+        "host_headline_lines": normalize_host_headline_lines([], {}, storylines),
         "market_map_summary": "fallback 결과입니다. 시장 지도는 지수/히트맵/금리/유가/달러/비트코인 차트에서 수동 확인하세요.",
         "editorial_summary": "OpenAI 편집장 단계가 실패해 기존 market-radar 스토리라인을 사용했습니다.",
         "ppt_asset_queue": ppt_assets,
@@ -1744,6 +1773,9 @@ def validate_brief(brief: dict, input_payload: dict) -> list[str]:
         errors.append("missing daily_thesis")
     if not brief.get("editorial_summary"):
         errors.append("missing editorial_summary")
+    host_lines = brief.get("host_headline_lines")
+    if not isinstance(host_lines, list) or len(host_lines) != 2:
+        errors.append("host_headline_lines must contain exactly 2 items")
     stories = brief.get("storylines")
     if not isinstance(stories, list) or len(stories) < 3:
         errors.append("storylines must contain at least 3 items")

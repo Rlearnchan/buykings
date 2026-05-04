@@ -92,6 +92,10 @@ def model_brief() -> dict:
         "broadcast_mode": "normal",
         "daily_thesis": "Use local evidence to choose the lead.",
         "one_line_market_frame": "Rates and local evidence frame the morning.",
+        "host_headline_lines": [
+            "Previous market flow is framed by rates and local evidence.",
+            "Today broadcast flow checks market reaction against local proof.",
+        ],
         "market_map_summary": "Market map is mixed.",
         "editorial_summary": "Three local-evidence segments are usable.",
         "ppt_asset_queue": [],
@@ -186,7 +190,7 @@ class EditorialBriefContractTest(unittest.TestCase):
 
     def test_editorial_schema_requires_new_broadcast_fields(self) -> None:
         required = set(brief_builder.EDITORIAL_SCHEMA["required"])
-        self.assertLessEqual({"broadcast_mode", "market_map_summary", "ppt_asset_queue", "talk_only_queue", "drop_list"}, required)
+        self.assertLessEqual({"broadcast_mode", "host_headline_lines", "market_map_summary", "ppt_asset_queue", "talk_only_queue", "drop_list"}, required)
         story_required = set(brief_builder.STORYLINE_SCHEMA["required"])
         self.assertLessEqual({"lead_candidate_reason", "signal_or_noise", "market_causality", "ppt_asset_queue", "closing_line"}, story_required)
 

@@ -186,6 +186,7 @@
       "kind": "browser_capture",
       "url": "https://edition.cnn.com/markets/fear-and-greed",
       "requires_login": false,
+      "auth_profile": "cnn",
       "cadence": "daily",
       "section": "market_now",
       "capture_notes": "상단 지수와 게이지 영역을 캡처한다.",
