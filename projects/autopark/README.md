@@ -64,6 +64,13 @@ Docker scheduler
 
 LLM은 네 가지 종류의 일만 합니다.
 
+신문사로 비유하면 다음과 같습니다.
+
+- **Preflight agenda**: 조간 편집회의 전 뉴스 에디터입니다. 밤사이 무엇이 중요한지 훑고, 오늘 더 확인할 시장 질문과 취재 방향을 제안합니다. 최종 판단자는 아니고, 오늘의 가설 지도를 만듭니다.
+- **Market focus**: 증권부 데스크입니다. 수집된 기사, 차트, 가격 반응, source gap을 보고 이 재료가 실제 시장 근거를 갖췄는지 검증합니다.
+- **Editorial brief**: 편집국장입니다. 검증된 재료를 바탕으로 첫 5분 방송의 톱스토리, 순서, 흐름, 한국장 연결점을 정리합니다.
+- **Dashboard microcopy**: 카피 에디터입니다. 구조나 순위는 바꾸지 않고, 최종 Notion에 들어갈 짧은 공개 문장만 매끄럽게 다듬습니다.
+
 | Area | Default model | What it may do | What it must not do |
 | --- | --- | --- | --- |
 | Market preflight | `gpt-5.5` | 오늘 확인할 의제 후보 제안 | publish 구조 확정 |
