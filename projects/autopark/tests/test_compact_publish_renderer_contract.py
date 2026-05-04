@@ -298,7 +298,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
             self.assertLessEqual(len(why_bullets), 3)
             self.assertTrue(all(len(bullet) <= 90 for bullet in why_bullets))
             self.assertTrue(quality.compact_host_relevance_complete(why_bullets))
-            self.assertEqual(1, len(re.findall(r"^\*\*슬라이드 구성:\*\*\s+`[①②③④⑤⑥⑦⑧⑨⑩]", block, flags=re.M)))
+            self.assertEqual(1, len(re.findall(r"^\*\*슬라이드 구성:\*\*\s+`\(\d+\)", block, flags=re.M)))
 
         for forbidden in quality.COMPACT_HOST_FORBIDDEN:
             self.assertNotIn(forbidden, host)
@@ -309,7 +309,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertEqual(3, len(news_bullets))
         self.assertTrue(all(len(bullet) <= 80 for bullet in news_bullets))
         slide_lines = re.findall(r"^\*\*슬라이드 구성:\*\*\s+(.+)$", quality.compact_section_body(host, "스토리라인"), flags=re.M)
-        self.assertTrue(any(re.search(r"`[①②③④⑤⑥⑦⑧⑨⑩] .+`", label) for label in slide_lines))
+        self.assertTrue(any(re.search(r"`\(\d+\) .+`", label) for label in slide_lines))
         bare_story_label_lines = [
             label.strip()
             for slide_line in slide_lines
@@ -350,7 +350,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertNotIn("- 출처: Market Focus", media_body)
         self.assertNotIn("- 출처: Pre-flight Agenda", media_body)
         self.assertNotIn("실적·경제일정 표", media_body)
-        self.assertTrue(all(re.match(r"^### [①②③④⑤⑥⑦⑧⑨⑩]", block.splitlines()[0]) for block in media_blocks[:3]))
+        self.assertTrue(all(re.match(r"^### \(\d+\)", block.splitlines()[0]) for block in media_blocks[:3]))
         for block in media_blocks:
             self.assertIn("- 출처:", block)
             self.assertRegex(block, r"(?m)^-\s+(?:게시|확인):\s+`[^`]+`")
@@ -364,8 +364,8 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         feature_blocks = quality.compact_card_blocks(feature_body)
         self.assertEqual("실적 캘린더", quality.card_title(feature_blocks[0]))
         self.assertEqual(1, quality.image_count(feature_blocks[0]))
-        self.assertIn("### 마이크로소프트 (MSFT)", feature_body)
-        self.assertIsNone(re.search(r"^###\s+(?:\d+\.|[①②③④⑤⑥⑦⑧⑨⑩])\s+마이크로소프트", feature_body, flags=re.M))
+        self.assertEqual(1, len(feature_blocks))
+        self.assertNotIn("### 마이크로소프트 (MSFT)", feature_body)
 
         findings = quality.review_compact_publish_contract(markdown)
         self.assertEqual([], [finding.title for finding in findings])
@@ -593,7 +593,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         body = "\n".join(lines).split("**주요 내용**", 1)[1]
         bullets = re.findall(r"^-\s+(.+)$", body, flags=re.M)
         self.assertEqual(
-            ["Fed 인사가 인플레이션 데이터 부담을 언급했습니다.", "시장은 금리 경로가 편해졌는지 다시 확인했습니다."],
+            ["Fed 인사가 인플레이션 데이터 부담을 언급했습니다. 시장은 금리 경로가 편해졌는지 다시 확인했습니다."],
             bullets,
         )
 

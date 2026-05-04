@@ -57,7 +57,7 @@ def load_env_file(path: Path) -> dict[str, str]:
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        values[key.strip()] = value.strip().strip('"').strip("'")
+        values[key.strip().lstrip("\ufeff")] = value.strip().strip('"').strip("'")
     return values
 
 
@@ -503,6 +503,7 @@ def write_post_publish_review(
     publish_payload: dict,
     dashboard_path: str,
     results: list[StepResult],
+    editorial_payload: dict | None = None,
 ) -> tuple[Path, Path]:
     review_dir = PROJECT_ROOT / "runtime" / "reviews" / date_value
     review_dir.mkdir(parents=True, exist_ok=True)
@@ -532,6 +533,32 @@ def write_post_publish_review(
         lines.append(f"- Notion page_id: `{info['page_id']}`")
     if info.get("block_count") is not None:
         lines.append(f"- block count: `{info['block_count']}`")
+    editorial_payload = editorial_payload or {}
+    editorial_debug = editorial_payload.get("debug_stats") or {}
+    if editorial_debug:
+        lines.extend(["", "## Editorial LLM", ""])
+        first = editorial_debug.get("first_attempt") or {}
+        retry = editorial_debug.get("retry_attempt") or {}
+        if first:
+            lines.append(
+                "- first_attempt: "
+                f"model `{first.get('model', '-')}`, "
+                f"elapsed `{first.get('elapsed_seconds', '-')}`s, "
+                f"tokens `{first.get('estimated_prompt_tokens', '-')}`, "
+                f"candidates `{first.get('candidate_count_sent', '-')}`, "
+                f"status `{first.get('fallback_code') or 'ok'}`"
+            )
+        if retry:
+            lines.append(
+                "- retry_attempt: "
+                f"model `{retry.get('model', '-')}`, "
+                f"elapsed `{retry.get('elapsed_seconds', '-')}`s, "
+                f"tokens `{retry.get('estimated_prompt_tokens', '-')}`, "
+                f"candidates `{retry.get('candidate_count_sent', '-')}`, "
+                f"status `{retry.get('fallback_code') or retry.get('retry_code') or 'ok'}`"
+            )
+        if retry:
+            lines.append("- note: compact retry output can be more repetitive and should be reviewed before relying on storyline nuance.")
     lines.extend(["", "## 자체 리뷰", ""])
     if failures:
         lines.append("- 실행 실패가 있어 발행 결과를 신뢰하기 어렵다. 실패 step을 먼저 복구한다.")
@@ -560,6 +587,7 @@ def write_post_publish_review(
         "finding_count": finding_count,
         "published": published,
         "publish": info,
+        "editorial_debug_stats": editorial_debug,
         "dashboard_path": rel(dashboard_path),
         "warn_steps": [row.name for row in warnings],
         "fail_steps": [row.name for row in failures],
@@ -1369,6 +1397,7 @@ def main() -> int:
         publish_payload,
         dashboard_path,
         results,
+        editorial_payload,
     )
     append_step(
         results,

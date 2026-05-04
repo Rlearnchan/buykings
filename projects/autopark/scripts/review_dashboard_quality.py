@@ -591,7 +591,6 @@ COMPACT_MARKET_NOW_LABEL_ORDER = [
     "달러인덱스 차트",
     "원/달러 환율 차트",
     "비트코인 가격 차트",
-    "CNN Fear & Greed",
     "FedWatch",
     "오늘의 경제지표",
 ]

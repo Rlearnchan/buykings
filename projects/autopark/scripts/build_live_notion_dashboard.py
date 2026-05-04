@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 from collections import Counter
@@ -1383,6 +1384,14 @@ def english_word_run_too_long(text: str) -> bool:
     return bool(re.search(r"\b[A-Za-z][A-Za-z0-9&'’.-]*(?:\s+[A-Za-z][A-Za-z0-9&'’.-]*){4,}\b", text or ""))
 
 
+def english_label_dump_like(text: str) -> bool:
+    plain = markdown_plain(text)
+    if re.search(r"[가-힣]", plain):
+        return False
+    words = re.findall(r"[A-Za-z][A-Za-z0-9&'’.-]*", plain)
+    return len(words) >= 3
+
+
 def valid_public_material_label(value: object) -> bool:
     text = markdown_plain(value)
     if not text or len(text) > 28:
@@ -1404,6 +1413,8 @@ def valid_public_material_label(value: object) -> bool:
         "AdvisorPerspectives",
     ]
     if any(token.lower() in text.lower() for token in forbidden):
+        return False
+    if english_label_dump_like(text):
         return False
     return not english_word_run_too_long(text)
 
@@ -1442,6 +1453,9 @@ def fallback_public_material_label(axis: str, role_blob: str = "") -> str:
 
 def supplemental_public_material_label(row: dict) -> str:
     blob = row_blob(row)
+    micro_title = markdown_plain(row.get("micro_title") or "")
+    if valid_public_material_label(micro_title):
+        return micro_title
     title = markdown_plain(row.get("title") or row.get("headline") or "")
     source = source_label(row.get("source") or row.get("source_name") or row.get("type"), row.get("url") or "")
     lowered = f"{blob} {source.lower()}"
@@ -1489,7 +1503,7 @@ def public_material_label(asset: dict, story: dict | None = None, focus: dict | 
         if explicit_id in PUBLIC_ITEM_LABELS:
             return PUBLIC_ITEM_LABELS[explicit_id]
 
-    for key in ["public_title", "public_material_label", "host_facing_material_name", "label", "micro_title"]:
+    for key in ["micro_title", "public_title", "public_material_label", "host_facing_material_name", "label"]:
         candidate = asset.get(key) if isinstance(asset, dict) else ""
         candidate_text = markdown_plain(candidate)
         if candidate_text in PUBLIC_LABEL_ALIASES:
@@ -3549,10 +3563,12 @@ def material_publish_order_key(card: dict) -> tuple[int, int, int, str]:
 
 
 def content_bullets(card: dict) -> list[str]:
-    raw = markdown_plain(card.get("content") or card.get("summary") or card.get("source_gap") or card.get("headline") or card.get("title") or "")
+    raw = markdown_plain(card.get("micro_content") or card.get("content") or card.get("summary") or card.get("source_gap") or card.get("headline") or card.get("title") or "")
     if not raw:
-        return ["자료의 가격 반응과 방송 연결 포인트를 확인한다."]
-    parts = [clean(part) for part in re.split(r"(?<=[.!?。])\s+|\n+", raw) if clean(part)]
+        return [media_card_fallback_summary(card)]
+    if english_dump_like(raw):
+        return [media_card_fallback_summary(card)]
+    parts = [clean(part) for part in re.split(r"\n+", raw) if clean(part)]
     if not parts:
         parts = [raw]
     return [clean(part, 300) for part in parts[:3]]
@@ -3562,7 +3578,7 @@ def content_bullets_from_values(values: list[object]) -> list[str]:
     rows: list[str] = []
     for value in values:
         raw = sentence_split_safe(markdown_plain(value))
-        for part in re.split(r"(?<=[.!?。])\s+|(?<=다\.)\s+|(?<=요\.)\s+|\n+", raw):
+        for part in re.split(r"\n+", raw):
             text = clean(remove_host_forbidden(str(part or "")), 300)
             if text and text not in rows:
                 rows.append(text)
@@ -3583,6 +3599,51 @@ def sentence_split_safe(value: object) -> str:
 
 def circled_number(index: int) -> str:
     return CIRCLED_NUMBERS[index - 1] if 1 <= index <= len(CIRCLED_NUMBERS) else f"({index})"
+
+
+def media_focus_number(index: int) -> str:
+    return f"({index})"
+
+
+def numeric_score(value: object) -> str:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return ""
+    if not math.isfinite(number):
+        return ""
+    return f"{number:.1f}"
+
+
+def media_focus_score(card: dict) -> str:
+    for key in ["score", "final_score", "cluster_score"]:
+        score = numeric_score(card.get(key))
+        if score:
+            return score
+    return ""
+
+
+def english_dump_like(value: str) -> bool:
+    text = clean(value)
+    if len(text) < 60:
+        return False
+    letters = re.findall(r"[A-Za-z]", text)
+    hangul = re.findall(r"[가-힣]", text)
+    return len(letters) > 45 and len(letters) > len(hangul) * 2
+
+
+def media_card_fallback_summary(card: dict) -> str:
+    label = public_material_label(card)
+    axis = topic_axis_from_blob(row_blob(card))
+    if axis == "oil":
+        return "유가와 에너지 리스크가 시장 심리와 물가 기대에 어떤 영향을 주는지 확인할 자료입니다."
+    if axis == "rates":
+        return "금리와 Fed 기대 변화가 위험자산 흐름을 어떻게 흔드는지 확인할 자료입니다."
+    if axis == "ai":
+        return "AI 인프라 투자와 실적 기대가 시장 랠리의 근거로 작동하는지 확인할 자료입니다."
+    if axis == "earnings":
+        return "실적 발표와 가이던스가 종목별 평가를 어떻게 가르는지 확인할 자료입니다."
+    return f"{label}의 핵심 내용을 방송 전 빠르게 확인할 자료입니다."
 
 
 def render_market_material_card(lines: list[str], card: dict, rendered_keys: set[str], target_date: str) -> bool:
@@ -3631,14 +3692,19 @@ def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str
     time_line = media_time_line(card)
     if time_line:
         lines.append(time_line)
+    score = media_focus_score(card)
+    if score:
+        lines.append(f"- 점수: {score}")
     image = clean(card.get("image") or card.get("visual_local_path") or card.get("local_path"))
     if image:
         lines.extend(["", notion_image(label, image)])
     lines.extend(["", "**주요 내용**", ""])
-    raw_bullets = (microcopy_card or {}).get("content_bullets") or content_bullets(card)
+    raw_bullets = (microcopy_card or {}).get("content_bullets") or ([card.get("micro_content")] if card.get("micro_content") else content_bullets(card))
     bullets = content_bullets_from_values(raw_bullets) or content_bullets(card)
     for bullet in bullets[:3]:
-        text = clean(remove_host_forbidden(str(bullet or "")), 300) or "자료의 가격 반응과 방송 연결 포인트를 확인한다."
+        text = clean(remove_host_forbidden(str(bullet or "")), 300)
+        if not text or english_dump_like(text):
+            text = media_card_fallback_summary(card)
         lines.append(f"- {text}")
     lines.append("")
     return True
@@ -3752,6 +3818,15 @@ def supplemental_media_candidate_key(row: dict) -> str:
     return f"title:{title[:80]}"
 
 
+def is_earnings_calendar_material(row: dict) -> bool:
+    blob = row_blob(row).lower()
+    source = source_label(row.get("source") or row.get("source_name") or row.get("type"), row.get("url") or "").lower()
+    return any(
+        token in blob or token in source
+        for token in ["earnings whispers", "ewhispers", "earningswhispers.com", "fixed-earnings-calendar"]
+    )
+
+
 def unique_public_label(base_label: str, used_labels: set[str]) -> str:
     base = clean(base_label, 24)
     if valid_public_material_label(base) and base not in used_labels:
@@ -3778,6 +3853,8 @@ def supplemental_media_candidates(
     rows = []
     for row in radar_by_id.values():
         if not isinstance(row, dict):
+            continue
+        if is_earnings_calendar_material(row):
             continue
         item_id = clean(row.get("id") or row.get("item_id") or row.get("evidence_id"), 200)
         url = clean(row.get("url"), 300)
@@ -3997,6 +4074,8 @@ def build_compact_collection_cards(
                 continue
             item_id = item.get("item_id") or item.get("evidence_id") or ""
             row = market_focus_material_row(item_id, radar_by_id, candidate_by_id) or item
+            if is_earnings_calendar_material({**row, **item}):
+                continue
             label = supplemental_public_material_label({**row, **item}) if row else public_material_label({**row, **item}, story, focus_by_id.get(item_id) or {})
             story_label_source.setdefault(label, {**row, **item, "item_id": item_id, "evidence_id": item_id})
 
@@ -4073,7 +4152,7 @@ def prepare_compact_collection_cards(collection_cards: list[dict]) -> tuple[list
         if card.get("section") == "market_now":
             market_cards.append(card)
         elif card.get("section") == "media_focus":
-            card = {**card, "media_number": circled_number(len(media_cards) + 1)}
+            card = {**card, "media_number": media_focus_number(len(media_cards) + 1), "media_number_index": len(media_cards) + 1}
             media_cards.append(card)
     return market_cards, media_cards
 
@@ -4154,10 +4233,6 @@ def render_compact_feature_section(lines: list[str], target_date: str, finviz_fe
                 "",
             ]
         )
-
-    feature_rows = [row for row in finviz_features.get("items", []) if row.get("status") == "ok"]
-    for row in feature_rows[:6]:
-        render_feature_stock(lines, row)
 
 
 def render_compact_publish_dashboard(target_date: str) -> str:

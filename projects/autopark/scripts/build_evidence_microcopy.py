@@ -403,7 +403,8 @@ Task:
 - For each item, write a short public title around 20 Korean characters, hard max 24 characters.
 - For each item, write exactly one content field: one core point in 1-3 complete sentences.
 - The content should say only what the news/material says, with enough context for a host to understand it quickly.
-- Korean should be the base language, but English market terms or quoted phrases are allowed when useful.
+- Write the title and content mainly in Korean. English is allowed only for proper nouns, ticker symbols, fixed market terms, or short direct quoted phrases.
+- Do not copy an English headline as-is; translate or summarize it into natural Korean.
 - Do not split the content into separate meaning/use/caution bullets.
 - Do not add unsupported interpretation, PPT usage, cautions, or phrases like "자료입니다".
 

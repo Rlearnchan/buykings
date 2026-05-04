@@ -24,6 +24,7 @@ class MarketChartTimingContractTest(unittest.TestCase):
             "coingecko",
             [{"date": "2026-05-04", "BTC/USD": 78174.06}],
             1777854600,
+            {"symbols": [{"last_valid_time": 1777852800}]},
         )
         self.assertEqual("26.05.04 09:00 KST", coverage["coverage_label"])
 
@@ -33,8 +34,9 @@ class MarketChartTimingContractTest(unittest.TestCase):
             "yahoo_finance",
             [{"date": "2026-05-01", "US10Y": 4.378}],
             1777854600,
+            {"symbols": [{"last_valid_time": 1777665900}]},
         )
-        self.assertEqual("26.05.01 17:05 KST", coverage["basis_label"])
+        self.assertEqual("26.05.02 05:05 KST", coverage["basis_label"])
         self.assertNotIn("확인", coverage["coverage_label"])
 
     def test_economic_calendar_subtitle_keeps_rules_without_check_time(self) -> None:

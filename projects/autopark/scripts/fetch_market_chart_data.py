@@ -84,14 +84,17 @@ def fetch_yahoo_series(symbol: dict, range_value: str, interval: str) -> tuple[d
     closes = chart.get("indicators", {}).get("quote", [{}])[0].get("close") or []
     scale = float(symbol.get("scale", 1))
     series: dict[str, float] = {}
+    last_valid_epoch: int | float | None = None
     for timestamp, close in zip(timestamps, closes, strict=False):
         if close is None:
             continue
         day = date_from_epoch(timestamp, exchange_timezone)
         series[day] = round(float(close) * scale, 6)
+        last_valid_epoch = timestamp
     return series, {
         "exchange_timezone": exchange_timezone or "",
         "regular_market_time": meta.get("regularMarketTime"),
+        "last_valid_time": last_valid_epoch,
         "data_granularity": meta.get("dataGranularity") or interval,
     }
 
@@ -157,7 +160,7 @@ def fetch_fred_series(symbol: dict, observation_start: str) -> dict[str, float]:
     return series
 
 
-def fetch_coingecko_series(symbol: dict, days: str) -> dict[str, float]:
+def fetch_coingecko_series(symbol: dict, days: str) -> tuple[dict[str, float], dict]:
     coin_id = coingecko_id(symbol)
     query = urllib.parse.urlencode({"vs_currency": "usd", "days": days, "interval": "daily"})
     url = COINGECKO_MARKET_CHART_URL.format(coin_id=urllib.parse.quote(coin_id, safe="")) + f"?{query}"
@@ -180,10 +183,12 @@ def fetch_coingecko_series(symbol: dict, days: str) -> dict[str, float]:
 
     scale = float(symbol.get("scale", 1))
     series: dict[str, float] = {}
+    last_valid_epoch: int | float | None = None
     for timestamp_ms, value in prices:
         day = datetime.fromtimestamp(timestamp_ms / 1000, timezone.utc).date().isoformat()
         series[day] = round(float(value) * scale, 6)
-    return series
+        last_valid_epoch = timestamp_ms / 1000
+    return series, {"last_valid_time": last_valid_epoch}
 
 
 def write_wide_csv(chart: dict, target_date: str, rows: list[dict]) -> Path:
@@ -227,7 +232,7 @@ def build_rows_for_source(chart: dict, source: str, range_value: str, interval: 
         if source == "fred":
             series = fetch_fred_series(symbol, observation_start)
         elif source == "coingecko":
-            series = fetch_coingecko_series(symbol, "365" if chart.get("target_window") != "intraday_or_1d" else "1")
+            series, symbol_extra = fetch_coingecko_series(symbol, "365" if chart.get("target_window") != "intraday_or_1d" else "1")
         elif source == "yahoo_finance":
             series, symbol_extra = fetch_yahoo_series(symbol, range_value, interval)
         else:
@@ -452,13 +457,19 @@ def latest_regular_market_time(metadata: dict | None) -> str:
     return kst_label_from_epoch(max(epochs)) if epochs else ""
 
 
+def latest_valid_data_time(metadata: dict | None) -> str:
+    epochs = [
+        item.get("last_valid_time")
+        for item in (metadata or {}).get("symbols") or []
+        if item.get("last_valid_time")
+    ]
+    return kst_label_from_epoch(max(epochs)) if epochs else ""
+
+
 def chart_coverage_label(chart: dict, source: str, rows: list[dict], fetched_epoch: int | None = None, metadata: dict | None = None) -> dict:
     last_date = rows[-1]["date"] if rows else ""
-    chart_id = chart.get("id", "")
-    if source == "coingecko":
-        basis = kst_label_for_utc_midnight(last_date)
-    elif chart_id == "us10y":
-        basis = kst_label_for_local_time(last_date, 17, 5)
+    if source in {"coingecko", "yahoo_finance"}:
+        basis = latest_valid_data_time(metadata) or latest_regular_market_time(metadata) or short_date_label(last_date)
     elif source == "fred":
         basis = short_date_label(last_date)
     else:
