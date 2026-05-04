@@ -10,6 +10,7 @@ import re
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -116,6 +117,29 @@ def clean(value: object) -> str:
     return re.sub(r"\s+", " ", str(value or "")).strip()
 
 
+def display_dt(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return dt.astimezone(ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M KST")
+    except ValueError:
+        return value[:16]
+
+
+def fedwatch_subtitle(target_date: str, base: dict) -> str:
+    payload = load_json(RAW_DIR / target_date / "cme-fedwatch.json")
+    captured = display_dt(payload.get("captured_at") or payload.get("created_at") or payload.get("updated_at"))
+    basis = f"CME FedWatch 화면 {captured} 기준" if captured else f"CME FedWatch 화면 {datetime.fromisoformat(target_date).strftime('%y.%m.%d')} 기준"
+    base_subtitle = clean(base.get("subtitle"))
+    suffix = ""
+    if "현재 기준금리" in base_subtitle:
+        rate = base_subtitle.split("현재 기준금리", 1)[-1]
+        rate = rate.replace("·", " ").strip()
+        suffix = f" · 현재 기준금리 {rate}" if rate else " · 현재 기준금리"
+    return basis + suffix
+
+
 def short_date(value: str) -> str:
     match = re.match(r"^(20\d{2})-(\d{2})-(\d{2})$", value)
     if not match:
@@ -209,7 +233,7 @@ def main() -> int:
         write_csv(input_path, headers, rows)
     short_rows, long_rows = split_rows(rows)
     base = load_json(args.base_spec) if args.base_spec.exists() else default_base_spec(args.date)
-    subtitle = base.get("subtitle") or f"{datetime.fromisoformat(args.date).strftime('%y.%m.%d')} 기준"
+    subtitle = fedwatch_subtitle(args.date, base)
 
     outputs = []
     for suffix, title, selected_rows in [
