@@ -349,8 +349,8 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         for block in media_blocks:
             self.assertIn("- 출처:", block)
             self.assertRegex(block, r"(?m)^-\s+(?:게시|확인):\s+`[^`]+`")
-            self.assertIn("- 내용:", block)
-            bullets = re.findall(r"^\s{2}-\s+(.+)$", block.split("- 내용:", 1)[1], flags=re.M)
+            self.assertIn("**주요 내용**", block)
+            bullets = re.findall(r"^-\s+(.+)$", block.split("**주요 내용**", 1)[1], flags=re.M)
             self.assertGreaterEqual(len(bullets), 1)
             self.assertLessEqual(len(bullets), 3)
             self.assertTrue(all(len(bullet) <= 300 for bullet in bullets))
@@ -439,8 +439,9 @@ class CompactPublishRendererContractTest(unittest.TestCase):
                 "## 2. 미디어 포커스",
                 "### ① WTI·브렌트 가격 차트",
                 "- 출처: [IsabelNet](https://example.com/oil)",
-                "- 내용:",
-                "  - 유가 가격 반응을 확인한다.",
+                "**주요 내용**",
+                "",
+                "- 유가 가격 반응을 확인한다.",
             ]
         )
 
@@ -625,18 +626,21 @@ class CompactPublishRendererContractTest(unittest.TestCase):
                 "### ① Fed 발언 기사",
                 "- 출처: [Reuters](https://example.com/fed)",
                 "- 수집 시점: `26.05.04 05:12`",
-                "- 내용:",
-                "  - Fed 인사의 인플레이션 발언이 금리 경로 논의에 어떤 부담을 주는지 전한 기사입니다.",
+                "**주요 내용**",
+                "",
+                "- Fed 인사의 인플레이션 발언이 금리 경로 논의에 어떤 부담을 주는지 전한 기사입니다.",
                 "### ② 유가 기사",
                 "- 출처: [Reuters](https://example.com/oil)",
                 "- 수집 시점: `26.05.04 05:12`",
-                "- 내용:",
-                "  - 유가와 지정학 리스크가 물가 기대에 어떤 영향을 줄 수 있는지 전한 기사입니다.",
+                "**주요 내용**",
+                "",
+                "- 유가와 지정학 리스크가 물가 기대에 어떤 영향을 줄 수 있는지 전한 기사입니다.",
                 "### ③ 실적 기사",
                 "- 출처: [FactSet](https://example.com/earnings)",
                 "- 수집 시점: `26.05.04 05:12`",
-                "- 내용:",
-                "  - S&P500 실적 시즌의 이익 흐름과 시장 반응을 정리한 자료입니다.",
+                "**주요 내용**",
+                "",
+                "- S&P500 실적 시즌의 이익 흐름과 시장 반응을 정리한 자료입니다.",
                 "## 3. 실적/특징주",
                 "### 실적 캘린더",
                 "- 출처: [Earnings Whispers](https://www.earningswhispers.com/calendar)",

@@ -3523,7 +3523,7 @@ def content_bullets(card: dict) -> list[str]:
     parts = [clean(part) for part in re.split(r"(?<=[.!?。])\s+|\n+", raw) if clean(part)]
     if not parts:
         parts = [raw]
-    return [clean(part, 300) for part in parts[:1]]
+    return [clean(part, 300) for part in parts[:3]]
 
 
 def circled_number(index: int) -> str:
@@ -3576,14 +3576,15 @@ def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str
     time_line = media_time_line(card)
     if time_line:
         lines.append(time_line)
-    lines.append("- 내용:")
+    lines.extend(["", "**주요 내용**", ""])
     bullets = (microcopy_card or {}).get("content_bullets") or content_bullets(card)
     for bullet in bullets[:3]:
         text = clean(remove_host_forbidden(str(bullet or "")), 300) or "자료의 가격 반응과 방송 연결 포인트를 확인한다."
-        lines.append(f"  - {text}")
+        lines.append(f"- {text}")
+    lines.append("")
     image = clean(card.get("image") or card.get("visual_local_path") or card.get("local_path"))
     if image:
-        lines.extend(["", notion_image(label, image)])
+        lines.append(notion_image(label, image))
     return True
 
 

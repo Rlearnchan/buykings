@@ -68,7 +68,7 @@ MICROCOPY_SCHEMA: dict[str, Any] = {
                 "required": ["card_key", "content_bullets"],
                 "properties": {
                     "card_key": {"type": "string"},
-                    "content_bullets": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"type": "string"}},
+                    "content_bullets": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "string"}},
                 },
             },
         },
@@ -390,7 +390,7 @@ def deterministic_card(card: dict[str, Any]) -> dict[str, Any]:
             break
     if not bullets:
         bullets = [fallbacks[0]]
-    return {"card_key": clean(card.get("card_key")), "content_bullets": bullets[:1]}
+    return {"card_key": clean(card.get("card_key")), "content_bullets": bullets[:3]}
 
 
 def deterministic_microcopy(context: dict[str, Any], *, model: str | None = None, reason: str = "deterministic") -> dict[str, Any]:
@@ -455,10 +455,10 @@ def validate_card(item: dict[str, Any], expected: dict[str, dict[str, Any]]) -> 
     if card_key not in expected:
         return None
     raw_bullets = item.get("content_bullets")
-    if not isinstance(raw_bullets, list) or len(raw_bullets) != 1:
+    if not isinstance(raw_bullets, list) or len(raw_bullets) < 1 or len(raw_bullets) > 3:
         return None
-    bullets = [sanitize_content_line(raw_bullets[0], 300)]
-    if not bullets[0] or forbidden_hit(bullets[0]) or len(bullets[0]) > 300:
+    bullets = [sanitize_content_line(item, 300) for item in raw_bullets]
+    if any(not bullet or forbidden_hit(bullet) or len(bullet) > 300 for bullet in bullets):
         return None
     return {"card_key": card_key, "content_bullets": bullets}
 
@@ -534,8 +534,8 @@ def build_prompt(context: dict[str, Any]) -> str:
             "- Korean, concise, presenter-friendly.",
             "- quote_lines: 1-3 lines, each <=90 Korean characters.",
             "- host_relevance_bullets: 2-3 bullets, each <=90 Korean characters.",
-            "- content_bullets: exactly 1 bullet, 120-300 characters when source detail allows.",
-            "- For media focus content, state what the material says with useful context; Korean base is preferred, but English market terms or short quoted phrases are allowed.",
+            "- content_bullets: 1-3 bullets, each <=300 Korean characters; use 2-3 bullets when source detail allows.",
+            "- For media focus content, state the main facts and market/PPT relevance; Korean base is preferred, but English market terms or short quoted phrases are allowed.",
             "- Never include URLs, source_role, evidence_role, item_id, evidence_id, asset_id, or MF hashes.",
             "- Storyline relevance must explain yesterday's market attention, why it fits the first 5 minutes, and the Korea/PPT/personal-investor connection.",
             "Return strict JSON only.",

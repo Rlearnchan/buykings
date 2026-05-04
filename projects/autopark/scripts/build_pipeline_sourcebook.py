@@ -160,6 +160,7 @@ def parse_card_blocks(section_text: str) -> list[dict[str, Any]]:
     cards: list[dict[str, Any]] = []
     current: dict[str, Any] | None = None
     content_bullets = 0
+    in_content = False
     for line in section_text.splitlines():
         if line.startswith("### "):
             if current:
@@ -172,6 +173,7 @@ def parse_card_blocks(section_text: str) -> list[dict[str, Any]]:
                 "image_count": 0,
             }
             content_bullets = 0
+            in_content = False
             continue
         if not current:
             continue
@@ -179,7 +181,9 @@ def parse_card_blocks(section_text: str) -> list[dict[str, Any]]:
             current["source"] = line.split(":", 1)[1].strip()
         elif line.startswith("!["):
             current["image_count"] += 1
-        elif re.match(r"^\s{2}-\s+", line):
+        elif line.strip() == "**주요 내용**" or line.startswith("- 내용:"):
+            in_content = True
+        elif in_content and re.match(r"^\s*-+\s+", line):
             content_bullets += 1
     if current:
         current["has_content"] = content_bullets > 0

@@ -806,15 +806,15 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
                 issue(findings, "format", "high", "COMPACT-036 미디어 카드 출처/시간 메타 누락", title, "각 미디어 포커스 카드에는 출처와 게시 또는 확인 시점을 렌더하세요.")
             if re.search(r"^-\s+출처:\s+(?:Autopark|Market Focus|Pre-flight Agenda)\s*$", block, flags=re.M):
                 issue(findings, "format", "high", "COMPACT-052 미디어 카드 내부 단계 출처 노출", title, "미디어 포커스의 출처는 뉴스/자료 제공자/원자료 사이트명이어야 합니다.")
-            if "- 내용:" not in block:
-                issue(findings, "format", "high", "COMPACT-037 미디어 카드 내용 누락", title, "각 미디어 포커스 카드에는 내용 블록을 렌더하세요.")
-            content_part = block.split("- 내용:", 1)[1] if "- 내용:" in block else ""
-            bullets = re.findall(r"^\s{2}-\s+(.+)$", content_part, flags=re.M)
-            if len(bullets) != 1:
-                issue(findings, "format", "high", "COMPACT-038 미디어 내용 bullet 수 위반", f"{title}: {len(bullets)}개", "내용 bullet은 1개만 렌더하세요.")
+            if "**주요 내용**" not in block:
+                issue(findings, "format", "high", "COMPACT-037 미디어 카드 주요 내용 누락", title, "각 미디어 포커스 카드에는 주요 내용 블록을 렌더하세요.")
+            content_part = block.split("**주요 내용**", 1)[1] if "**주요 내용**" in block else ""
+            bullets = re.findall(r"^-\s+(.+)$", content_part, flags=re.M)
+            if len(bullets) < 1 or len(bullets) > 3:
+                issue(findings, "format", "high", "COMPACT-038 미디어 주요 내용 bullet 수 위반", f"{title}: {len(bullets)}개", "주요 내용 bullet은 1~3개로 렌더하세요.")
             long_bullets = [bullet for bullet in bullets if len(bullet) > 300 or compact_raw_source_like(bullet)]
             if long_bullets:
-                issue(findings, "format", "high", "COMPACT-039 미디어 내용 bullet 위반", f"{title}: " + ", ".join(long_bullets[:2]), "내용 bullet은 300자 이하 public 문장으로 렌더하세요.")
+                issue(findings, "format", "high", "COMPACT-039 미디어 주요 내용 bullet 위반", f"{title}: " + ", ".join(long_bullets[:2]), "주요 내용 bullet은 300자 이하 public 문장으로 렌더하세요.")
         if "3. 실적/특징주" not in sections:
             issue(findings, "format", "high", "COMPACT-046 실적/특징주 누락", "## 3. 실적/특징주 section이 없습니다.", "특징주와 실적 캘린더는 미디어 포커스가 아니라 3번 섹션에 렌더하세요.")
         feature_blocks = compact_card_blocks(feature_body)
@@ -1267,14 +1267,14 @@ def review_format(markdown: str, target_date: str) -> list[Finding]:
             "`[KobeissiLetter](url)`처럼 짧은 출처명 링크로 바꾸세요.",
         )
 
-    if re.search(r"볼 포인트|주요 내용|Finviz 출발점|Finviz 최근 뉴스", markdown):
+    if re.search(r"볼 포인트|Finviz 출발점|Finviz 최근 뉴스", markdown):
         issue(
             findings,
             "format",
             "low",
             "래퍼성 불릿 라벨 존재",
             "0421 포맷은 하위 내용을 바로 1-depth 불릿으로 쓰는 쪽이 더 읽기 좋습니다.",
-            "`볼 포인트`, `주요 내용`, `Finviz 최근 뉴스` 같은 라벨을 제거하고 내용을 바로 쓰세요.",
+            "`볼 포인트`, `Finviz 최근 뉴스` 같은 라벨을 제거하고 내용을 바로 쓰세요.",
         )
 
     return findings
