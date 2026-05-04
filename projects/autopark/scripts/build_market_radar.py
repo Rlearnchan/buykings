@@ -100,6 +100,17 @@ def source_weight(material: dict) -> int:
     return base + policy_score_bonus(material)
 
 
+def content_level_bonus(material: dict) -> int:
+    level = clean(material.get("content_level") or "").lower()
+    if level in {"text+image", "article+image", "chart", "chart+text"}:
+        return 3
+    if level in {"headline+summary", "summary"}:
+        return 2
+    if level in {"text", "article", "body"}:
+        return 1
+    return 0
+
+
 def source_blob(material: dict) -> str:
     return f"{material.get('source') or material.get('source_name') or material.get('source_id') or ''} {material.get('url') or ''}".lower()
 
@@ -285,11 +296,12 @@ def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> 
         x_bonus = 2 if material.get("type") in {"x_social", "visual_card"} else 0
         headline_bonus = 2 if material.get("type") == "headline_river" else 0
         analysis_bonus = 3 if material.get("type") == "analysis_river" else 0
+        depth_bonus = content_level_bonus(material)
         agenda_bonus = min(4, len(material.get("agenda_links") or []) * 2)
         keyword_bonus = min(3, len(material.get("detected_keywords") or []) // 2)
         bridge_bonus = 2 if len(themes) >= 2 else 0
         side_penalty = 3 if set(themes) == {"side_dish"} else 0
-        score = weight + visual_bonus + theme_bonus + x_bonus + headline_bonus + analysis_bonus + agenda_bonus + keyword_bonus + bridge_bonus - side_penalty - recency_penalty
+        score = weight + visual_bonus + theme_bonus + x_bonus + headline_bonus + analysis_bonus + depth_bonus + agenda_bonus + keyword_bonus + bridge_bonus - side_penalty - recency_penalty
         if score < 7 and recency_bucket in {"old", "stale"}:
             continue
         if score < 7 and not themes:
@@ -309,6 +321,7 @@ def build_rows(date: str, limit_news: int, limit_x: int, limit_visuals: int) -> 
             "recency_days": recency_days,
             "recency_bucket": recency_bucket,
             "recency_penalty": recency_penalty,
+            "content_level_bonus": depth_bonus,
             "themes": [
                 {"theme": theme, "label": THEME_LABELS.get(theme, theme), "hits": hits}
                 for theme, hits in sorted(themes.items())

@@ -263,6 +263,26 @@ def source_specific_keep(source_id: str, title: str, url: str) -> bool:
     lowered = title.lower()
     parsed = urllib.parse.urlparse(url)
     path = parsed.path
+    low_signal_phrases = {
+        "about us",
+        "advertise",
+        "dark mode",
+        "customize news grid",
+        "editor's picks",
+        "editors' picks",
+        "newsletter",
+        "news flow",
+        "podcast",
+        "portfolio",
+        "prediction markets",
+        "privacy policy",
+        "pro watchlist",
+        "skip navigation",
+        "sign in",
+        "subscribe",
+        "terms of service",
+        "watch live",
+    }
     nav_titles = {
         "home",
         "screener",
@@ -292,8 +312,15 @@ def source_specific_keep(source_id: str, title: str, url: str) -> bool:
         "watchlist",
         "markets",
         "news",
+        "calendars",
+        "europe markets",
+        "latest news",
+        "news flow",
+        "settings",
     }
     if lowered.startswith("skip to ") or lowered in nav_titles:
+        return False
+    if any(phrase in lowered for phrase in low_signal_phrases):
         return False
     if len(title) < 14 or len(title) > 220:
         return False
@@ -302,9 +329,14 @@ def source_specific_keep(source_id: str, title: str, url: str) -> bool:
             return False
         if re.search(r"/(quote|screener|login|register|elite|calendar|map|groups|portfolio|futures|forex|crypto)", url):
             return False
-    if source_id.startswith("biztoc") and re.search(r"/(account|login|upgrade|about|privacy)", url):
-        return False
+    if source_id.startswith("biztoc"):
+        if re.search(r"/(account|login|upgrade|about|privacy|settings|newsletter)", url):
+            return False
+        if any(phrase in lowered for phrase in {"customize", "settings", "upgrade", "dark mode"}):
+            return False
     if source_id == "cnbc-world" and ("cnbc.com" not in host_of(url)):
+        return False
+    if source_id == "tradingview-news" and any(phrase in lowered for phrase in {"economic calendar", "markets", "news flow"}):
         return False
     return True
 

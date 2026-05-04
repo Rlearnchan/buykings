@@ -49,6 +49,12 @@ class HybridPipelineOrderTest(unittest.TestCase):
         self.assertLess(planned.index("build market focus brief"), planned.index("build editorial brief"))
         self.assertTrue(payload["editorial"]["preflight_enabled"])
         self.assertEqual("build market preflight agenda", payload["editorial"]["preflight_step"])
+        x_command = next(
+            command
+            for command in payload["browser_commands"]
+            if any(str(part).endswith("collect_x_timeline.mjs") for part in command) and "x-timeline" in command
+        )
+        self.assertIn("--search-fallback", x_command)
 
     def test_skip_preflight_flag_removes_only_preflight_stage(self) -> None:
         payload = self.run_dry("--skip-preflight-agenda")

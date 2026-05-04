@@ -80,6 +80,30 @@ class HeadlineRiverContractTest(unittest.TestCase):
         self.assertEqual("agenda_deepening", items[0].source_role)
         self.assertIn("oil", items[0].detected_keywords)
 
+    def test_html_parser_filters_low_signal_navigation_links(self) -> None:
+        source = headline_river.SourceSpec(
+            source_id="biztoc-home",
+            label="BizToc Home",
+            url="https://biztoc.com/",
+            collection_method="html",
+            role="anomaly_detector",
+            authority="medium_low",
+            collection_ease="medium",
+            always_collect=True,
+        )
+        page = """
+        <html><body>
+          <a href="/settings">Dark mode settings</a>
+          <a href="/upgrade">Customize news grid</a>
+          <a href="/story/markets-ai">AI capex worries return as traders watch big tech earnings</a>
+        </body></html>
+        """
+
+        items = headline_river.parse_html_items(source, page, "2026-05-04T05:30:00+09:00")
+
+        self.assertEqual(1, len(items))
+        self.assertEqual("AI capex worries return as traders watch big tech earnings", items[0].title)
+
     def test_build_headline_river_dry_with_stubbed_fetch(self) -> None:
         tmp_root = PROJECT / ".tmp-tests" / "headline-river"
         if tmp_root.exists():

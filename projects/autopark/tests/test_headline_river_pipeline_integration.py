@@ -185,6 +185,59 @@ class HeadlineRiverPipelineIntegrationTest(unittest.TestCase):
         self.assertEqual(["agenda_oil_risk"], oil_row["agenda_links"])
         analysis_row = next(row for row in rows if row["id"] == "x-kobeissiletter-001")
         self.assertEqual("analysis_river", analysis_row["type"])
+        self.assertGreater(oil_row["content_level_bonus"], 0)
+
+    def test_market_radar_scores_deeper_content_above_headline_only(self) -> None:
+        headline_river = json.loads((self.day_dir / "headline-river.json").read_text(encoding="utf-8"))
+        headline_river["items"] = [
+            {
+                "item_id": "headline-only",
+                "source_id": "finviz-news",
+                "source_label": "Finviz News",
+                "publisher": "",
+                "title": "Oil risk keeps inflation and Fed path in focus",
+                "url": "https://example.com/oil-headline",
+                "published_at": "2026-05-04T01:00:00+00:00",
+                "snippet": "",
+                "source_role": "baseline_headline",
+                "source_authority": "medium",
+                "content_level": "headline",
+                "agenda_links": [],
+                "detected_keywords": ["oil", "fed"],
+            },
+            {
+                "item_id": "headline-summary",
+                "source_id": "finviz-news",
+                "source_label": "Finviz News",
+                "publisher": "",
+                "title": "Oil risk keeps inflation and Fed path in focus",
+                "url": "https://example.com/oil-summary",
+                "published_at": "2026-05-04T01:00:00+00:00",
+                "snippet": "Crude traders tied the move to inflation expectations.",
+                "source_role": "baseline_headline",
+                "source_authority": "medium",
+                "content_level": "headline+summary",
+                "agenda_links": [],
+                "detected_keywords": ["oil", "fed"],
+            },
+        ]
+        (self.day_dir / "headline-river.json").write_text(json.dumps(headline_river), encoding="utf-8")
+        original_processed = market_radar.PROCESSED_DIR
+        original_gather = market_radar.gather_materials
+        original_extra_x = market_radar.load_extra_x_posts
+        market_radar.PROCESSED_DIR = self.processed
+        market_radar.gather_materials = lambda *args, **kwargs: []
+        market_radar.load_extra_x_posts = lambda *args, **kwargs: []
+        try:
+            rows = market_radar.build_rows("2026-05-04", 10, 10, 10)
+        finally:
+            market_radar.PROCESSED_DIR = original_processed
+            market_radar.gather_materials = original_gather
+            market_radar.load_extra_x_posts = original_extra_x
+
+        summary_row = next(row for row in rows if row["id"] == "headline-summary")
+        headline_row = next(row for row in rows if row["id"] == "headline-only")
+        self.assertGreater(summary_row["score"], headline_row["score"])
 
     def test_market_focus_payload_includes_preflight_and_headline_river(self) -> None:
         original_processed = market_focus.PROCESSED_DIR

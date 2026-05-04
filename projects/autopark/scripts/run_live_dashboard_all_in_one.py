@@ -729,6 +729,7 @@ def main() -> int:
                 "x-timeline",
                 "--source-profile",
                 args.x_profile,
+                "--search-fallback",
             ] + cdp_option(args.cdp_endpoint),
             [
                 node,
@@ -935,6 +936,7 @@ def main() -> int:
             x_lookback,
             "--scrolls",
             "4" if int(x_lookback) > 24 else "2",
+            "--search-fallback",
         ] + cdp_option(args.cdp_endpoint),
         "collect x timeline",
         args.timeout,

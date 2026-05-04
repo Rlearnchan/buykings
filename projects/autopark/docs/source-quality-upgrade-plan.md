@@ -405,6 +405,16 @@ Current implementation status:
 - Which X accounts should use profile page, and which should default to `from:handle` live search?
 - Which analysis sources should default to profile page, and which should default to `from:handle` live search?
 
+## 8.1 Future Collection Windows
+
+If one 05:30 run becomes too slow, split collection without changing the publish contract:
+
+- 22:30 KST: pre-open collection for news/headline river, X analysis river, and slow support sources.
+- 05:00 KST: close-to-publish collection for market charts, FedWatch, calendars, fresh headlines, and late X posts.
+- 05:30 KST: merge/dedupe by URL, title, source, and published time, then run Market Radar -> Evidence Microcopy -> Market Focus -> Editorial -> Renderer -> Quality Gate -> Notion.
+
+The split should increase freshness and runtime reliability, not create two dashboards. Final sourcebook should record each collection window and which items came from it.
+
 ## 9. Current Working Judgment
 
 Use this structure:
