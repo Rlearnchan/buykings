@@ -30,6 +30,8 @@ Autopark는 Buykings 아침 방송을 위한 시장 자료 수집, 해석, Notio
 
 Docker scheduler가 KST 기준 지정 시각에 `run_live_dashboard_all_in_one.py`를 실행합니다.
 
+작업 흐름 전체를 설명하는 읽기용 보고서는 `docs/autopark-workflow-report.md`에 있습니다.
+
 ```text
 Docker scheduler
   -> browser/CDP health check
