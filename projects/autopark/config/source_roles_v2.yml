@@ -64,17 +64,22 @@ role_codes:
     evidence_role: context
     broadcast_role: headline_reference
     standalone_fact_allowed: false
+  fallback_headline:
+    layer: news
+    evidence_role: context
+    broadcast_role: fallback_discovery
+    standalone_fact_allowed: false
 
 sources:
   finviz-news:
     label: "Finviz News"
     url: "https://finviz.com/news.ashx?v=3"
     collection_method: "html"
-    role: "baseline_headline"
+    role: "fallback_headline"
     authority: "medium"
     collection_ease: "high"
-    always_collect: true
-    notes: "Baseline market headline river. Store headline/link/host; use as discovery, not final evidence."
+    always_collect: false
+    notes: "Fallback headline floor when Yahoo/X/BizToc are thin. Store headline/link/host; use as discovery, not final evidence."
 
   yahoo-finance-ticker-rss:
     label: "Yahoo Finance Ticker RSS"
@@ -95,6 +100,16 @@ sources:
     collection_ease: "high"
     always_collect: true
     notes: "High-volume headline and summary feed. Best used for repeated keyword/source anomaly detection."
+
+  biztoc-api:
+    label: "BizToc API"
+    url: "https://biztoc.p.rapidapi.com/news"
+    collection_method: "rapidapi_json"
+    role: "anomaly_detector"
+    authority: "medium_low"
+    collection_ease: "medium"
+    always_collect: true
+    notes: "Official RapidAPI surface when BIZTOC_RAPIDAPI_KEY or RAPIDAPI_KEY is present; fallback to RSS/Home if unavailable."
 
   biztoc-home:
     label: "BizToc Home"
@@ -198,8 +213,36 @@ sources:
     collection_ease: "medium"
     notes: "Macro chart/context source; verify source/date."
 
+  x-nicktimiraos:
+    label: "Nick Timiraos"
+    url: "https://x.com/NickTimiraos"
+    collection_method: "x_profile_or_search"
+    role: "macro_chart_context"
+    authority: "medium_high"
+    collection_ease: "medium"
+    notes: "FOMC, Fed remarks, minutes, and economic-data Fed interpretation. Confirm with Fed/source documents."
+
+  x-zerohedge:
+    label: "ZeroHedge"
+    url: "https://x.com/zerohedge"
+    collection_method: "x_profile_or_search"
+    role: "market_attention"
+    authority: "medium_low"
+    collection_ease: "medium"
+    notes: "Contrarian risk narrative and market-anxiety detector. Never use alone for factual claims."
+
+  x-theeconomist:
+    label: "The Economist"
+    url: "https://x.com/TheEconomist"
+    collection_method: "x_profile_or_search"
+    role: "macro_chart_context"
+    authority: "high"
+    collection_ease: "medium"
+    notes: "Global policy flow, high-level charts, and elite narrative context. Lower cadence."
+
   x-reuters:
     label: "Reuters X"
+    url: "https://x.com/Reuters"
     collection_method: "x_profile_or_search"
     role: "news_distribution"
     authority: "high"
@@ -208,6 +251,7 @@ sources:
 
   x-bloomberg:
     label: "Bloomberg X"
+    url: "https://x.com/business"
     collection_method: "x_profile_or_search"
     role: "news_distribution"
     authority: "high"
@@ -216,17 +260,47 @@ sources:
 
   x-cnbc:
     label: "CNBC X"
+    url: "https://x.com/CNBC"
     collection_method: "x_profile_or_search"
     role: "news_distribution"
     authority: "medium_high"
     collection_ease: "medium"
     notes: "News distribution surface. Keep separate from analysis sources."
 
+  x-wsj:
+    label: "WSJ X"
+    url: "https://x.com/WSJ"
+    collection_method: "x_profile_or_search"
+    role: "news_distribution"
+    authority: "high"
+    collection_ease: "medium"
+    notes: "News distribution surface. Useful headline reference; not analysis-role evidence by default."
+
+  x-ft:
+    label: "Financial Times X"
+    url: "https://x.com/FT"
+    collection_method: "x_profile_or_search"
+    role: "news_distribution"
+    authority: "high"
+    collection_ease: "medium"
+    notes: "News distribution surface. Useful headline reference; not analysis-role evidence by default."
+
+  x-marketwatch:
+    label: "MarketWatch X"
+    url: "https://x.com/MarketWatch"
+    collection_method: "x_profile_or_search"
+    role: "news_distribution"
+    authority: "medium_high"
+    collection_ease: "medium"
+    notes: "News distribution surface. Useful as a headline fallback, not a standalone evidence source."
+
 pairing_rules:
   baseline_headline:
     required_for_lead: ["data_anchor", "fact_anchor", "market_reaction"]
   anomaly_detector:
     required_for_lead: ["baseline_headline", "data_anchor"]
+  fallback_headline:
+    required_for_lead: ["data_anchor", "fact_anchor"]
   market_attention:
     required_for_lead: ["fact_anchor", "data_anchor"]
   chart_context:

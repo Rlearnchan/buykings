@@ -18,12 +18,15 @@ class HeadlineRiverContractTest(unittest.TestCase):
     def test_source_roles_v2_contains_required_news_roles(self) -> None:
         roles = headline_river.parse_source_roles(PROJECT / "config" / "source_roles_v2.yml")
 
-        self.assertEqual("baseline_headline", roles["finviz-news"].role)
+        self.assertEqual("fallback_headline", roles["finviz-news"].role)
         self.assertEqual("agenda_deepening", roles["yahoo-finance-ticker-rss"].role)
+        self.assertEqual("anomaly_detector", roles["biztoc-api"].role)
         self.assertEqual("anomaly_detector", roles["biztoc-feed"].role)
         self.assertEqual("anomaly_detector", roles["biztoc-home"].role)
         self.assertEqual("support_context", roles["cnbc-world"].role)
         self.assertEqual("support_context", roles["tradingview-news"].role)
+        self.assertEqual("news_distribution", roles["x-reuters"].role)
+        self.assertEqual("news_distribution", roles["x-marketwatch"].role)
 
     def test_agenda_expansion_adds_tickers_without_replacing_baseline(self) -> None:
         preflight = {
@@ -45,7 +48,9 @@ class HeadlineRiverContractTest(unittest.TestCase):
 
         expansions = headline_river.agenda_expansions(preflight)
 
-        self.assertEqual(headline_river.BASELINE_SOURCE_IDS, ["finviz-news", "yahoo-finance-ticker-rss", "biztoc-feed", "biztoc-home"])
+        self.assertEqual(headline_river.BASELINE_SOURCE_IDS, ["yahoo-finance-ticker-rss"])
+        self.assertIn("finviz-news", headline_river.FALLBACK_SOURCE_IDS)
+        self.assertIn("x-reuters", headline_river.HEADLINE_X_SOURCE_IDS)
         self.assertEqual(2, len(expansions))
         self.assertIn("^TNX", expansions[0]["tickers"])
         self.assertIn("DX-Y.NYB", expansions[0]["tickers"])
@@ -193,7 +198,20 @@ class HeadlineRiverContractTest(unittest.TestCase):
                     return """<rss><channel><item><title>AI chip earnings lift market focus</title><link>https://finance.yahoo.com/news/ai-chip.html</link><description>Semiconductor names are in focus.</description></item></channel></rss>"""
                 return """<html><body><a href="https://example.com/news/market">Market breadth improves after tech rally</a></body></html>"""
 
+            def fake_rapidapi(url: str, timeout: int = 30) -> dict:
+                return {
+                    "items": [
+                        {
+                            "title": "BizToc API sees market risk headlines cluster around oil",
+                            "url": "https://biztoc.com/x/oil-risk",
+                            "summary": "Oil and Fed headlines are clustering.",
+                        }
+                    ]
+                }
+
             headline_river.fetch_text = fake_fetch
+            original_rapidapi = headline_river.fetch_rapidapi_json
+            headline_river.fetch_rapidapi_json = fake_rapidapi
             try:
                 payload = headline_river.build_headline_river(
                     argparse.Namespace(
@@ -209,12 +227,15 @@ class HeadlineRiverContractTest(unittest.TestCase):
             finally:
                 headline_river.PROCESSED_DIR = original_processed
                 headline_river.fetch_text = original_fetch
+                headline_river.fetch_rapidapi_json = original_rapidapi
 
             self.assertTrue(payload["ok"])
             self.assertGreaterEqual(payload["item_count"], 3)
             self.assertEqual(headline_river.BASELINE_SOURCE_IDS, payload["baseline_source_ids"])
+            self.assertEqual(headline_river.FALLBACK_SOURCE_IDS, payload["fallback_source_ids"])
             self.assertEqual(1, len(payload["agenda_expansions"]))
             self.assertTrue(any(item["source_role"] == "agenda_deepening" for item in payload["items"]))
+            self.assertTrue(any(item["source_id"] == "biztoc-api" for item in payload["items"]))
             self.assertIn("anomaly_summary", payload)
         finally:
             if tmp_root.exists():

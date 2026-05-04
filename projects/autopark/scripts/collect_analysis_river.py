@@ -30,6 +30,17 @@ ANALYSIS_ROLES = {
     "earnings_context",
     "macro_chart_context",
 }
+ANALYSIS_SOURCE_IDS = {
+    "x-kobeissiletter",
+    "x-wallstengine",
+    "x-lizannsonders",
+    "x-charliebilello",
+    "x-nicktimiraos",
+    "x-zerohedge",
+    "x-theeconomist",
+    "isabelnet",
+    "factset-insight",
+}
 MARKET_KEYWORDS = {
     "ai",
     "bitcoin",
@@ -176,7 +187,11 @@ def parse_source_roles(path: Path = DEFAULT_ROLES_PATH) -> dict[str, SourceSpec]
 
 
 def source_role_specs(path: Path) -> dict[str, SourceSpec]:
-    return {key: spec for key, spec in parse_source_roles(path).items() if spec.role in ANALYSIS_ROLES}
+    return {
+        key: spec
+        for key, spec in parse_source_roles(path).items()
+        if key in ANALYSIS_SOURCE_IDS and spec.role in ANALYSIS_ROLES
+    }
 
 
 def now_kst() -> str:

@@ -853,6 +853,25 @@
       "onboarding_status": "needs_dry_run"
     },
     {
+      "id": "x-marketwatch",
+      "name": "MarketWatch (@MarketWatch) / X",
+      "url": "https://x.com/MarketWatch",
+      "category": "x_social_signal",
+      "cadence": "daily",
+      "enabled": false,
+      "requires_login": true,
+      "auth_profile": "x",
+      "collection_method": "browser_profile_extract",
+      "trust_level": "medium",
+      "priority": 2,
+      "onboarding_batch": "batch_b_special_social",
+      "broadcast_use": "Official market-news X surface for headline river fallback; confirm causal claims elsewhere.",
+      "source_origin": "manual_0504_source_rebalance",
+      "selectors_or_notes": "headline_news profile",
+      "user_notes": "Use as official X headline distribution rather than scraping MarketWatch pages.",
+      "onboarding_status": "needs_dry_run"
+    },
+    {
       "id": "x-elonmusk",
       "name": "Elon Musk (@elonmusk) / X",
       "url": "https://x.com/elonmusk",

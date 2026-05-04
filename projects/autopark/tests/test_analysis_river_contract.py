@@ -32,8 +32,13 @@ class AnalysisRiverContractTest(unittest.TestCase):
 
         self.assertIn("x-kobeissiletter", specs)
         self.assertIn("x-wallstengine", specs)
+        self.assertIn("x-nicktimiraos", specs)
+        self.assertIn("x-zerohedge", specs)
+        self.assertIn("x-theeconomist", specs)
         self.assertIn("isabelnet", specs)
         self.assertIn("factset-insight", specs)
+        self.assertNotIn("x-bespokeinvest", specs)
+        self.assertNotIn("x-kevrgordon", specs)
         self.assertNotIn("x-reuters", specs)
         self.assertNotIn("x-bloomberg", specs)
 

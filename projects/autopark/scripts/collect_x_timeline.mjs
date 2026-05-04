@@ -28,17 +28,30 @@ const defaultSourceIds = [
 const sourceProfiles = {
   core: defaultSourceIds,
   market: ['x-kobeissiletter', 'x-investinq', 'x-bespokeinvest', 'x-lizannsonders', 'x-charliebilello'],
+  headline_news: ['x-reuters', 'x-bloomberg', 'x-cnbc', 'x-wsj', 'x-ft', 'x-marketwatch'],
+  analysis_fixed: [
+    'x-kobeissiletter',
+    'x-wallstengine',
+    'x-lizannsonders',
+    'x-charliebilello',
+    'x-nicktimiraos',
+    'x-zerohedge',
+    'x-theeconomist',
+  ],
   market_radar: [
     'x-kobeissiletter',
     'x-wallstengine',
-    'x-investinq',
-    'x-bespokeinvest',
     'x-charliebilello',
     'x-lizannsonders',
-    'x-kevrgordon',
+    'x-nicktimiraos',
+    'x-zerohedge',
+    'x-theeconomist',
     'x-reuters',
     'x-bloomberg',
     'x-cnbc',
+    'x-wsj',
+    'x-ft',
+    'x-marketwatch',
   ],
   macro: ['x-lizannsonders', 'x-bespokeinvest', 'x-nicktimiraos', 'x-charliebilello', 'x-kevrgordon'],
   earnings: ['fixed-earnings-calendar', 'x-investinq', 'x-kobeissiletter', 'x-stocktwits', 'x-unusualwhales'],
@@ -110,7 +123,7 @@ function parseArgs(argv) {
     else if (arg === '--search-fallback') args.searchFallback = true;
     else if (arg === '--dry-run') args.dryRun = true;
     else if (arg === '--help') {
-      console.log('Usage: collect_x_timeline.mjs [--source-profile core|market|market_radar|macro|earnings|side_dish|expanded] [--source x-kobeissiletter] [--headed] [--browser-channel chrome] [--cdp-endpoint http://127.0.0.1:9222]');
+      console.log('Usage: collect_x_timeline.mjs [--source-profile core|headline_news|analysis_fixed|market_radar|macro|earnings|side_dish|expanded] [--source x-kobeissiletter] [--headed] [--browser-channel chrome] [--cdp-endpoint http://127.0.0.1:9222]');
       process.exit(0);
     } else {
       throw new Error(`Unknown argument: ${arg}`);

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import html
 import json
 import re
@@ -25,8 +26,10 @@ PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 RUNTIME_NOTION_DIR = PROJECT_ROOT / "runtime" / "notion"
 DEFAULT_ROLES_PATH = PROJECT_ROOT / "config" / "source_roles_v2.yml"
 
-BASELINE_SOURCE_IDS = ["finviz-news", "yahoo-finance-ticker-rss", "biztoc-feed", "biztoc-home"]
-SUPPORT_SOURCE_IDS = ["cnbc-world", "tradingview-news"]
+BASELINE_SOURCE_IDS = ["yahoo-finance-ticker-rss"]
+HEADLINE_X_SOURCE_IDS = ["x-reuters", "x-bloomberg", "x-cnbc", "x-wsj", "x-ft", "x-marketwatch"]
+FALLBACK_SOURCE_IDS = ["biztoc-api", "biztoc-feed", "biztoc-home", "finviz-news"]
+SUPPORT_SOURCE_IDS = []
 MARKET_KEYWORDS = {
     "ai",
     "amazon",
@@ -175,6 +178,24 @@ def fetch_text(url: str, timeout: int = 30) -> str:
         return response.read().decode("utf-8", errors="replace")
 
 
+def fetch_rapidapi_json(url: str, timeout: int = 30) -> object:
+    api_key = os.environ.get("BIZTOC_RAPIDAPI_KEY") or os.environ.get("RAPIDAPI_KEY")
+    if not api_key:
+        raise RuntimeError("missing BIZTOC_RAPIDAPI_KEY or RAPIDAPI_KEY")
+    parsed = urllib.parse.urlparse(url)
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/json",
+            "X-RapidAPI-Key": api_key,
+            "X-RapidAPI-Host": parsed.netloc or "biztoc.p.rapidapi.com",
+            "User-Agent": "Mozilla/5.0 AutoparkHeadlineRiver/0.1",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return json.loads(response.read().decode("utf-8", errors="replace"))
+
+
 def parse_bool(value: str) -> bool:
     return value.strip().lower() in {"true", "yes", "1", "on"}
 
@@ -256,6 +277,45 @@ def parse_rss_items(source: SourceSpec, feed_text: str, captured_at: str, agenda
                 agenda_links=agenda_links,
             )
         )
+    return items
+
+
+def iter_biztoc_api_rows(payload: object) -> list[dict]:
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, dict)]
+    if not isinstance(payload, dict):
+        return []
+    for key in ["items", "articles", "data", "news", "results"]:
+        rows = payload.get(key)
+        if isinstance(rows, list):
+            return [row for row in rows if isinstance(row, dict)]
+    return []
+
+
+def parse_rapidapi_items(source: SourceSpec, payload: object, captured_at: str, limit: int) -> list[HeadlineItem]:
+    items: list[HeadlineItem] = []
+    for index, row in enumerate(iter_biztoc_api_rows(payload), start=1):
+        title = clean_text(row.get("title") or row.get("headline") or row.get("name"), 180)
+        url = clean_text(row.get("url") or row.get("link") or row.get("source_url"))
+        if not title or not url:
+            continue
+        snippet = clean_text(row.get("summary") or row.get("description") or row.get("snippet") or "", 300)
+        published_at = clean_text(row.get("published_at") or row.get("published") or row.get("date") or row.get("time"), 80)
+        publisher = clean_text(row.get("source") or row.get("publisher") or row.get("domain") or "", 80)
+        items.append(
+            make_item(
+                source,
+                index,
+                title,
+                url,
+                captured_at,
+                publisher=publisher,
+                published_at=published_at,
+                snippet=snippet,
+            )
+        )
+        if len(items) >= limit:
+            break
     return items
 
 
@@ -445,17 +505,34 @@ def yahoo_rss_url(tickers: list[str]) -> str:
 def collect_source(source: SourceSpec, captured_at: str, limit: int, timeout: int, agenda_links: list[str] | None = None) -> tuple[list[HeadlineItem], dict]:
     started = datetime.now()
     try:
-        text = fetch_text(source.url, timeout)
-        if source.collection_method == "rss":
-            items = parse_rss_items(source, text, captured_at, agenda_links or [])
+        if source.collection_method == "rapidapi_json":
+            payload = fetch_rapidapi_json(source.url, timeout)
+            items = parse_rapidapi_items(source, payload, captured_at, limit)
         else:
-            items = parse_html_items(source, text, captured_at)
+            text = fetch_text(source.url, timeout)
+            if source.collection_method == "rss":
+                items = parse_rss_items(source, text, captured_at, agenda_links or [])
+            else:
+                items = parse_html_items(source, text, captured_at)
         items = items[:limit]
         return items, {
             "source_id": source.source_id,
             "source_label": source.label,
             "status": "ok",
             "item_count": len(items),
+            "source_role": source.role,
+            "authority": source.authority,
+            "collection_method": source.collection_method,
+            "elapsed_seconds": elapsed_seconds(started),
+        }
+    except RuntimeError as exc:
+        status = "missing_key" if "BIZTOC_RAPIDAPI_KEY" in str(exc) or "RAPIDAPI_KEY" in str(exc) else "error"
+        return [], {
+            "source_id": source.source_id,
+            "source_label": source.label,
+            "status": status,
+            "error": str(exc),
+            "item_count": 0,
             "source_role": source.role,
             "authority": source.authority,
             "collection_method": source.collection_method,
@@ -473,6 +550,71 @@ def collect_source(source: SourceSpec, captured_at: str, limit: int, timeout: in
             "collection_method": source.collection_method,
             "elapsed_seconds": elapsed_seconds(started),
         }
+
+
+def collect_existing_x_posts(
+    processed: Path,
+    roles: dict[str, SourceSpec],
+    captured_at: str,
+    limit_per_source: int,
+    wanted_source_ids: list[str],
+) -> tuple[list[HeadlineItem], list[dict]]:
+    rows: list[HeadlineItem] = []
+    stats: list[dict] = []
+    by_source: Counter[str] = Counter()
+    seen: set[str] = set()
+    wanted = set(wanted_source_ids)
+    for path in sorted(processed.glob("*posts.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        for post in payload.get("posts") or []:
+            if not isinstance(post, dict):
+                continue
+            source_id = post.get("source_id") or ""
+            if source_id not in wanted or by_source[source_id] >= limit_per_source:
+                continue
+            source = roles.get(source_id)
+            if not source:
+                continue
+            text = clean_text(post.get("text"), 300)
+            title = clean_text(text.split("\n", 1)[0], 180)
+            url = clean_text(post.get("url"))
+            key = url or f"{source_id}:{title.lower()}"
+            if not title or key in seen:
+                continue
+            rows.append(
+                make_item(
+                    source,
+                    by_source[source_id] + 1,
+                    title,
+                    url,
+                    post.get("captured_at") or captured_at,
+                    published_at=post.get("created_at") or post.get("created_at_inferred") or "",
+                    snippet=text,
+                )
+            )
+            by_source[source_id] += 1
+            seen.add(key)
+    for source_id in wanted_source_ids:
+        source = roles.get(source_id)
+        if not source:
+            stats.append({"source_id": source_id, "status": "missing_config", "item_count": 0})
+            continue
+        stats.append(
+            {
+                "source_id": source_id,
+                "source_label": source.label,
+                "status": "ok" if by_source[source_id] else "missing",
+                "item_count": by_source[source_id],
+                "source_role": source.role,
+                "authority": source.authority,
+                "collection_method": source.collection_method,
+                "elapsed_seconds": 0.0,
+            }
+        )
+    return rows, stats
 
 
 def elapsed_seconds(started: datetime) -> float:
@@ -576,6 +718,7 @@ def render_review(payload: dict) -> str:
 def build_headline_river(args: argparse.Namespace) -> dict:
     roles = parse_source_roles(args.source_roles)
     preflight = load_json(PROCESSED_DIR / args.date / "market-preflight-agenda.json")
+    processed = PROCESSED_DIR / args.date
     captured_at = datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds")
     wanted = list(BASELINE_SOURCE_IDS)
     if args.include_support:
@@ -619,6 +762,19 @@ def build_headline_river(args: argparse.Namespace) -> dict:
             all_items.extend(items)
             source_stats.append({**stat, "agenda_id": expansion["agenda_id"], "tickers": expansion["tickers"]})
 
+    x_items, x_stats = collect_existing_x_posts(processed, roles, captured_at, args.limit_per_source, HEADLINE_X_SOURCE_IDS)
+    all_items.extend(x_items)
+    source_stats.extend(x_stats)
+
+    for source_id in FALLBACK_SOURCE_IDS:
+        source = roles.get(source_id)
+        if not source:
+            source_stats.append({"source_id": source_id, "status": "missing_config", "item_count": 0})
+            continue
+        items, stat = collect_source(source, captured_at, args.limit_per_source, args.timeout)
+        all_items.extend(items)
+        source_stats.append(stat)
+
     items = balanced_limit(dedupe_items(all_items), args.overall_limit)
     payload = {
         "ok": True,
@@ -627,10 +783,12 @@ def build_headline_river(args: argparse.Namespace) -> dict:
         "source_roles_path": str(args.source_roles),
         "item_count": len(items),
         "baseline_source_ids": BASELINE_SOURCE_IDS,
+        "headline_x_source_ids": HEADLINE_X_SOURCE_IDS,
+        "fallback_source_ids": FALLBACK_SOURCE_IDS,
         "support_source_ids": SUPPORT_SOURCE_IDS if args.include_support else [],
         "agenda_expansions": expansions,
         "source_stats": source_stats,
-        "anomaly_summary": anomaly_summary(items, {"biztoc-feed", "biztoc-home"}),
+        "anomaly_summary": anomaly_summary(items, {"biztoc-api", "biztoc-feed", "biztoc-home"}),
         "items": [asdict(item) for item in items],
     }
     return payload
