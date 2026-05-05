@@ -1387,7 +1387,7 @@ PUBLIC_MATERIAL_FALLBACKS = {
     "earnings": "실적 확인 자료",
     "market": "시장 반응 확인 자료",
 }
-MEDIA_FOCUS_MAX_CARDS = 40
+MEDIA_FOCUS_MAX_CARDS = 30
 DASHBOARD_MICROCOPY_MEDIA_CARD_LIMIT = 20
 INTERNAL_MEDIA_SOURCES = {"Autopark", "Market Focus", "Pre-flight Agenda"}
 
@@ -3870,7 +3870,7 @@ def render_market_material_card(lines: list[str], card: dict, rendered_keys: set
 
 
 def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str], index: int = 0, microcopy_card: dict | None = None) -> bool:
-    label = public_material_label(card)
+    label = markdown_plain(card.get("label") or card.get("public_title") or "") or public_material_label(card)
     card = {**card, "label": label}
     keys = material_dedupe_keys(card)
     if keys & rendered_keys:
@@ -3884,6 +3884,9 @@ def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str
         lines.append(f"- 출처: {link(source, url)}")
     else:
         lines.append(f"- 출처: {source if source and source != 'source' else 'Autopark'}")
+    collected_via = clean(card.get("collected_via"))
+    if collected_via and collected_via.lower() != source.lower():
+        lines.append(f"- 수집 경로: {collected_via}")
     time_line = media_time_line(card)
     if time_line:
         lines.append(time_line)
@@ -4379,6 +4382,50 @@ def prepare_compact_collection_cards(collection_cards: list[dict]) -> tuple[list
     return market_cards, media_cards
 
 
+def media_focus_cards_from_selection(selection: dict) -> list[dict]:
+    if selection.get("contract") != "media_focus_selection_v1":
+        return []
+    cards = [card for card in selection.get("cards") or [] if isinstance(card, dict)]
+    rows = []
+    for index, card in enumerate(cards[:MEDIA_FOCUS_MAX_CARDS], start=1):
+        label = markdown_plain(card.get("label") or card.get("public_title") or "") or public_material_label(card)
+        rows.append(
+            {
+                **card,
+                "section": "media_focus",
+                "label": label,
+                "card_key": clean(card.get("card_key")) or compact_card_key({**card, "label": label}, index),
+                "media_number": clean(card.get("media_number")) or media_focus_number(index),
+                "media_number_index": int(card.get("media_number_index") or index),
+            }
+        )
+    return rows
+
+
+def media_focus_collection_result_block(selection: dict, limit: int = 10) -> list[str]:
+    if selection.get("contract") != "media_focus_selection_v1":
+        return []
+    terms = [item for item in selection.get("anomaly_terms") or [] if isinstance(item, dict)]
+    keyword_bits = []
+    for item in terms[:limit]:
+        term = clean(item.get("term"), 32)
+        if not term:
+            continue
+        count = item.get("title_count") or item.get("count") or 0
+        keyword_bits.append(f"{term}({count})")
+    candidate_count = selection.get("candidate_count") or 0
+    if not candidate_count and not keyword_bits:
+        return []
+    lines = [
+        "### 수집 결과",
+        f"- 조회: `총 {candidate_count}건`",
+    ]
+    if keyword_bits:
+        lines.append("- 키워드: `" + "`, `".join(keyword_bits) + "`")
+    lines.append("")
+    return lines
+
+
 def evidence_microcopy_lookup(payload: dict) -> dict[str, dict]:
     return {
         clean(item.get("item_id")): item
@@ -4417,13 +4464,21 @@ def attach_evidence_microcopy(rows: list[dict], payload: dict) -> list[dict]:
     return enriched
 
 
-def render_compact_collection_section(lines: list[str], market_cards: list[dict], media_cards: list[dict], microcopy: dict, target_date: str) -> None:
+def render_compact_collection_section(
+    lines: list[str],
+    market_cards: list[dict],
+    media_cards: list[dict],
+    microcopy: dict,
+    target_date: str,
+    media_focus_selection: dict | None = None,
+) -> None:
     lines.append("# 🤖 자료 수집")
     lines.append("## 1. 시장은 지금")
     rendered_market_keys: set[str] = set()
     for index, card in enumerate(market_cards, start=1):
         render_market_material_card(lines, card, rendered_market_keys, target_date, index)
     lines.append("## 2. 미디어 포커스")
+    lines.extend(media_focus_collection_result_block(media_focus_selection or {}))
     card_copy = microcopy_card_by_key(microcopy)
     for card in media_cards:
         render_media_focus_card(lines, card, set(), int(card.get("media_number_index") or 0), card_copy.get(card.get("card_key")))
@@ -4475,6 +4530,7 @@ def render_compact_publish_dashboard(target_date: str) -> str:
     market_preflight = load_json(processed / "market-preflight-agenda.json")
     market_focus = load_json(processed / "market-focus-brief.json")
     editorial_brief = load_json(processed / "editorial-brief.json")
+    media_focus_selection = load_json(processed / "media-focus-selection.json")
     x_timeline = load_json(processed / "x-timeline-posts.json")
     economic = load_json(processed / "economic-calendar.json")
     radar_candidates = attach_evidence_microcopy(market_radar.get("candidates") or [], evidence_microcopy)
@@ -4503,6 +4559,9 @@ def render_compact_publish_dashboard(target_date: str) -> str:
         economic,
     )
     market_cards, media_cards = prepare_compact_collection_cards(collection_cards)
+    selected_media_cards = media_focus_cards_from_selection(media_focus_selection)
+    if selected_media_cards:
+        media_cards = selected_media_cards
     created_at = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M")
     start_times: list[str] = []
     end_times: list[str] = []
@@ -4560,7 +4619,7 @@ def render_compact_publish_dashboard(target_date: str) -> str:
         media_cards,
         microcopy,
     )
-    render_compact_collection_section(lines, market_cards, media_cards, microcopy, target_date)
+    render_compact_collection_section(lines, market_cards, media_cards, microcopy, target_date, media_focus_selection)
     render_compact_feature_section(lines, target_date, finviz_features, feature_microcopy)
     return "\n".join(lines).rstrip() + "\n"
 

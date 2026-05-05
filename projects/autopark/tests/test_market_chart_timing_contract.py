@@ -39,12 +39,9 @@ class MarketChartTimingContractTest(unittest.TestCase):
         self.assertEqual("26.05.02 05:05 KST", coverage["basis_label"])
         self.assertNotIn("확인", coverage["coverage_label"])
 
-    def test_economic_calendar_subtitle_keeps_rules_without_check_time(self) -> None:
+    def test_economic_calendar_subtitle_uses_single_check_timestamp(self) -> None:
         subtitle = economic_calendar.economic_calendar_subtitle("2026-05-04", "26.05.04 05:36", "us")
-        self.assertIn("26.05.04 KST 일정 기준", subtitle)
-        self.assertIn("미국 2", subtitle)
-        self.assertNotIn("확인", subtitle)
-        self.assertNotIn("수집", subtitle)
+        self.assertEqual("26.05.04 05:36 KST · 미국 2★ 이상", subtitle)
 
 
 if __name__ == "__main__":

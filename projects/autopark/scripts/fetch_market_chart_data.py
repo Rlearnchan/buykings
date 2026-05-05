@@ -421,7 +421,8 @@ def default_observation_start(chart: dict, target_date: str) -> str:
 
 def display_collected_at(value: str | None, target_date: str) -> str:
     if value:
-        return value
+        text = value.strip()
+        return text if text.endswith("KST") else f"{text} KST"
     return target_date[2:].replace("-", ".")
 
 
@@ -504,12 +505,13 @@ def update_spec_from_rows(
     labels = [symbol["label"] for symbol in chart.get("symbols", [])]
     source = metadata["source"]
     coverage = metadata.get("coverage") or chart_coverage_label(chart, source, rows, metadata=metadata)
+    display_timestamp = subtitle_label or display_collected_at(collected_at, target_date) or coverage["coverage_label"]
     if chart.get("subtitle_latest_value") and labels:
         current = latest_values(rows, chart, labels)
         if current:
             _, values = current
             spec["title"] = f"{chart['title']}: {' / '.join(values)}"
-            spec["subtitle"] = subtitle_label or coverage["coverage_label"]
+            spec["subtitle"] = display_timestamp
             spec.setdefault("metadata", {}).setdefault("describe", {})["intro"] = spec["subtitle"]
             spec.setdefault("metadata", {}).setdefault("annotate", {})["notes"] = ""
     if chart["chart_type"] in {"d3-lines", "multiple-lines"}:

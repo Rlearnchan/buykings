@@ -731,6 +731,7 @@ def main() -> int:
             "build evidence microcopy",
             "build market focus brief",
             "build editorial brief",
+            "build media focus selection",
             "render notion markdown",
             "quality review",
             f"publish notion ({publish_policy})",
@@ -1089,7 +1090,14 @@ def main() -> int:
             append_step(results, make_step("capture polymarket", "warn", polymarket_summary))
 
     result, fedwatch_split_payload = run(
-        [py, "projects/autopark/scripts/prepare_fedwatch_datawrapper_splits.py", "--date", args.date],
+        [
+            py,
+            "projects/autopark/scripts/prepare_fedwatch_datawrapper_splits.py",
+            "--date",
+            args.date,
+            "--collected-at",
+            collected_at,
+        ],
         "prepare fedwatch datawrapper splits",
         60,
         allow_fail=True,
@@ -1339,6 +1347,19 @@ def main() -> int:
         editorial_stage_timeout,
         allow_fail=True,
         env=run_env,
+    )
+    append_step(results, result)
+
+    result, _ = run(
+        [
+            py,
+            "projects/autopark/scripts/build_media_focus_selection.py",
+            "--date",
+            args.date,
+        ],
+        "build media focus selection",
+        90,
+        allow_fail=True,
     )
     append_step(results, result)
 

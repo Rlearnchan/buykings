@@ -14,6 +14,7 @@ sys.path.insert(0, str(PROJECT / "scripts"))
 
 import build_live_notion_dashboard as dashboard
 import build_dashboard_microcopy as microcopy
+import build_media_focus_selection as media_selection
 import build_pipeline_sourcebook as sourcebook
 import publish_recon_to_notion as publisher
 import review_dashboard_quality as quality
@@ -42,11 +43,15 @@ class CompactPublishRendererContractTest(unittest.TestCase):
             "PROCESSED_DIR": quality.PROCESSED_DIR,
             "RUNTIME_PROMPT_DIR": quality.RUNTIME_PROMPT_DIR,
         }
+        self._media_selection_paths = {
+            "PROCESSED_DIR": media_selection.PROCESSED_DIR,
+        }
         dashboard.PROCESSED_DIR = self.processed
         dashboard.EXPORTS_DIR = self.exports
         dashboard.screenshots_for = self._fake_screenshots_for
         quality.PROCESSED_DIR = self.processed
         quality.RUNTIME_PROMPT_DIR = self.prompts
+        media_selection.PROCESSED_DIR = self.processed
         self._seed_0503_like_payloads()
 
     def tearDown(self) -> None:
@@ -54,6 +59,8 @@ class CompactPublishRendererContractTest(unittest.TestCase):
             setattr(dashboard, name, value)
         for name, value in self._quality_paths.items():
             setattr(quality, name, value)
+        for name, value in self._media_selection_paths.items():
+            setattr(media_selection, name, value)
         resolved = self.runtime_root.resolve()
         test_root = (PROJECT / ".test-runtime").resolve()
         if test_root in resolved.parents and resolved.exists():
@@ -63,6 +70,109 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertGreaterEqual(dashboard.MEDIA_FOCUS_MAX_CARDS, 30)
         self.assertLessEqual(dashboard.MEDIA_FOCUS_MAX_CARDS, 50)
         self.assertLessEqual(dashboard.DASHBOARD_MICROCOPY_MEDIA_CARD_LIMIT, 20)
+
+    def test_media_focus_selection_splits_storyline_and_supplemental_pool(self) -> None:
+        self._write_json(
+            "market-radar.json",
+            {
+                "storylines": [
+                    {
+                        "rank": 1,
+                        "title": "Oil and yields pressure the rally",
+                        "evidence_to_use": [{"item_id": "story-oil-1"}],
+                        "slide_order": ["story-yield-1"],
+                    }
+                ],
+                "candidates": [
+                    {
+                        "id": "story-oil-1",
+                        "title": "Oil jumps after Hormuz shipping warning",
+                        "summary": "Crude prices rose as traders watched shipping risk.",
+                        "source": "Reuters",
+                        "url": "https://example.com/oil",
+                        "score": 91,
+                    },
+                    {
+                        "id": "story-yield-1",
+                        "title": "Treasury yields rise as inflation concern returns",
+                        "summary": "Rates moved higher with inflation risk back in focus.",
+                        "source": "CNBC",
+                        "url": "https://example.com/yields",
+                        "score": 88,
+                    },
+                ]
+            },
+        )
+        self._write_json("evidence-microcopy.json", {"items": []})
+        self._write_json(
+            "editorial-brief.json",
+            {
+                "ok": True,
+                "fallback": False,
+                "storylines": [
+                    {
+                        "rank": 1,
+                        "title": "Oil and yields pressure the rally",
+                        "evidence_to_use": [{"item_id": "story-oil-1"}],
+                        "slide_order": ["story-yield-1"],
+                    }
+                ],
+            },
+        )
+        self._write_json(
+            "today-misc-batch-a-candidates.json",
+            {
+                "candidates": [
+                    {
+                        "id": "spacex-1",
+                        "type": "analysis_river",
+                        "title": "Musk SpaceX financing signal draws market attention",
+                        "summary": "SpaceX appeared in market chatter after a financing headline.",
+                        "source": "Analysis River",
+                        "url": "https://example.com/spacex-1",
+                        "score": 12,
+                    },
+                    {
+                        "id": "spacex-2",
+                        "type": "headline_river",
+                        "title": "SpaceX and Musk headlines add unusual risk chatter",
+                        "summary": "A second source repeated the SpaceX headline.",
+                        "source": "Headline River",
+                        "url": "https://example.com/spacex-2",
+                        "score": 10,
+                    },
+                ]
+            },
+        )
+        self._write_json("today-misc-batch-b-candidates.json", {"candidates": []})
+        self._write_json("x-timeline-posts.json", {"posts": []})
+
+        payload = media_selection.build_selection(DATE, max_cards=4, storyline_target=2)
+
+        self.assertEqual("media_focus_selection_v1", payload["contract"])
+        self.assertEqual("not_used_as_gate", payload["selection_policy"]["supplemental_terms_usage"])
+        self.assertEqual(["storyline", "storyline"], [card["selection_bucket"] for card in payload["cards"][:2]])
+        self.assertTrue(any(card["selection_bucket"] == "supplemental" for card in payload["cards"]))
+        self.assertTrue(any(term["term"] == "spacex" for term in payload["anomaly_terms"]))
+
+    def test_selection_labels_are_preserved_when_rendering_media_cards(self) -> None:
+        cards = dashboard.media_focus_cards_from_selection(
+            {
+                "contract": "media_focus_selection_v1",
+                "cards": [
+                    {
+                        "label": "시장 반응 확인 자료 2",
+                        "media_number": "(2)",
+                        "source": "IsabelNet",
+                        "url": "https://example.com/greed",
+                        "summary": "투자심리 지표를 보여주는 자료입니다.",
+                    }
+                ],
+            }
+        )
+        lines: list[str] = []
+        self.assertTrue(dashboard.render_media_focus_card(lines, cards[0], set(), 1))
+        self.assertIn("### (2) 시장 반응 확인 자료 2", "\n".join(lines))
 
     def _write_json(self, name: str, payload: object) -> None:
         (self.processed / DATE / name).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")

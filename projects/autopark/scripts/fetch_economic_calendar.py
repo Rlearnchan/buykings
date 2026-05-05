@@ -258,8 +258,12 @@ def calendar_group_note(group: str) -> str:
 
 
 def economic_calendar_subtitle(target_date: str, collected_at: str | None, group: str) -> str:
-    title_date = target_date.replace("-", ".")[2:]
     note = calendar_group_note(group)
+    if collected_at:
+        text = collected_at.strip()
+        timestamp = text if text.endswith("KST") else f"{text} KST"
+        return f"{timestamp} · {note}"
+    title_date = target_date.replace("-", ".")[2:]
     return f"{title_date} KST 일정 기준, {note}"
 
 

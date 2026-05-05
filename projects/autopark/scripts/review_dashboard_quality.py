@@ -943,7 +943,7 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
             issue(findings, "format", "high", "COMPACT-033 원/달러 label 누락", "원/달러 자료가 시장 카드 label로 보이지 않습니다.", "usd-krw는 원/달러 환율 차트로 렌더하세요.")
         if "2. 미디어 포커스" not in sections:
             issue(findings, "format", "high", "COMPACT-034 미디어 포커스 누락", "## 2. 미디어 포커스 section이 없습니다.", "시장은 지금 다음에는 미디어 포커스 하나만 렌더하세요.")
-        media_blocks = compact_card_blocks(media_body)
+        media_blocks = [block for block in compact_card_blocks(media_body) if card_title(block) != "수집 결과"]
         for idx, block in enumerate(media_blocks, start=1):
             title = card_title(block)
             if not re.match(r"^(?:[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\))\s+", title):

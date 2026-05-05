@@ -120,6 +120,9 @@ def clean(value: object) -> str:
 def display_dt(value: str | None) -> str:
     if not value:
         return ""
+    if re.match(r"^\d{2}\.\d{2}\.\d{2}\s+\d{2}:\d{2}(?:\s+KST)?$", value):
+        text = value.strip()
+        return text if text.endswith("KST") else f"{text} KST"
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
         return dt.astimezone(ZoneInfo("Asia/Seoul")).strftime("%y.%m.%d %H:%M KST")
@@ -127,10 +130,10 @@ def display_dt(value: str | None) -> str:
         return value[:16]
 
 
-def fedwatch_subtitle(target_date: str, base: dict) -> str:
+def fedwatch_subtitle(target_date: str, base: dict, collected_at: str | None = None) -> str:
     payload = load_json(RAW_DIR / target_date / "cme-fedwatch.json")
     captured = display_dt(payload.get("captured_at") or payload.get("created_at") or payload.get("updated_at"))
-    basis = captured or datetime.fromisoformat(target_date).strftime("%y.%m.%d")
+    basis = display_dt(collected_at) if collected_at else captured or datetime.fromisoformat(target_date).strftime("%y.%m.%d")
     base_subtitle = clean(base.get("subtitle"))
     suffix = ""
     if "현재 기준금리" in base_subtitle:
@@ -223,6 +226,7 @@ def main() -> int:
     parser.add_argument("--date", required=True)
     parser.add_argument("--base-spec", type=Path, default=BASE_SPEC)
     parser.add_argument("--input", type=Path)
+    parser.add_argument("--collected-at", default=None, help="Display timestamp for Datawrapper subtitle, e.g. 26.05.05 05:00")
     args = parser.parse_args()
 
     input_path = args.input or (PREPARED_DIR / f"fedwatch-conditional-probabilities-{args.date}.csv")
@@ -233,7 +237,7 @@ def main() -> int:
         write_csv(input_path, headers, rows)
     short_rows, long_rows = split_rows(rows)
     base = load_json(args.base_spec) if args.base_spec.exists() else default_base_spec(args.date)
-    subtitle = fedwatch_subtitle(args.date, base)
+    subtitle = fedwatch_subtitle(args.date, base, args.collected_at)
 
     outputs = []
     for suffix, title, selected_rows in [
