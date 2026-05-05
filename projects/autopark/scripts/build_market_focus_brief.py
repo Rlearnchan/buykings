@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 from collections import Counter
@@ -31,6 +32,7 @@ DEFAULT_ENV = REPO_ROOT / ".env"
 OPENAI_API = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_REASONING_EFFORT = "medium"
+DEFAULT_API_TIMEOUT_SECONDS = 180
 
 BROADCAST_USES = {"lead", "supporting_story", "talk_only", "drop"}
 PUBLIC_USES = {"lead", "supporting_story", "talk_only"}
@@ -209,6 +211,14 @@ def print_json(payload: dict, ensure_ascii: bool = False) -> None:
 def compact_text(value: object, limit: int = 420) -> str:
     text = re.sub(r"\s+", " ", str(value or "")).strip()
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def now_iso() -> str:
+    return datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds")
+
+
+def estimate_prompt_tokens(prompt: str) -> int:
+    return max(1, int((len(prompt or "") + 3) / 4))
 
 
 def sanitized_text(value: object, limit: int = 420) -> str:
@@ -1078,6 +1088,10 @@ def openai_http_error(exc: urllib.error.HTTPError) -> OpenAIAPIError:
     return OpenAIAPIError(label, exc.code, api_code, compact_text(message, 500), compact_text(body, 1000))
 
 
+def is_transient_exception(exc: BaseException) -> bool:
+    return isinstance(exc, OpenAIAPIError) and exc.status in {502, 503, 504}
+
+
 def call_openai(
     prompt: str,
     token: str,
@@ -1085,7 +1099,7 @@ def call_openai(
     timeout: int,
     with_web: bool,
     reasoning_effort: str,
-) -> tuple[dict, str | None, list[dict]]:
+) -> tuple[dict, str | None, list[dict], dict]:
     payload: dict = {
         "model": model,
         "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
@@ -1110,15 +1124,47 @@ def call_openai(
         method="POST",
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
     )
+    request_timeout = None if timeout <= 0 else timeout
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=request_timeout) as response:
             raw = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         raise openai_http_error(exc) from exc
     text = extract_output_text(raw)
     if not text:
         raise RuntimeError("OpenAI response did not contain output_text")
-    return json.loads(text), raw.get("id"), extract_web_sources(raw)
+    return json.loads(text), raw.get("id"), extract_web_sources(raw), {
+        "usage": raw.get("usage") or {},
+        "output_chars": len(text),
+    }
+
+
+def call_openai_with_transient_retry(
+    prompt: str,
+    token: str,
+    model: str,
+    timeout: int,
+    with_web: bool,
+    reasoning_effort: str,
+    *,
+    retry_delay_seconds: float = 8.0,
+) -> tuple[dict, str | None, list[dict], dict]:
+    transient_errors: list[str] = []
+    for attempt_index in range(2):
+        try:
+            brief, response_id, web_sources, stats = call_openai(prompt, token, model, timeout, with_web, reasoning_effort)
+            stats["attempt_count"] = attempt_index + 1
+            stats["transient_retry_count"] = attempt_index
+            if transient_errors:
+                stats["transient_errors"] = transient_errors
+            return brief, response_id, web_sources, stats
+        except Exception as exc:  # noqa: BLE001 - retry only known transient gateway errors.
+            if attempt_index == 0 and is_transient_exception(exc):
+                transient_errors.append(f"{type(exc).__name__}: {exc}")
+                time.sleep(retry_delay_seconds)
+                continue
+            raise
+    raise RuntimeError("unreachable_openai_retry_state")
 
 
 def load_fixture_response(path: Path) -> tuple[dict, str | None, list[dict]]:
@@ -1146,8 +1192,9 @@ def write_raw_response(
     brief: dict,
     source: str,
     web_sources: list[dict],
+    output_path: Path | None = None,
 ) -> Path:
-    path = RUNTIME_DIR / "openai-responses" / f"{target_date}-market-focus-raw.json"
+    path = output_path or (RUNTIME_DIR / "openai-responses" / f"{target_date}-market-focus-raw.json")
     write_json(
         path,
         {
@@ -1624,11 +1671,13 @@ def main() -> int:
     parser.add_argument("--max-candidates", type=int, default=36)
     parser.add_argument("--max-raw-files", type=int, default=48)
     parser.add_argument("--max-assets", type=int, default=80)
-    parser.add_argument("--timeout", type=int, default=180)
+    parser.add_argument("--timeout", type=int, default=DEFAULT_API_TIMEOUT_SECONDS)
+    parser.add_argument("--no-api-timeout", action="store_true", help="Disable the urllib read timeout for one-off latency experiments.")
     parser.add_argument("--response-fixture", type=Path, help="Read a saved OpenAI response or brief JSON instead of calling the API.")
     parser.add_argument("--output", type=Path, help="Write JSON to a custom path instead of data/processed/<date>/market-focus-brief.json.")
     parser.add_argument("--markdown-output", type=Path, help="Write Markdown to a custom path instead of runtime/notion/<date>-market-focus.md.")
     parser.add_argument("--prompt-output", type=Path, help="Write the exact prompt payload to a JSON file without secrets.")
+    parser.add_argument("--raw-response-output", type=Path, help="Write the raw response wrapper to a custom experiment path.")
     parser.add_argument("--synthetic-smoke", action="store_true", help="Use a tiny synthetic packet for API contract smoke without exporting local collected sources.")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -1642,6 +1691,7 @@ def main() -> int:
     output_path = args.output or (PROCESSED_DIR / args.date / "market-focus-brief.json")
     markdown_path = args.markdown_output or (RUNTIME_NOTION_DIR / f"{args.date}-market-focus.md")
     prompt = build_prompt(input_payload, with_web=args.with_web)
+    api_timeout = 0 if args.no_api_timeout else args.timeout
 
     if args.prompt_output:
         write_json(
@@ -1677,6 +1727,18 @@ def main() -> int:
     response_id = None
     raw_response_path = ""
     web_sources: list[dict] = []
+    request_stats: dict = {
+        "stage": "market_focus_brief",
+        "model": model,
+        "with_web": bool(args.with_web),
+        "timeout_seconds": api_timeout,
+        "candidate_count_sent": len(input_payload.get("market_radar", {}).get("candidates") or []),
+        "raw_source_count": len(input_payload.get("raw_sources") or []),
+        "asset_count": len(input_payload.get("available_assets") or []),
+        "prompt_chars": len(prompt),
+        "estimated_prompt_tokens": estimate_prompt_tokens(prompt),
+    }
+    monotonic = time.monotonic()
     try:
         if args.response_fixture:
             brief, response_id, web_sources = load_fixture_response(args.response_fixture)
@@ -1685,19 +1747,25 @@ def main() -> int:
             token = env.get("OPENAI_API_KEY")
             if not token:
                 raise RuntimeError("missing_openai_api_key")
-            brief, response_id, web_sources = call_openai(
+            monotonic = time.monotonic()
+            request_stats["request_started_at"] = now_iso()
+            brief, response_id, web_sources, response_stats = call_openai_with_transient_retry(
                 prompt,
                 token,
                 model,
-                args.timeout,
+                api_timeout,
                 with_web=args.with_web,
                 reasoning_effort=reasoning_effort,
             )
+            request_stats.update(response_stats)
+            request_stats["request_finished_at"] = now_iso()
+            request_stats["elapsed_seconds"] = round(time.monotonic() - monotonic, 3)
+            request_stats["raw_response_id"] = response_id
             response_source = "openai_responses_api_with_web" if args.with_web else "openai_responses_api"
         if args.response_fixture and args.response_fixture.resolve().parent == (RUNTIME_DIR / "openai-responses").resolve():
             raw_response_path = str(args.response_fixture.resolve())
         else:
-            raw_response_path = str(write_raw_response(args.date, model, response_id, brief, response_source, web_sources))
+            raw_response_path = str(write_raw_response(args.date, model, response_id, brief, response_source, web_sources, args.raw_response_output))
         brief = normalize_brief(brief, input_payload)
         errors = validate_brief(brief)
         if errors:
@@ -1712,9 +1780,14 @@ def main() -> int:
             "raw_response_id": response_id,
             "raw_response_path": raw_response_path,
             "web_sources": web_sources,
+            "request_stats": request_stats,
             **brief,
         }
     except (urllib.error.URLError, TimeoutError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        if request_stats.get("request_started_at") and not request_stats.get("elapsed_seconds"):
+            request_stats["request_finished_at"] = now_iso()
+            request_stats["elapsed_seconds"] = round(time.monotonic() - monotonic, 3)
+        request_stats["error"] = f"{type(exc).__name__}: {exc}"
         fallback_code = exc.label if isinstance(exc, OpenAIAPIError) else "openai_unavailable"
         brief = fallback_brief(
             args.date,
@@ -1726,6 +1799,7 @@ def main() -> int:
             with_web=args.with_web,
             fallback_code=fallback_code,
         )
+        brief["request_stats"] = request_stats
 
     write_json(output_path, brief)
     markdown_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1743,6 +1817,7 @@ def main() -> int:
             "source_gap_count": len(brief.get("source_gaps") or []),
             "fallback_code": brief.get("fallback_code"),
             "fallback_reason": brief.get("fallback_reason"),
+            "request_stats": brief.get("request_stats"),
         }
     )
     return 0

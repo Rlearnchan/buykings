@@ -1,16 +1,16 @@
 {
   "project": "autopark",
   "slug": "crude-oil-wti",
-  "title": "WTI: $102.50(-$2.57)",
-  "subtitle": "26.05.02 08:35 기준",
+  "title": "WTI: $104.92(+$2.98)",
+  "subtitle": "26.05.04 13:00 KST",
   "chart_type": "d3-lines",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "../prepared/crude-oil-wti-2026-04-29.csv",
+  "prepared_csv": "../prepared/crude-oil-wti-2026-05-05.csv",
   "source_name": "Yahoo Finance",
   "byline": "",
   "metadata": {
     "describe": {
-      "intro": "26.05.02 08:35 기준",
+      "intro": "26.05.04 13:00 KST",
       "aria-description": "Autopark chart placeholder for WTI"
     },
     "publish": {

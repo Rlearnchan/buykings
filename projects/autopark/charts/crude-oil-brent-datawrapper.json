@@ -1,16 +1,16 @@
 {
   "project": "autopark",
   "slug": "crude-oil-brent",
-  "title": "브렌트: $108.83(-$5.18)",
-  "subtitle": "26.05.02 08:35 기준",
+  "title": "브렌트: $113.82(+$5.65)",
+  "subtitle": "26.05.04 13:00 KST",
   "chart_type": "d3-lines",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "../prepared/crude-oil-brent-2026-04-29.csv",
+  "prepared_csv": "../prepared/crude-oil-brent-2026-05-05.csv",
   "source_name": "Yahoo Finance",
   "byline": "",
   "metadata": {
     "describe": {
-      "intro": "26.05.02 08:35 기준",
+      "intro": "26.05.04 13:00 KST",
       "aria-description": "Autopark chart placeholder for 브렌트"
     },
     "publish": {

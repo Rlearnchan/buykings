@@ -647,7 +647,7 @@ def compact_story_blocks(host: str) -> list[str]:
 
 
 def compact_collection_labels(collection: str) -> list[str]:
-    return [title for level, title in heading_lines(collection) if level == 3]
+    return [strip_public_label_marker(title) for level, title in heading_lines(collection) if level == 3]
 
 
 def compact_collection_section_body(collection: str, heading: str) -> str:
@@ -669,9 +669,13 @@ def card_title(block: str) -> str:
     return re.sub(r"^###\s+", "", first).strip()
 
 
+def card_public_title(block: str) -> str:
+    return strip_public_label_marker(card_title(block))
+
+
 def strip_public_label_marker(label: str) -> str:
     text = normalize(label).strip("`")
-    text = re.sub(r"^(?:[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\))\s+", "", text)
+    text = re.sub(r"^(?:[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\)|\([A-Z]+\))\s+", "", text)
     return text.strip("` ")
 
 
@@ -828,9 +832,9 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
     if len(news_bullets) != 3:
         issue(findings, "format", "high", "COMPACT-008 주요 뉴스 bullet 수 불일치", "주요 뉴스는 정확히 3개 bullet이어야 합니다.", "주요 뉴스 bullet 3개만 렌더하세요.")
     else:
-        invalid_news = [bullet for bullet in news_bullets if len(bullet) > 80 or compact_english_word_run_too_long(bullet)]
+        invalid_news = [bullet for bullet in news_bullets if len(bullet) > 140 or compact_english_word_run_too_long(bullet)]
         if invalid_news:
-            issue(findings, "format", "high", "COMPACT-016 주요 뉴스 public 문장 위반", "주요 뉴스 bullet이 80자를 넘거나 영어 원문형 제목처럼 보입니다.", "주요 뉴스는 80자 이하 한국어 방송 해석 문장으로만 렌더하세요.")
+            issue(findings, "format", "high", "COMPACT-016 주요 뉴스 public 문장 위반", "주요 뉴스 bullet이 140자를 넘거나 영어 원문형 제목처럼 보입니다.", "주요 뉴스는 140자 이하의 완결된 한국어 방송 해석 문장으로 렌더하세요.")
     if compact_bullet_count(compact_section_body(host, "방송 순서")) != 5:
         issue(findings, "format", "high", "COMPACT-009 방송 순서 bullet 수 불일치", "방송 순서는 정확히 5개 bullet이어야 합니다.", "시장/3개 스토리라인/실적 bullet만 렌더하세요.")
 
@@ -908,8 +912,8 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
         media_body = compact_collection_section_body(collection, "2. 미디어 포커스")
         feature_body = compact_collection_section_body(collection, "3. 실적/특징주")
         market_blocks = compact_card_blocks(market_body)
-        market_titles = [card_title(block) for block in market_blocks]
-        market_block_by_title = {card_title(block): block for block in market_blocks}
+        market_titles = [card_public_title(block) for block in market_blocks]
+        market_block_by_title = {card_public_title(block): block for block in market_blocks}
         if "1. 시장은 지금" not in sections:
             issue(findings, "format", "high", "COMPACT-029 시장은 지금 누락", "## 1. 시장은 지금 section이 없습니다.", "자료 수집 첫 section으로 시장은 지금을 렌더하세요.")
         missing_market_cards = [label for label in COMPACT_MARKET_NOW_LABEL_ORDER if label not in market_titles]

@@ -91,9 +91,19 @@ def fetch_yahoo_series(symbol: dict, range_value: str, interval: str) -> tuple[d
         day = date_from_epoch(timestamp, exchange_timezone)
         series[day] = round(float(close) * scale, 6)
         last_valid_epoch = timestamp
+    regular_market_time = meta.get("regularMarketTime")
+    regular_market_price = meta.get("regularMarketPrice")
+    if regular_market_time and regular_market_price is not None and (
+        last_valid_epoch is None or float(regular_market_time) > float(last_valid_epoch)
+    ):
+        day = date_from_epoch(regular_market_time, exchange_timezone)
+        series[day] = round(float(regular_market_price) * scale, 6)
+        last_valid_epoch = regular_market_time
     return series, {
         "exchange_timezone": exchange_timezone or "",
-        "regular_market_time": meta.get("regularMarketTime"),
+        "regular_market_time": regular_market_time,
+        "regular_market_price": regular_market_price,
+        "latest_quote_used": bool(regular_market_time and regular_market_price is not None),
         "last_valid_time": last_valid_epoch,
         "data_granularity": meta.get("dataGranularity") or interval,
     }

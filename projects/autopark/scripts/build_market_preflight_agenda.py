@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -24,6 +25,7 @@ DEFAULT_ENV = REPO_ROOT / ".env"
 OPENAI_API = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_REASONING_EFFORT = "medium"
+DEFAULT_API_TIMEOUT_SECONDS = 150
 
 TARGET_TYPES = {"chart", "news_search", "x_search", "official_source", "market_reaction", "capture"}
 EXPECTED_USES = {"lead_candidate", "supporting_candidate", "watch_only", "drop"}
@@ -122,6 +124,14 @@ def compact_text(value: object, limit: int = 240) -> str:
     if len(text) <= limit:
         return text
     return text[: max(0, limit - 1)].rstrip() + "…"
+
+
+def now_iso() -> str:
+    return datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds")
+
+
+def estimate_prompt_tokens(prompt: str) -> int:
+    return max(1, int((len(prompt or "") + 3) / 4))
 
 
 def slug_id(value: object, fallback: str) -> str:
@@ -276,6 +286,10 @@ def openai_http_error(exc: urllib.error.HTTPError) -> OpenAIAPIError:
     return OpenAIAPIError(label, exc.code, api_code, compact_text(message, 500), compact_text(body, 1000))
 
 
+def is_transient_exception(exc: BaseException) -> bool:
+    return isinstance(exc, OpenAIAPIError) and exc.status in {502, 503, 504}
+
+
 def extract_output_text(raw: dict) -> str:
     if raw.get("output_text"):
         return str(raw["output_text"]).strip()
@@ -302,7 +316,7 @@ def extract_web_sources(raw: dict) -> list[dict]:
     return sources
 
 
-def call_openai(prompt: str, token: str, model: str, timeout: int, with_web: bool, reasoning_effort: str) -> tuple[dict, str | None, list[dict]]:
+def call_openai(prompt: str, token: str, model: str, timeout: int, with_web: bool, reasoning_effort: str) -> tuple[dict, str | None, list[dict], dict]:
     payload: dict = {
         "model": model,
         "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
@@ -327,15 +341,47 @@ def call_openai(prompt: str, token: str, model: str, timeout: int, with_web: boo
         method="POST",
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
     )
+    request_timeout = None if timeout <= 0 else timeout
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
+        with urllib.request.urlopen(request, timeout=request_timeout) as response:
             raw = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         raise openai_http_error(exc) from exc
     text = extract_output_text(raw)
     if not text:
         raise RuntimeError("OpenAI response did not contain output_text")
-    return json.loads(text), raw.get("id"), extract_web_sources(raw)
+    return json.loads(text), raw.get("id"), extract_web_sources(raw), {
+        "usage": raw.get("usage") or {},
+        "output_chars": len(text),
+    }
+
+
+def call_openai_with_transient_retry(
+    prompt: str,
+    token: str,
+    model: str,
+    timeout: int,
+    with_web: bool,
+    reasoning_effort: str,
+    *,
+    retry_delay_seconds: float = 8.0,
+) -> tuple[dict, str | None, list[dict], dict]:
+    transient_errors: list[str] = []
+    for attempt_index in range(2):
+        try:
+            agenda, response_id, web_sources, stats = call_openai(prompt, token, model, timeout, with_web, reasoning_effort)
+            stats["attempt_count"] = attempt_index + 1
+            stats["transient_retry_count"] = attempt_index
+            if transient_errors:
+                stats["transient_errors"] = transient_errors
+            return agenda, response_id, web_sources, stats
+        except Exception as exc:  # noqa: BLE001 - retry only known transient gateway errors.
+            if attempt_index == 0 and is_transient_exception(exc):
+                transient_errors.append(f"{type(exc).__name__}: {exc}")
+                time.sleep(retry_delay_seconds)
+                continue
+            raise
+    raise RuntimeError("unreachable_openai_retry_state")
 
 
 def load_fixture_response(path: Path) -> tuple[dict, str | None, list[dict]]:
@@ -565,8 +611,16 @@ def resolve_with_web(args: argparse.Namespace, env: dict[str, str]) -> bool:
     return truthy(env.get("AUTOPARK_PREFLIGHT_WITH_WEB"), default=True)
 
 
-def write_raw_response(target_date: str, model: str, response_id: str | None, agenda: dict, source: str, web_sources: list[dict]) -> Path:
-    path = RUNTIME_DIR / "openai-responses" / f"{target_date}-market-preflight-raw.json"
+def write_raw_response(
+    target_date: str,
+    model: str,
+    response_id: str | None,
+    agenda: dict,
+    source: str,
+    web_sources: list[dict],
+    output_path: Path | None = None,
+) -> Path:
+    path = output_path or (RUNTIME_DIR / "openai-responses" / f"{target_date}-market-preflight-raw.json")
     write_json(
         path,
         {
@@ -588,11 +642,13 @@ def main() -> int:
     parser.add_argument("--reasoning-effort", default=None)
     parser.add_argument("--with-web", action="store_true")
     parser.add_argument("--no-web", action="store_true")
-    parser.add_argument("--timeout", type=int, default=120)
+    parser.add_argument("--timeout", type=int, default=DEFAULT_API_TIMEOUT_SECONDS)
+    parser.add_argument("--no-api-timeout", action="store_true", help="Disable the urllib read timeout for one-off latency experiments.")
     parser.add_argument("--response-fixture", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--markdown-output", type=Path)
     parser.add_argument("--prompt-output", type=Path)
+    parser.add_argument("--raw-response-output", type=Path, help="Write the raw response wrapper to a custom experiment path.")
     parser.add_argument("--synthetic-smoke", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -605,6 +661,7 @@ def main() -> int:
     output_path = args.output or (PROCESSED_DIR / args.date / "market-preflight-agenda.json")
     markdown_path = args.markdown_output or (RUNTIME_NOTION_DIR / f"{args.date}-market-preflight-agenda.md")
     prompt = build_prompt(input_payload, with_web=with_web)
+    api_timeout = 0 if args.no_api_timeout else args.timeout
     fixture_meta = load_optional_json(args.response_fixture) if args.response_fixture else {}
     fixture_model = fixture_meta.get("model") if isinstance(fixture_meta, dict) else None
 
@@ -639,6 +696,15 @@ def main() -> int:
     response_id = None
     raw_response_path = ""
     web_sources: list[dict] = []
+    request_stats: dict = {
+        "stage": "market_preflight_agenda",
+        "model": model,
+        "with_web": bool(with_web),
+        "timeout_seconds": api_timeout,
+        "prompt_chars": len(prompt),
+        "estimated_prompt_tokens": estimate_prompt_tokens(prompt),
+    }
+    monotonic = time.monotonic()
     try:
         if args.response_fixture:
             agenda, response_id, web_sources = load_fixture_response(args.response_fixture)
@@ -647,12 +713,18 @@ def main() -> int:
             token = env.get("OPENAI_API_KEY")
             if not token:
                 raise RuntimeError("missing_openai_api_key")
-            agenda, response_id, web_sources = call_openai(prompt, token, model, args.timeout, with_web, reasoning_effort)
+            monotonic = time.monotonic()
+            request_stats["request_started_at"] = now_iso()
+            agenda, response_id, web_sources, response_stats = call_openai_with_transient_retry(prompt, token, model, api_timeout, with_web, reasoning_effort)
+            request_stats.update(response_stats)
+            request_stats["request_finished_at"] = now_iso()
+            request_stats["elapsed_seconds"] = round(time.monotonic() - monotonic, 3)
+            request_stats["raw_response_id"] = response_id
             response_source = "openai_responses_api_with_web" if with_web else "openai_responses_api"
         raw_response_path = (
             str(args.response_fixture.resolve())
             if args.response_fixture and args.response_fixture.resolve().parent == (RUNTIME_DIR / "openai-responses").resolve()
-            else str(write_raw_response(args.date, model, response_id, agenda, response_source, web_sources))
+            else str(write_raw_response(args.date, model, response_id, agenda, response_source, web_sources, args.raw_response_output))
         )
         agenda = normalize_agenda(agenda, args.date)
         errors = validate_agenda(agenda)
@@ -668,9 +740,14 @@ def main() -> int:
             "raw_response_id": response_id,
             "raw_response_path": raw_response_path,
             "web_sources": web_sources,
+            "request_stats": request_stats,
             **agenda,
         }
     except (urllib.error.URLError, TimeoutError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        if request_stats.get("request_started_at") and not request_stats.get("elapsed_seconds"):
+            request_stats["request_finished_at"] = now_iso()
+            request_stats["elapsed_seconds"] = round(time.monotonic() - monotonic, 3)
+        request_stats["error"] = f"{type(exc).__name__}: {exc}"
         fallback_code = exc.label if isinstance(exc, OpenAIAPIError) else "preflight_openai_unavailable"
         agenda = fallback_agenda(
             args.date,
@@ -679,6 +756,7 @@ def main() -> int:
             with_web=with_web,
             fallback_code=fallback_code,
         )
+        agenda["request_stats"] = request_stats
 
     write_json(output_path, agenda)
     markdown_path.parent.mkdir(parents=True, exist_ok=True)
@@ -695,6 +773,7 @@ def main() -> int:
             "agenda_count": len(agenda.get("agenda_items") or []),
             "fallback_code": agenda.get("fallback_code"),
             "fallback_reason": agenda.get("fallback_reason"),
+            "request_stats": agenda.get("request_stats"),
         }
     )
     return 0

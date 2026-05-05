@@ -22,11 +22,14 @@ from zoneinfo import ZoneInfo
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
+REPO_ROOT = PROJECT_DIR.parents[1]
 PROCESSED_DIR = PROJECT_DIR / "data" / "processed"
 RUNTIME_DIR = PROJECT_DIR / "runtime"
+DEFAULT_ENV = REPO_ROOT / ".env"
 OPENAI_API = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_FALLBACK = "deterministic"
+CONTRACT = "compact_publish_microcopy_v1"
 FORBIDDEN_TOKENS = [
     "source_role",
     "evidence_role",
@@ -37,15 +40,32 @@ FORBIDDEN_TOKENS = [
     "http://",
     "https://",
 ]
-GENERATED_FIELDS = ["quote_lines", "host_relevance_bullets", "content_bullets"]
+GENERATED_FIELDS = ["host_summary_lines", "quote_lines", "host_relevance_bullets", "content_bullets"]
 MAX_CARDS_PER_REQUEST = 40
+
+
+def load_env(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.exists():
+        return values
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            values[key] = value
+    return values
 
 
 MICROCOPY_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["storylines", "media_focus_cards"],
+    "required": ["host_summary_lines", "storylines", "media_focus_cards"],
     "properties": {
+        "host_summary_lines": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string"}},
         "storylines": {
             "type": "array",
             "items": {
@@ -396,8 +416,13 @@ def deterministic_card(card: dict[str, Any]) -> dict[str, Any]:
 def deterministic_microcopy(context: dict[str, Any], *, model: str | None = None, reason: str = "deterministic") -> dict[str, Any]:
     storylines = [deterministic_storyline(story) for story in context.get("storylines") or [] if isinstance(story, dict)]
     cards = [deterministic_card(card) for card in context.get("media_focus_cards") or [] if isinstance(card, dict)]
+    host_summary_lines = valid_host_summary_lines(context.get("host_summary_lines")) or [
+        "전날 시장은 가격 반응과 주요 변수의 방향을 함께 확인해야 하는 흐름이었다.",
+        "오늘 방송은 시장 지도와 세 가지 스토리라인으로 첫 5분 핵심을 정리한다.",
+    ]
     return {
         "ok": True,
+        "contract": CONTRACT,
         "source": reason,
         "microcopy_enabled": False,
         "model": model or "",
@@ -407,6 +432,7 @@ def deterministic_microcopy(context: dict[str, Any], *, model: str | None = None
         "invalid_output_count": 0,
         "estimated_tokens": estimate_tokens(json.dumps(context, ensure_ascii=False)),
         "generated_fields": GENERATED_FIELDS,
+        "host_summary_lines": host_summary_lines,
         "storylines": storylines,
         "media_focus_cards": cards,
     }
@@ -425,6 +451,15 @@ def valid_lines(value: Any, *, minimum: int, maximum: int, limit: int) -> list[s
         return None
     rows = [sanitize_line(item, limit) for item in value]
     if any(not row or forbidden_hit(row) or raw_source_like(row) or len(row) > limit for row in rows):
+        return None
+    return rows
+
+
+def valid_host_summary_lines(value: Any) -> list[str] | None:
+    rows = valid_lines(value, minimum=2, maximum=2, limit=120)
+    if rows is None:
+        return None
+    if any(re.match(r"^\s*(?:\(?\d+\)?|[①-⑳])", row) for row in rows):
         return None
     return rows
 
@@ -471,6 +506,10 @@ def validate_microcopy(candidate: dict[str, Any], context: dict[str, Any], fallb
     story_rows = {}
     card_rows = {}
     invalid = 0
+    host_summary_lines = valid_host_summary_lines(candidate.get("host_summary_lines"))
+    if host_summary_lines is None:
+        host_summary_lines = fallback.get("host_summary_lines") or []
+        invalid += 1
 
     for item in candidate.get("storylines") or []:
         if not isinstance(item, dict):
@@ -507,7 +546,7 @@ def validate_microcopy(candidate: dict[str, Any], context: dict[str, Any], fallb
         else:
             cards.append(fallback_cards[card_key])
             fallback_count += 1
-    merged = {**fallback, "storylines": stories, "media_focus_cards": cards}
+    merged = {**fallback, "host_summary_lines": host_summary_lines, "storylines": stories, "media_focus_cards": cards}
     return merged, fallback_count, invalid
 
 
@@ -529,10 +568,12 @@ def build_prompt(context: dict[str, Any]) -> str:
         [
             "You write compact Korean public-facing microcopy for a morning market dashboard.",
             "Do not change structure, order, labels, ranks, card_key, or slide_line.",
-            "Only rewrite quote_lines, host_relevance_bullets, and content_bullets.",
+            "Only rewrite host_summary_lines, quote_lines, host_relevance_bullets, and content_bullets.",
             "Constraints:",
             "- Korean-first, concise, presenter-friendly. English is allowed only for proper nouns, tickers, fixed market terms, or short quotes.",
             "- Do not copy English source headlines as-is; translate or summarize them into natural Korean.",
+            "- host_summary_lines: exactly 2 lines, each <=120 Korean characters. Line 1 explains yesterday's market flow; line 2 explains today's broadcast flow.",
+            "- host_summary_lines will be rendered as one quote paragraph, so each line must be a complete sentence and must not start with numbering.",
             "- quote_lines: 1-3 lines, each <=90 Korean characters.",
             "- host_relevance_bullets: 2-3 bullets, each <=90 Korean characters.",
             "- content_bullets: 1-3 bullets, each <=300 Korean characters. Treat each bullet as one sentence from one core summary, not separate meaning/use/caution slots.",
@@ -605,7 +646,7 @@ def build_microcopy(context: dict[str, Any], *, env: dict[str, str] | None = Non
     request_count = 0
     invalid_total = 0
     response_ids: list[str] = []
-    candidate = {"storylines": [], "media_focus_cards": []}
+    candidate = {"host_summary_lines": [], "storylines": [], "media_focus_cards": []}
     started = time.monotonic()
     try:
         for chunk in context_chunks(context):
@@ -613,6 +654,8 @@ def build_microcopy(context: dict[str, Any], *, env: dict[str, str] | None = Non
             parsed, response_id = call_openai(chunk, token=token, model=model, timeout=timeout)
             if response_id:
                 response_ids.append(response_id)
+            if parsed.get("host_summary_lines") and not candidate["host_summary_lines"]:
+                candidate["host_summary_lines"] = parsed.get("host_summary_lines") or []
             candidate["storylines"].extend(parsed.get("storylines") or [])
             candidate["media_focus_cards"].extend(parsed.get("media_focus_cards") or [])
     except (urllib.error.URLError, TimeoutError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
@@ -630,6 +673,7 @@ def build_microcopy(context: dict[str, Any], *, env: dict[str, str] | None = Non
     return {
         **merged,
         "microcopy_enabled": True,
+        "contract": CONTRACT,
         "source": "openai_responses_api",
         "model": model,
         "request_count": request_count,
@@ -651,6 +695,7 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--date", required=True)
+    parser.add_argument("--env", type=Path, default=DEFAULT_ENV)
     parser.add_argument("--input", type=Path, help="Renderer-built microcopy context JSON.")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--timeout", type=int, default=30)
@@ -659,7 +704,9 @@ def main(argv: list[str] | None = None) -> int:
     if not args.input:
         raise SystemExit("--input is required; renderer owns context/order construction.")
     context = json.loads(args.input.read_text(encoding="utf-8"))
-    payload = build_microcopy(context, timeout=args.timeout)
+    env = {**load_env(args.env.resolve()), **os.environ}
+    payload = build_microcopy(context, env=env, timeout=args.timeout)
+    payload["contract"] = CONTRACT
     payload["generated_at"] = datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds")
     output = args.output or (PROCESSED_DIR / args.date / "dashboard-microcopy.json")
     write_json(output, payload)

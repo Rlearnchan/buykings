@@ -2,16 +2,16 @@
   "project": "autopark",
   "slug": "fedwatch-conditional-probabilities-short-term",
   "title": "FedWatch 단기 금리확률",
-  "subtitle": "26.04.29 기준",
+  "subtitle": "26.05.05 05:36 KST · 현재 기준금리 3.50-3.75%",
   "chart_type": "tables",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "../prepared/fedwatch-conditional-probabilities-short-term-2026-04-29.csv",
+  "prepared_csv": "../prepared/fedwatch-conditional-probabilities-short-term-2026-05-05.csv",
   "source_name": "CME FedWatch",
   "source_url": "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html",
   "byline": "",
   "metadata": {
     "describe": {
-      "intro": "26.04.29 기준",
+      "intro": "26.05.05 05:36 KST · 현재 기준금리 3.50-3.75%",
       "aria-description": "FedWatch 단기 금리확률 히트맵"
     },
     "publish": {
@@ -25,19 +25,6 @@
       "searchable": false,
       "showHeader": true,
       "columns": {
-        "회의일": {
-          "align": "left",
-          "width": 0.14
-        },
-        "200-225": {
-          "align": "center",
-          "width": 0.1,
-          "format": "0.0",
-          "heatmap": {
-            "enabled": true
-          },
-          "append": "%"
-        },
         "225-250": {
           "align": "center",
           "width": 0.1,
@@ -118,6 +105,10 @@
             "enabled": true
           },
           "append": "%"
+        },
+        "회의일": {
+          "align": "left",
+          "width": 0.14
         }
       },
       "heatmap": {
@@ -142,10 +133,28 @@
         "rangeMin": "0",
         "stopCount": 3,
         "hideValues": false,
+        "customStops": [],
+        "rangeCenter": "",
+        "categoryOrder": [],
+        "interpolation": "equidistant",
+        "valueTooltips": false,
+        "categoryLabels": {},
         "showLegend": false
       },
       "legend": {
-        "enabled": false
+        "size": 170,
+        "title": "",
+        "labels": "ruler",
+        "enabled": false,
+        "reverse": false,
+        "labelMax": "high",
+        "labelMin": "low",
+        "position": "above",
+        "hideItems": [],
+        "interactive": false,
+        "labelCenter": "medium",
+        "labelFormat": "0,0.[00]",
+        "customLabels": []
       }
     }
   },

@@ -156,6 +156,7 @@ def public_label(value: str | None, limit: int | None = None) -> str:
 
 def public_editorial_text(value: str | None, limit: int | None = None) -> str:
     text = clean(value)
+    text = strip_public_internal_tokens(text)
     text = re.sub(r"\bUnknown Error\b", "수집 상태 확인 필요", text, flags=re.I)
     text = re.sub(r"^자동 보강:\s*", "", text)
     text = text.replace(
@@ -167,6 +168,33 @@ def public_editorial_text(value: str | None, limit: int | None = None) -> str:
     text = re.sub(r"^retrospective_learning:\s*", "", text)
     text = text.replace("causal anchor", "핵심 근거")
     return public_label(text, limit)
+
+
+def strip_public_internal_tokens(value: str) -> str:
+    text = clean(value)
+    text = re.sub(
+        r"\([^)]*(?:\bev_[0-9a-f]{6,}\b|\bus10y\b|fedwatch-[A-Za-z0-9_-]+|asset_id|item_id|evidence_id)[^)]*\)",
+        "",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r"\b(?:ev|mf)_[0-9a-f]{6,}\b", "", text, flags=re.I)
+    text = re.sub(r"\bMF-[0-9a-fA-F]+\b", "", text)
+    text = re.sub(
+        r"\b(?:us10y|fedwatch-[A-Za-z0-9_-]+|finviz-[A-Za-z0-9_-]+|cnn-fear-greed|economic-calendar-[A-Za-z0-9_-]+)\b",
+        "",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r"\b(?:source_role|evidence_role|item_id|evidence_id|asset_id)\s*[:=]\s*\S+", "", text, flags=re.I)
+    text = re.sub(r"\b(?:source_role|evidence_role|item_id|evidence_id|asset_id)\b", "", text, flags=re.I)
+    text = re.sub(r"\s+([).,;:])", r"\1", text)
+    text = re.sub(r"\(\s*\)", "", text)
+    text = text.replace(".).", ".")
+    text = re.sub(r"\s*\)+(?=[\s.,;:]|$)", "", text)
+    text = re.sub(r"\.{2,}", ".", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    return clean(text).strip(" ,;:")
 
 
 def first_sentences(value: str | None, max_sentences: int = 2, limit: int = 180) -> str:
@@ -2938,11 +2966,11 @@ def compact_stars_text(value: int | str | None) -> str:
 
 
 def remove_host_forbidden(value: str) -> str:
-    text = markdown_plain(value)
+    text = strip_public_internal_tokens(markdown_plain(value))
     text = re.sub(r"https?://\S+", "", text)
     text = re.sub(r"MF-[0-9a-fA-F]+", "", text)
-    text = re.sub(r"\b(?:source_role|evidence_role|item_id|evidence_id)\s*[:=]\s*\S+", "", text)
-    text = re.sub(r"\b(?:source_role|evidence_role|item_id|evidence_id)\b", "", text)
+    text = re.sub(r"\b(?:source_role|evidence_role|item_id|evidence_id|asset_id)\s*[:=]\s*\S+", "", text)
+    text = re.sub(r"\b(?:source_role|evidence_role|item_id|evidence_id|asset_id)\b", "", text)
     return clean(text)
 
 
@@ -2953,7 +2981,7 @@ def clip_public_sentence(value: object, limit: int, fallback: str) -> str:
     text = re.split(r"(?<=[.!?。])\s+", text)[0]
     text = clean(text)
     if len(text) > limit:
-        text = text[: limit - 1].rstrip(" ,.;:") + "…"
+        text = clean_complete(text, limit)
     return text or fallback
 
 
@@ -3216,6 +3244,7 @@ def build_microcopy_context(
     return {
         "target_date": target_date,
         "contract": "compact_publish_microcopy_v1",
+        "host_summary_lines": compact_host_headline_lines(brief, market_focus, storylines),
         "storylines": story_payloads,
         "media_focus_cards": card_payloads,
     }
@@ -3238,6 +3267,26 @@ def write_microcopy_payload(target_date: str, context: dict, microcopy: dict) ->
     context_output.write_text(json.dumps(context, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def deterministic_microcopy_cache(payload: dict) -> bool:
+    return clean(payload.get("source")).startswith("deterministic")
+
+
+def microcopy_has_host_summary(payload: dict) -> bool:
+    rows = payload.get("host_summary_lines")
+    return isinstance(rows, list) and len([clean(row) for row in rows if clean(row)]) == 2
+
+
+def host_summary_lines_from_microcopy(microcopy: dict, brief: dict, market_focus: dict, storylines: list[dict]) -> list[str]:
+    rows = [
+        compact_public_text(line, 120, "")
+        for line in (microcopy.get("host_summary_lines") or [])
+        if compact_public_text(line, 120, "")
+    ]
+    if len(rows) >= 2:
+        return rows[:2]
+    return compact_host_headline_lines(brief, market_focus, storylines)
+
+
 def compact_top_news(brief: dict, market_focus: dict, storylines: list[dict]) -> list[str]:
     seeds: list[str] = []
     for item in market_focus.get("what_market_is_watching") or []:
@@ -3251,7 +3300,7 @@ def compact_top_news(brief: dict, market_focus: dict, storylines: list[dict]) ->
     ]
     bullets: list[str] = []
     for seed in [*seeds, *fallbacks]:
-        bullet = clip_public_sentence(seed, 80, fallbacks[len(bullets) % len(fallbacks)])
+        bullet = clip_public_sentence(seed, 140, fallbacks[len(bullets) % len(fallbacks)])
         if bullet and bullet not in bullets:
             bullets.append(bullet)
         if len(bullets) == 3:
@@ -3271,13 +3320,9 @@ def compact_market_map_line(brief: dict) -> str:
 
 
 def compact_feature_line(finviz_features: dict, earnings_drilldown: dict) -> str:
-    tickers = [clean(item.get("ticker"), 8).upper() for item in finviz_features.get("items") or [] if item.get("ticker")]
-    if tickers:
-        return f"{', '.join(tickers[:4])} 등 특징주 반응을 보조 자료로 확인한다."
-    rows = earnings_drilldown.get("items") or earnings_drilldown.get("tickers") or []
-    if rows:
-        return "이번 주 실적 일정과 특징주 반응을 보조 자료로 확인한다."
-    return "실적 일정과 특징주 반응은 자료 수집 섹션에서 확인한다."
+    _ = finviz_features
+    _ = earnings_drilldown
+    return "실적 캘린더로 이번 주 주요 발표 일정을 확인한다."
 
 
 def compact_story_quote_line(lines: list[str], fallback: str) -> str:
@@ -3337,7 +3382,7 @@ def render_compact_publish_host(
     media_number_by_label = {clean(card.get("label")): clean(card.get("media_number")) for card in media_cards if card.get("label")}
     copy_by_story = microcopy_story_by_id(microcopy)
     used_story_labels: set[str] = set()
-    headline_lines = compact_host_headline_lines(brief, market_focus, storylines)
+    headline_lines = host_summary_lines_from_microcopy(microcopy, brief, market_focus, storylines)
     lines.extend(
         [
             f"문서 생성: `{created_at} (KST)`",
@@ -3352,7 +3397,7 @@ def render_compact_publish_host(
     lines.append("")
     lines.append("## 주요 뉴스")
     for bullet in compact_top_news(brief, market_focus, storylines):
-        lines.append(f"- {compact_public_text(bullet, 80, '시장 반응과 핵심 변수를 짧게 확인한다.')}")
+        lines.append(f"- {public_complete_text(bullet, 140) or '시장 반응과 핵심 변수를 짧게 확인한다.'}")
     lines.extend(["## 방송 순서", f"- `시장은 지금`: {compact_public_text(compact_market_map_line(brief), 64, '지수·금리·달러·유가의 방향을 먼저 확인한다.')}"])
     for index, story in enumerate(storylines[:3], start=1):
         lines.append(f"- “{compact_public_text(public_story_title(story, index), 48, fallback_story_title(story_public_axis(story), index))}”")
@@ -3486,7 +3531,7 @@ def media_time_line(card: dict) -> str:
     checked = first_public_time(card, ["captured_at", "created_at", "updated_at"])
     if checked:
         return f"- 확인: `{checked}`"
-    return ""
+    return "- 확인: `시점 확인 필요`"
 
 
 def material_dedupe_keys(card: dict) -> set[str]:
@@ -3636,24 +3681,36 @@ def media_card_fallback_summary(card: dict) -> str:
     label = public_material_label(card)
     axis = topic_axis_from_blob(row_blob(card))
     if axis == "oil":
-        return "유가와 에너지 리스크가 시장 심리와 물가 기대에 어떤 영향을 주는지 확인할 자료입니다."
+        return "유가와 에너지 리스크가 시장 심리와 물가 기대에 미친 영향을 확인합니다."
     if axis == "rates":
-        return "금리와 Fed 기대 변화가 위험자산 흐름을 어떻게 흔드는지 확인할 자료입니다."
+        return "금리와 Fed 기대 변화가 위험자산 흐름을 어떻게 흔드는지 확인합니다."
     if axis == "ai":
-        return "AI 인프라 투자와 실적 기대가 시장 랠리의 근거로 작동하는지 확인할 자료입니다."
+        return "AI 인프라 투자와 실적 기대가 시장 랠리의 근거로 작동하는지 확인합니다."
     if axis == "earnings":
-        return "실적 발표와 가이던스가 종목별 평가를 어떻게 가르는지 확인할 자료입니다."
-    return f"{label}의 핵심 내용을 방송 전 빠르게 확인할 자료입니다."
+        return "실적 발표와 가이던스가 종목별 평가를 어떻게 가르는지 확인합니다."
+    return f"{label}의 핵심 내용을 방송 전 빠르게 확인합니다."
 
 
-def render_market_material_card(lines: list[str], card: dict, rendered_keys: set[str], target_date: str) -> bool:
+def market_card_letter(index: int) -> str:
+    if index < 1:
+        return ""
+    letters = []
+    while index:
+        index -= 1
+        letters.append(chr(ord("A") + (index % 26)))
+        index //= 26
+    return "".join(reversed(letters))
+
+
+def render_market_material_card(lines: list[str], card: dict, rendered_keys: set[str], target_date: str, index: int | None = None) -> bool:
     label = public_material_label(card)
     card = {**card, "label": label}
     keys = material_dedupe_keys(card)
     if keys & rendered_keys:
         return False
     rendered_keys.update(keys)
-    lines.append(f"### {label}")
+    prefix = f"({market_card_letter(index)}) " if index else ""
+    lines.append(f"### {prefix}{label}")
     source = clean(card.get("source") or card.get("source_label") or "source")
     url = clean(card.get("url"))
     if url:
@@ -3807,6 +3864,27 @@ def supplemental_media_term_score(row: dict) -> int:
     return sum(1 for term in SUPPLEMENTAL_MEDIA_TERMS if term in blob)
 
 
+def media_topic_cap(axis: str) -> int:
+    return {
+        "oil": 8,
+        "ai": 8,
+        "earnings": 8,
+        "rates": 6,
+        "market": 6,
+    }.get(axis, 6)
+
+
+def media_source_cap(source: str) -> int:
+    lowered = (source or "").lower()
+    if "yahoo" in lowered:
+        return 10
+    if lowered in {"reuters", "bloomberg", "financial times", "marketwatch"}:
+        return 6
+    if lowered in {"wall st engine", "kobeissiletter"}:
+        return 6
+    return 5
+
+
 def supplemental_media_candidate_key(row: dict) -> str:
     url = clean(row.get("url"), 200).lower()
     if url:
@@ -3875,12 +3953,19 @@ def supplemental_media_candidates(
 
     selected = []
     seen_keys = set()
+    topic_counts: Counter[str] = Counter()
+    source_counts: Counter[str] = Counter()
     for _, _, _, base_label, row_source, row in sorted(rows, key=lambda item: item[:4]):
         label = unique_public_label(base_label, used_labels)
         if not label:
             continue
         key = supplemental_media_candidate_key(row)
         if key in seen_keys:
+            continue
+        axis = topic_axis_from_blob(row_blob(row))
+        if topic_counts[axis] >= media_topic_cap(axis):
+            continue
+        if source_counts[row_source] >= media_source_cap(row_source):
             continue
         seen_keys.add(key)
         selected.append(
@@ -3902,6 +3987,8 @@ def supplemental_media_candidates(
         if row.get("url"):
             used_urls.add(clean(row.get("url"), 300).lower())
         used_labels.add(label)
+        topic_counts[axis] += 1
+        source_counts[row_source] += 1
         if len(selected) >= limit:
             break
     return selected
@@ -4198,8 +4285,9 @@ def attach_evidence_microcopy(rows: list[dict], payload: dict) -> list[dict]:
 def render_compact_collection_section(lines: list[str], market_cards: list[dict], media_cards: list[dict], microcopy: dict, target_date: str) -> None:
     lines.append("# 🤖 자료 수집")
     lines.append("## 1. 시장은 지금")
-    for card in market_cards:
-        render_market_material_card(lines, card, set(), target_date)
+    rendered_market_keys: set[str] = set()
+    for index, card in enumerate(market_cards, start=1):
+        render_market_material_card(lines, card, rendered_market_keys, target_date, index)
     lines.append("## 2. 미디어 포커스")
     card_copy = microcopy_card_by_key(microcopy)
     for card in media_cards:
@@ -4291,11 +4379,12 @@ def render_compact_publish_dashboard(target_date: str) -> str:
     microcopy_context = build_microcopy_context(target_date, brief, market_focus, storylines, radar_by_id, media_cards)
     cached_microcopy = load_json(processed / "dashboard-microcopy.json")
     microcopy_requested = os.environ.get("AUTOPARK_MICROCOPY_ENABLED") == "1"
-    deterministic_cache = clean(cached_microcopy.get("source")).startswith("deterministic") and not cached_microcopy.get("microcopy_enabled")
+    deterministic_cache = deterministic_microcopy_cache(cached_microcopy)
     use_cached_microcopy = (
         cached_microcopy
         and cached_microcopy.get("contract") == "compact_publish_microcopy_v1"
         and not (microcopy_requested and deterministic_cache)
+        and not (microcopy_requested and not microcopy_has_host_summary(cached_microcopy))
     )
     if use_cached_microcopy:
         if clean(cached_microcopy.get("source")).startswith("deterministic") and not cached_microcopy.get("microcopy_enabled"):
@@ -4311,7 +4400,8 @@ def render_compact_publish_dashboard(target_date: str) -> str:
             microcopy["fallback_count"] = fallback_count
             microcopy["invalid_output_count"] = invalid_output_count
     else:
-        microcopy = dashboard_microcopy.build_microcopy(microcopy_context, env=os.environ)
+        microcopy_env = {**dashboard_microcopy.load_env(REPO_ROOT / ".env"), **os.environ}
+        microcopy = dashboard_microcopy.build_microcopy(microcopy_context, env=microcopy_env)
     microcopy["contract"] = "compact_publish_microcopy_v1"
     write_microcopy_payload(target_date, microcopy_context, microcopy)
     lines: list[str] = []

@@ -307,7 +307,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertIn("Fed 인플레이션 발언 기사", host)
         news_bullets = re.findall(r"^-\s+(.+)$", quality.compact_section_body(host, "주요 뉴스"), flags=re.M)
         self.assertEqual(3, len(news_bullets))
-        self.assertTrue(all(len(bullet) <= 80 for bullet in news_bullets))
+        self.assertTrue(all(len(bullet) <= 140 for bullet in news_bullets))
         slide_lines = re.findall(r"^\*\*슬라이드 구성:\*\*\s+(.+)$", quality.compact_section_body(host, "스토리라인"), flags=re.M)
         self.assertTrue(any(re.search(r"`\(\d+\) .+`", label) for label in slide_lines))
         bare_story_label_lines = [
@@ -334,13 +334,17 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertEqual(labels.index("FedWatch") + 1, labels.index("오늘의 경제지표"))
         self.assertNotIn("10년물 금리 차트", labels)
         self.assertEqual(len(labels), len(set(labels)))
+        market_body = quality.compact_collection_section_body(collection, "1. 시장은 지금")
+        market_headings = [title for level, title in quality.heading_lines(market_body) if level == 3]
+        self.assertTrue(market_headings[0].startswith("(A) "))
+        self.assertTrue(market_headings[1].startswith("(B) "))
         bare_labels = [quality.strip_public_label_marker(label) for label in labels]
         for label in bare_story_label_lines:
             self.assertIn(label, bare_labels)
         market_body = quality.compact_collection_section_body(collection, "1. 시장은 지금")
         self.assertNotIn("요약:", market_body)
         self.assertNotIn("원문 제목:", market_body)
-        market_blocks = {quality.card_title(block): block for block in quality.compact_card_blocks(market_body)}
+        market_blocks = {quality.card_public_title(block): block for block in quality.compact_card_blocks(market_body)}
         self.assertEqual(2, quality.image_count(market_blocks["주요 지수 흐름"]))
         self.assertEqual(2, quality.image_count(market_blocks["FedWatch"]))
         self.assertEqual(2, quality.image_count(market_blocks["오늘의 경제지표"]))
@@ -723,6 +727,93 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         findings = quality.review_compact_publish_contract(markdown)
 
         self.assertFalse([finding for finding in findings if finding.title == "COMPACT-031 FedWatch 단기/장기 누락"])
+
+
+    def test_dashboard_microcopy_cli_loads_env_and_writes_contract(self) -> None:
+        context = {
+            "storylines": [
+                {
+                    "storyline_id": "story-1",
+                    "slide_line": "`(1) 자료`",
+                    "title": "테스트",
+                    "quote_seed": "전날 시장 반응을 확인합니다.",
+                    "why_seed": "첫 5분 방송과 한국장 연결을 확인합니다.",
+                }
+            ],
+            "media_focus_cards": [{"card_key": "card-1", "label": "(1) 자료"}],
+        }
+        context_path = self.runtime_root / "dashboard-context.json"
+        output_path = self.runtime_root / "dashboard-microcopy.json"
+        env_path = self.runtime_root / ".env"
+        context_path.write_text(json.dumps(context, ensure_ascii=False), encoding="utf-8")
+        env_path.write_text(
+            "\n".join(
+                [
+                    "AUTOPARK_MICROCOPY_ENABLED=1",
+                    "AUTOPARK_MICROCOPY_MODEL=gpt-5-mini",
+                    "OPENAI_API_KEY=fake-key",
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        original_call = microcopy.call_openai
+
+        def fake_call_openai(chunk: dict, *, token: str, model: str, timeout: int) -> tuple[dict, str]:
+            self.assertEqual("fake-key", token)
+            return (
+                {
+                    "host_summary_lines": [
+                        "전날 시장은 가격 반응을 통해 핵심 변수를 확인한 흐름입니다.",
+                        "오늘 방송은 시장 지도와 주요 스토리라인을 순서대로 정리합니다.",
+                    ],
+                    "storylines": [
+                        {
+                            "storyline_id": "story-1",
+                            "quote_lines": ["전날 시장은 가격 반응을 확인하는 흐름입니다."],
+                            "host_relevance_bullets": [
+                                "전날 시장은 가격 반응을 통해 주목 소재를 반영했다.",
+                                "첫 5분 방송에서는 진행자가 핵심 변화를 보여주기 좋다.",
+                                "한국장에서는 환율과 업종 민감도로 연결된다.",
+                            ],
+                            "slide_line": "`(1) 자료`",
+                        }
+                    ],
+                    "media_focus_cards": [{"card_key": "card-1", "content_bullets": ["핵심 뉴스가 시장 반응과 연결됐습니다."]}],
+                },
+                "resp-test",
+            )
+
+        try:
+            microcopy.call_openai = fake_call_openai
+            rc = microcopy.main(
+                [
+                    "--date",
+                    DATE,
+                    "--env",
+                    str(env_path),
+                    "--input",
+                    str(context_path),
+                    "--output",
+                    str(output_path),
+                ]
+            )
+        finally:
+            microcopy.call_openai = original_call
+
+        self.assertEqual(0, rc)
+        payload = json.loads(output_path.read_text(encoding="utf-8"))
+        self.assertEqual("openai_responses_api", payload["source"])
+        self.assertEqual("compact_publish_microcopy_v1", payload["contract"])
+        self.assertEqual(["resp-test"], payload["raw_response_ids"])
+        self.assertEqual(2, len(payload["host_summary_lines"]))
+
+    def test_renderer_regenerates_deterministic_microcopy_when_openai_requested(self) -> None:
+        self.assertTrue(
+            dashboard.deterministic_microcopy_cache(
+                {"source": "deterministic_missing_openai_api_key", "microcopy_enabled": True}
+            )
+        )
 
 
 if __name__ == "__main__":

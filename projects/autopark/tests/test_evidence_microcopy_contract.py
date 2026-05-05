@@ -74,8 +74,8 @@ class EvidenceMicrocopyContractTest(unittest.TestCase):
     def _write_json(self, name: str, payload: object) -> None:
         (self.processed / DATE / name).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    def test_group_size_is_clamped_to_20_to_40(self) -> None:
-        self.assertEqual(20, evidence_microcopy.group_size_from(3))
+    def test_group_size_allows_small_experiment_groups_and_caps_at_40(self) -> None:
+        self.assertEqual(3, evidence_microcopy.group_size_from(3))
         self.assertEqual(30, evidence_microcopy.group_size_from(None))
         self.assertEqual(40, evidence_microcopy.group_size_from(99))
 

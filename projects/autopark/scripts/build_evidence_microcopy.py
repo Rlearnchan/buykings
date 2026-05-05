@@ -25,6 +25,7 @@ OPENAI_API = "https://api.openai.com/v1/responses"
 DEFAULT_ENV = REPO_ROOT / ".env"
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_GROUP_SIZE = 30
+DEFAULT_API_TIMEOUT_SECONDS = 150
 DEFAULT_FALLBACK = "deterministic"
 MAX_TITLE_CHARS = 24
 MAX_CONTENT_CHARS = 300
@@ -94,6 +95,14 @@ def print_json(payload: dict) -> None:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     except UnicodeEncodeError:
         print(json.dumps(payload, ensure_ascii=True, indent=2))
+
+
+def now_iso() -> str:
+    return datetime.now(ZoneInfo("Asia/Seoul")).isoformat(timespec="seconds")
+
+
+def estimate_prompt_tokens(prompt: str) -> int:
+    return max(1, int((len(prompt or "") + 3) / 4))
 
 
 def clean(value: object, limit: int | None = None) -> str:
@@ -431,7 +440,13 @@ def extract_output_text(raw: dict) -> str:
     ).strip()
 
 
-def call_openai(prompt: str, token: str, model: str, timeout: int) -> tuple[dict, str | None]:
+def is_transient_exception(exc: BaseException) -> bool:
+    if isinstance(exc, urllib.error.HTTPError) and exc.code in {502, 503, 504}:
+        return True
+    return False
+
+
+def call_openai(prompt: str, token: str, model: str, timeout: int | None) -> tuple[dict, str | None, dict]:
     payload = {
         "model": model,
         "input": [{"role": "user", "content": [{"type": "input_text", "text": prompt}]}],
@@ -450,12 +465,42 @@ def call_openai(prompt: str, token: str, model: str, timeout: int) -> tuple[dict
         method="POST",
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    request_timeout = None if timeout is None or timeout <= 0 else timeout
+    with urllib.request.urlopen(request, timeout=request_timeout) as response:
         raw = json.loads(response.read().decode("utf-8"))
     text = extract_output_text(raw)
     if not text:
         raise RuntimeError("OpenAI response did not contain output_text")
-    return json.loads(text), raw.get("id")
+    return json.loads(text), raw.get("id"), {
+        "usage": raw.get("usage") or {},
+        "output_chars": len(text),
+    }
+
+
+def call_openai_with_transient_retry(
+    prompt: str,
+    token: str,
+    model: str,
+    timeout: int | None,
+    *,
+    retry_delay_seconds: float = 8.0,
+) -> tuple[dict, str | None, dict]:
+    transient_errors: list[str] = []
+    for attempt_index in range(2):
+        try:
+            response, response_id, stats = call_openai(prompt, token, model, timeout)
+            stats["attempt_count"] = attempt_index + 1
+            stats["transient_retry_count"] = attempt_index
+            if transient_errors:
+                stats["transient_errors"] = transient_errors
+            return response, response_id, stats
+        except Exception as exc:  # noqa: BLE001 - retry only known transient errors, re-raise everything else.
+            if attempt_index == 0 and is_transient_exception(exc):
+                transient_errors.append(f"{type(exc).__name__}: {exc}")
+                time.sleep(retry_delay_seconds)
+                continue
+            raise
+    raise RuntimeError("unreachable_openai_retry_state")
 
 
 def group_size_from(value: object) -> int:
@@ -463,7 +508,7 @@ def group_size_from(value: object) -> int:
         size = int(value or DEFAULT_GROUP_SIZE)
     except (TypeError, ValueError):
         return DEFAULT_GROUP_SIZE
-    return max(20, min(40, size))
+    return max(1, min(40, size))
 
 
 def build_microcopy(
@@ -473,7 +518,7 @@ def build_microcopy(
     limit: int,
     group_size: int,
     timeout: int,
-    max_elapsed: int = 210,
+    max_elapsed: int = 360,
     llm_limit: int | None = None,
 ) -> dict:
     items, source_counts = microcopy_source_items(target_date, limit)
@@ -492,6 +537,7 @@ def build_microcopy(
     invalid_output_count = 0
     request_count = 0
     response_ids: list[str] = []
+    request_logs: list[dict] = []
     source = "deterministic_disabled"
     error = ""
 
@@ -503,8 +549,8 @@ def build_microcopy(
             fallback_by_id = {item_id_of(item): deterministic_item(item, "openai_item_fallback") for item in group}
             remaining_groups = groups[group_index:]
             elapsed_so_far = time.monotonic() - started
-            remaining_budget = max_elapsed - elapsed_so_far
-            if remaining_budget < 30:
+            remaining_budget = max_elapsed - elapsed_so_far if max_elapsed > 0 else None
+            if remaining_budget is not None and remaining_budget < 30:
                 error = f"max_elapsed_budget_reached_after_{round(elapsed_so_far, 3)}s"
                 for fallback_group in remaining_groups:
                     fallback_count += len(fallback_group)
@@ -513,8 +559,26 @@ def build_microcopy(
                 break
             try:
                 request_count += 1
-                request_timeout = max(10, min(timeout, int(remaining_budget) - 10))
-                response, response_id = call_openai(build_prompt(target_date, group), token, model, request_timeout)
+                request_timeout = None if timeout <= 0 else timeout
+                if remaining_budget is not None:
+                    request_timeout = max(10, min(timeout, int(remaining_budget) - 10))
+                prompt = build_prompt(target_date, group)
+                request_log = {
+                    "group_index": group_index + 1,
+                    "group_count": len(groups),
+                    "item_count": len(group),
+                    "model": model,
+                    "timeout_seconds": request_timeout or 0,
+                    "prompt_chars": len(prompt),
+                    "estimated_prompt_tokens": estimate_prompt_tokens(prompt),
+                    "request_started_at": now_iso(),
+                }
+                monotonic = time.monotonic()
+                response, response_id, response_stats = call_openai_with_transient_retry(prompt, token, model, request_timeout)
+                request_log["request_finished_at"] = now_iso()
+                request_log["elapsed_seconds"] = round(time.monotonic() - monotonic, 3)
+                request_log["raw_response_id"] = response_id
+                request_log.update(response_stats)
                 if response_id:
                     response_ids.append(response_id)
                 outputs = {
@@ -531,12 +595,34 @@ def build_microcopy(
                         result_by_id[item_id] = fallback_by_id[item_id]
                     else:
                         result_by_id[item_id] = validated
+                group_fallback_count = sum(1 for source_item in group if result_by_id.get(item_id_of(source_item), {}).get("fallback"))
+                request_log["valid_count"] = len(group) - group_fallback_count
+                request_log["fallback_count"] = group_fallback_count
+                request_log["invalid_output_count"] = sum(
+                    1 for source_item in group if result_by_id.get(item_id_of(source_item), {}).get("fallback_reason") == "openai_item_fallback"
+                )
+                request_logs.append(request_log)
             except Exception as exc:  # noqa: BLE001 - the required path is deterministic fallback.
                 error = f"{type(exc).__name__}: {exc}"
                 if fallback_mode != "deterministic":
                     raise
                 fallback_count += len(group)
                 result_by_id.update(fallback_by_id)
+                if "request_log" not in locals() or request_log.get("group_index") != group_index + 1:
+                    request_log = {
+                        "group_index": group_index + 1,
+                        "group_count": len(groups),
+                        "item_count": len(group),
+                        "model": model,
+                        "timeout_seconds": request_timeout or 0 if "request_timeout" in locals() else timeout,
+                    }
+                if request_log.get("request_started_at") and not request_log.get("elapsed_seconds"):
+                    request_log["request_finished_at"] = now_iso()
+                    request_log["elapsed_seconds"] = round(time.monotonic() - monotonic, 3) if "monotonic" in locals() else None
+                request_log["error"] = error
+                request_log["fallback_count"] = len(group)
+                request_log["valid_count"] = 0
+                request_logs.append(request_log)
     else:
         source = "deterministic_missing_api_key" if enabled else "deterministic_disabled"
         if enabled and not token:
@@ -549,6 +635,8 @@ def build_microcopy(
     result_items = [result_by_id[item_id_of(item)] for item in items if item_id_of(item) in result_by_id]
     if enabled and token:
         fallback_count = sum(1 for item in result_items if item.get("fallback"))
+    transient_retry_count = sum(int(log.get("transient_retry_count") or 0) for log in request_logs)
+    transient_error_count = sum(len(log.get("transient_errors") or []) for log in request_logs)
     return {
         "ok": True,
         "contract": "evidence_microcopy_v1",
@@ -566,9 +654,12 @@ def build_microcopy(
         **source_counts,
         "fallback_count": fallback_count,
         "invalid_output_count": invalid_output_count,
+        "transient_retry_count": transient_retry_count,
+        "transient_error_count": transient_error_count,
         "estimated_tokens": estimated_tokens,
         "generated_fields": GENERATED_FIELDS,
         "response_ids": response_ids,
+        "request_logs": request_logs,
         "error": error,
         "items": result_items,
         "source_item_ids": [item_id_of(item) for item in items],
@@ -583,7 +674,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--limit", type=int, default=200)
     parser.add_argument("--group-size", type=int, default=None)
-    parser.add_argument("--timeout", type=int, default=90)
+    parser.add_argument("--timeout", type=int, default=DEFAULT_API_TIMEOUT_SECONDS)
+    parser.add_argument("--no-api-timeout", action="store_true", help="Disable per-request urllib timeout for one-off latency experiments.")
     parser.add_argument("--max-elapsed", type=int, default=None)
     parser.add_argument("--llm-limit", type=int, default=None)
     parser.add_argument("--dry-run", action="store_true")
@@ -591,8 +683,9 @@ def main(argv: list[str] | None = None) -> int:
 
     env = {**load_env(args.env.resolve()), **os.environ}
     group_size = group_size_from(args.group_size or env.get("AUTOPARK_EVIDENCE_MICROCOPY_GROUP_SIZE"))
-    max_elapsed = int(args.max_elapsed or env.get("AUTOPARK_EVIDENCE_MICROCOPY_MAX_ELAPSED_SECONDS") or 210)
-    payload = build_microcopy(args.date, env, limit=args.limit, group_size=group_size, timeout=args.timeout, max_elapsed=max_elapsed, llm_limit=args.llm_limit)
+    max_elapsed = int(args.max_elapsed if args.max_elapsed is not None else env.get("AUTOPARK_EVIDENCE_MICROCOPY_MAX_ELAPSED_SECONDS") or 360)
+    timeout = 0 if args.no_api_timeout else args.timeout
+    payload = build_microcopy(args.date, env, limit=args.limit, group_size=group_size, timeout=timeout, max_elapsed=max_elapsed, llm_limit=args.llm_limit)
     output = args.output or (PROCESSED_DIR / args.date / "evidence-microcopy.json")
     if not args.dry_run:
         write_json(output, payload)
@@ -608,6 +701,7 @@ def main(argv: list[str] | None = None) -> int:
             "item_count": payload["item_count"],
             "fallback_count": payload["fallback_count"],
             "invalid_output_count": payload["invalid_output_count"],
+            "transient_retry_count": payload["transient_retry_count"],
             "elapsed_seconds": payload["elapsed_seconds"],
         }
     )

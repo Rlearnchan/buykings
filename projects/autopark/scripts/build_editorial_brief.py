@@ -26,7 +26,7 @@ CONFIG_DIR = PROJECT_ROOT / "config"
 DEFAULT_ENV = REPO_ROOT / ".env"
 OPENAI_API = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5-mini"
-DEFAULT_API_TIMEOUT_SECONDS = 120
+DEFAULT_API_TIMEOUT_SECONDS = 240
 DEFAULT_MAX_OUTPUT_TOKENS = 16384
 COMPACT_RETRY_CODE = "editorial_timeout_retry_compact"
 COMPACT_OUTPUT_RETRY_CODE = "editorial_output_retry_compact"
@@ -370,8 +370,15 @@ def print_json(payload: dict, ensure_ascii: bool = False) -> None:
         print(json.dumps(payload, ensure_ascii=True, indent=2))
 
 
-def write_raw_editorial_response(target_date: str, model: str, response_id: str | None, brief: dict, source: str) -> Path:
-    path = RUNTIME_DIR / "openai-responses" / f"{target_date}-editorial-raw.json"
+def write_raw_editorial_response(
+    target_date: str,
+    model: str,
+    response_id: str | None,
+    brief: dict,
+    source: str,
+    output_path: Path | None = None,
+) -> Path:
+    path = output_path or (RUNTIME_DIR / "openai-responses" / f"{target_date}-editorial-raw.json")
     write_json(
         path,
         {
@@ -1523,7 +1530,8 @@ def call_openai(
         method="POST",
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    request_timeout = None if timeout is None or timeout <= 0 else timeout
+    with urllib.request.urlopen(request, timeout=request_timeout) as response:
         raw = json.loads(response.read().decode("utf-8"))
     text = extract_output_text(raw)
     if not text:
@@ -1544,6 +1552,10 @@ def is_timeout_exception(exc: BaseException) -> bool:
     return "timed out" in str(exc).lower() or "timeout" in str(exc).lower()
 
 
+def is_transient_exception(exc: BaseException) -> bool:
+    return isinstance(exc, urllib.error.HTTPError) and exc.code in {502, 503, 504}
+
+
 def is_output_limit_exception(exc: BaseException) -> bool:
     raw = getattr(exc, "raw_response", {}) or {}
     incomplete = raw.get("incomplete_details") if isinstance(raw, dict) else {}
@@ -1555,7 +1567,7 @@ def compact_retry_code_for_exception(exc: BaseException) -> str | None:
         return COMPACT_RETRY_CODE
     if is_output_limit_exception(exc):
         return COMPACT_OUTPUT_RETRY_CODE
-    if isinstance(exc, urllib.error.HTTPError) and exc.code in {502, 503, 504}:
+    if is_transient_exception(exc):
         return COMPACT_TRANSIENT_RETRY_CODE
     return None
 
@@ -1637,16 +1649,26 @@ def run_openai_attempt(
     prompt = build_emergency_prompt(input_payload) if emergency_schema else build_prompt(input_payload)
     started_at = now_iso()
     monotonic = time.monotonic()
+    transient_errors: list[str] = []
     try:
-        brief, response_id, raw = call_openai(
-            prompt,
-            token,
-            model,
-            timeout_seconds,
-            max_output_tokens,
-            schema=EMERGENCY_EDITORIAL_SCHEMA if emergency_schema else EDITORIAL_SCHEMA,
-            schema_name="autopark_emergency_editorial_brief" if emergency_schema else "autopark_editorial_brief",
-        )
+        for attempt_index in range(2):
+            try:
+                brief, response_id, raw = call_openai(
+                    prompt,
+                    token,
+                    model,
+                    timeout_seconds,
+                    max_output_tokens,
+                    schema=EMERGENCY_EDITORIAL_SCHEMA if emergency_schema else EDITORIAL_SCHEMA,
+                    schema_name="autopark_emergency_editorial_brief" if emergency_schema else "autopark_editorial_brief",
+                )
+                break
+            except Exception as exc:  # noqa: BLE001 - retry only known transient gateway errors.
+                if attempt_index == 0 and is_transient_exception(exc):
+                    transient_errors.append(f"{type(exc).__name__}: {exc}")
+                    time.sleep(8.0)
+                    continue
+                raise
         elapsed = time.monotonic() - monotonic
         stats = prompt_debug_stats(
             attempt=attempt,
@@ -1662,6 +1684,10 @@ def run_openai_attempt(
             raw_response=raw,
             retry_code=retry_code,
         )
+        stats["attempt_count"] = 1 + len(transient_errors)
+        stats["transient_retry_count"] = len(transient_errors)
+        if transient_errors:
+            stats["transient_errors"] = transient_errors
         return brief, response_id, stats
     except (urllib.error.URLError, TimeoutError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         elapsed = time.monotonic() - monotonic
@@ -1678,6 +1704,10 @@ def run_openai_attempt(
             error=exc,
             retry_code=retry_code,
         )
+        stats["attempt_count"] = 1 + len(transient_errors)
+        stats["transient_retry_count"] = len(transient_errors)
+        if transient_errors:
+            stats["transient_errors"] = transient_errors
         stats["_exception"] = exc
         return None, None, stats
 
@@ -2169,16 +2199,18 @@ def main() -> int:
     parser.add_argument("--max-candidates", type=int, default=16)
     parser.add_argument("--timeout", type=int, default=DEFAULT_API_TIMEOUT_SECONDS)
     parser.add_argument("--api-timeout-seconds", type=int, default=None)
+    parser.add_argument("--no-api-timeout", action="store_true", help="Disable the urllib read timeout for one-off latency experiments.")
     parser.add_argument("--max-output-tokens", type=int, default=None)
     parser.add_argument("--response-fixture", type=Path, help="Read a saved OpenAI response or brief JSON instead of calling the API.")
     parser.add_argument("--output", type=Path, help="Write the generated brief to a custom path instead of data/processed/<date>/editorial-brief.json.")
     parser.add_argument("--prompt-output", type=Path, help="Write the exact local prompt payload to a JSON file without printing secrets.")
+    parser.add_argument("--raw-response-output", type=Path, help="Write the raw response wrapper to a custom experiment path.")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
     env = {**load_env(args.env.resolve()), **os.environ}
     model = args.model or env.get("AUTOPARK_EDITORIAL_MODEL") or env.get("AUTOPARK_OPENAI_MODEL") or DEFAULT_MODEL
-    api_timeout_seconds = positive_int(
+    api_timeout_seconds = 0 if args.no_api_timeout else positive_int(
         args.api_timeout_seconds or env.get("AUTOPARK_EDITORIAL_API_TIMEOUT_SECONDS") or args.timeout,
         DEFAULT_API_TIMEOUT_SECONDS,
     )
@@ -2247,7 +2279,7 @@ def main() -> int:
             retry_code = compact_retry_code_for_exception(first_exception) if first_exception else None
             if brief is None and first_exception and retry_code:
                 retry_payload = emergency_retry_payload(build_input_payload(args.date, args.max_candidates, compact_retry=True))
-                retry_timeout_seconds = min(api_timeout_seconds, 90)
+                retry_timeout_seconds = 0 if api_timeout_seconds <= 0 else min(api_timeout_seconds, 150)
                 retry_model = env.get("AUTOPARK_EDITORIAL_RETRY_MODEL") or "gpt-5-mini"
                 retry_max_output_tokens = min(max_output_tokens, 8192)
                 retry_brief, retry_response_id, retry_stats = run_openai_attempt(
@@ -2273,7 +2305,7 @@ def main() -> int:
         if args.response_fixture and args.response_fixture.resolve().parent == (RUNTIME_DIR / "openai-responses").resolve():
             raw_response_path = str(args.response_fixture.resolve())
         else:
-            raw_response_path = str(write_raw_editorial_response(args.date, model, response_id, brief, response_source))
+            raw_response_path = str(write_raw_editorial_response(args.date, model, response_id, brief, response_source, args.raw_response_output))
         brief = normalize_brief(brief, input_payload)
         errors = validate_brief(brief, input_payload)
         if errors:

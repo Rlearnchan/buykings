@@ -1,16 +1,16 @@
 {
   "project": "autopark",
   "slug": "us10y",
-  "title": "미국 10년물 국채금리: 4.378%(-1.2bp)",
-  "subtitle": "26.05.02 08:35 기준",
+  "title": "미국 10년물 국채금리: 4.446%(+6.8bp)",
+  "subtitle": "26.05.05 03:59 KST",
   "chart_type": "d3-lines",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "../prepared/us10y-2026-04-29.csv",
+  "prepared_csv": "../prepared/us10y-2026-05-05.csv",
   "source_name": "Yahoo Finance",
   "byline": "",
   "metadata": {
     "describe": {
-      "intro": "26.05.02 08:35 기준",
+      "intro": "26.05.05 03:59 KST",
       "aria-description": "Autopark chart placeholder for 미국 10년물 국채금리"
     },
     "publish": {

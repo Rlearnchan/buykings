@@ -694,10 +694,10 @@ def main() -> int:
         args.editorial_api_timeout_seconds
         or run_env.get("AUTOPARK_EDITORIAL_API_TIMEOUT_SECONDS")
         or file_env.get("AUTOPARK_EDITORIAL_API_TIMEOUT_SECONDS")
-        or "120",
-        120,
+        or "240",
+        240,
     )
-    editorial_stage_timeout = editorial_api_timeout + 150
+    editorial_stage_timeout = editorial_api_timeout + 180
     publish_title = args.publish_title or run_env.get("AUTOPARK_PUBLISH_TITLE") or file_env.get("AUTOPARK_PUBLISH_TITLE")
     preflight_enabled = flag_enabled(run_env, "AUTOPARK_PREFLIGHT_ENABLED", True) and not args.skip_preflight_agenda
     market_focus_with_web = args.market_focus_with_web or flag_enabled(run_env, "AUTOPARK_MARKET_FOCUS_WITH_WEB_DEFAULT", False)
@@ -917,11 +917,18 @@ def main() -> int:
             preflight_command.extend(["--response-fixture", str(args.preflight_response_fixture)])
         if args.synthetic_preflight_smoke:
             preflight_command.append("--synthetic-smoke")
-        preflight_command.extend(["--prompt-output", f"projects/autopark/runtime/openai-prompts/{args.date}-market-preflight-prompt.json"])
+        preflight_command.extend(
+            [
+                "--timeout",
+                run_env.get("AUTOPARK_PREFLIGHT_API_TIMEOUT_SECONDS") or file_env.get("AUTOPARK_PREFLIGHT_API_TIMEOUT_SECONDS") or "150",
+                "--prompt-output",
+                f"projects/autopark/runtime/openai-prompts/{args.date}-market-preflight-prompt.json",
+            ]
+        )
         result, preflight_payload = run(
             preflight_command,
             "build market preflight agenda",
-            180,
+            240,
             allow_fail=True,
             env=run_env,
         )
@@ -1188,6 +1195,8 @@ def main() -> int:
                         chart_id,
                         str(PROJECT_ROOT / "exports/current" / f"{calendar_slug}.png"),
                         "--brand-logo",
+                        "--logo-max-height-px",
+                        "76",
                     ],
                     f"export png {calendar_slug}",
                     120,
@@ -1256,9 +1265,16 @@ def main() -> int:
     append_step(results, result)
 
     result, _ = run(
-        [py, "projects/autopark/scripts/build_evidence_microcopy.py", "--date", args.date],
+        [
+            py,
+            "projects/autopark/scripts/build_evidence_microcopy.py",
+            "--date",
+            args.date,
+            "--timeout",
+            run_env.get("AUTOPARK_EVIDENCE_MICROCOPY_API_TIMEOUT_SECONDS") or file_env.get("AUTOPARK_EVIDENCE_MICROCOPY_API_TIMEOUT_SECONDS") or "150",
+        ],
         "build evidence microcopy",
-        240,
+        480,
         allow_fail=True,
         env=run_env,
     )
@@ -1293,11 +1309,18 @@ def main() -> int:
             market_focus_command.extend(["--response-fixture", str(args.market_focus_response_fixture)])
         if args.synthetic_market_focus_smoke:
             market_focus_command.append("--synthetic-smoke")
-        market_focus_command.extend(["--prompt-output", f"projects/autopark/runtime/openai-prompts/{args.date}-market-focus-prompt.json"])
+        market_focus_command.extend(
+            [
+                "--timeout",
+                run_env.get("AUTOPARK_MARKET_FOCUS_API_TIMEOUT_SECONDS") or file_env.get("AUTOPARK_MARKET_FOCUS_API_TIMEOUT_SECONDS") or "180",
+                "--prompt-output",
+                f"projects/autopark/runtime/openai-prompts/{args.date}-market-focus-prompt.json",
+            ]
+        )
         result, market_focus_payload = run(
             market_focus_command,
             "build market focus brief",
-            240,
+            300,
             allow_fail=True,
             env=run_env,
         )
@@ -1447,6 +1470,7 @@ def main() -> int:
             "agenda_count": preflight_payload.get("agenda_count"),
             "output": preflight_payload.get("output"),
             "markdown_output": preflight_payload.get("markdown_output"),
+            "request_stats": preflight_payload.get("request_stats"),
         },
         "market_focus": {
             "enabled": not args.skip_market_focus_brief,
@@ -1460,6 +1484,7 @@ def main() -> int:
             "source_gap_count": market_focus_payload.get("source_gap_count"),
             "output": market_focus_payload.get("output"),
             "markdown_output": market_focus_payload.get("markdown_output"),
+            "request_stats": market_focus_payload.get("request_stats"),
         },
         "editorial_fallback": bool(editorial_payload.get("fallback")),
         "editorial": {

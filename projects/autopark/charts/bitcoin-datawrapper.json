@@ -1,16 +1,16 @@
 {
   "project": "autopark",
   "slug": "bitcoin",
-  "title": "비트코인: $78,094.75(+$1,808.17)",
-  "subtitle": "26.05.02 08:35 기준",
+  "title": "비트코인: $80,110.52(+$1,455.17)",
+  "subtitle": "26.05.05 07:46 KST",
   "chart_type": "d3-lines",
   "theme": "datawrapper-high-contrast",
-  "prepared_csv": "../prepared/bitcoin-2026-04-29.csv",
+  "prepared_csv": "../prepared/bitcoin-2026-05-05.csv",
   "source_name": "CoinGecko",
   "byline": "",
   "metadata": {
     "describe": {
-      "intro": "26.05.02 08:35 기준",
+      "intro": "26.05.05 07:46 KST",
       "aria-description": "Autopark chart placeholder for 비트코인"
     },
     "publish": {
