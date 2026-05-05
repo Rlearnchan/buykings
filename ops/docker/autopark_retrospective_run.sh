@@ -4,9 +4,9 @@ set -u
 cd /app
 
 run_date="${AUTOPARK_RETRO_DATE:-${AUTOPARK_DATE:-$(TZ=Asia/Seoul date +%F)}}"
-attempts="${AUTOPARK_RETRO_ATTEMPTS:-6}"
-sleep_minutes="${AUTOPARK_RETRO_SLEEP_MINUTES:-60}"
-timeout_label="${AUTOPARK_RETRO_LABEL:-post-broadcast retrospective}"
+attempts="${AUTOPARK_RETRO_ATTEMPTS:-1}"
+sleep_minutes="${AUTOPARK_RETRO_SLEEP_MINUTES:-0}"
+timeout_label="${AUTOPARK_RETRO_LABEL:-manual post-broadcast retrospective}"
 
 args=(
   "projects/autopark/scripts/run_broadcast_retrospective.py"

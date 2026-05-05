@@ -1342,27 +1342,50 @@ def main() -> int:
     )
     append_step(results, result)
 
-    result, _ = run(
-        [py, "projects/autopark/scripts/build_earnings_ticker_drilldown.py", "--date", args.date],
-        "build earnings ticker drilldown",
-        120,
-        allow_fail=True,
-    )
-    append_step(results, result)
-
     if not args.skip_finviz:
+        result, _ = run(
+            [
+                node,
+                "projects/autopark/scripts/collect_yahoo_trending_stocks.mjs",
+                "--date",
+                args.date,
+                "--limit",
+                run_env.get("AUTOPARK_TRENDING_STOCK_LIMIT") or file_env.get("AUTOPARK_TRENDING_STOCK_LIMIT") or "10",
+            ] + cdp_option(args.cdp_endpoint),
+            "collect yahoo trending stocks",
+            max(args.timeout, 120),
+            allow_fail=True,
+        )
+        append_step(results, result)
+
         result, _ = run(
             [
                 node,
                 "projects/autopark/scripts/capture_finviz_feature_stocks.mjs",
                 "--date",
                 args.date,
-                "--tickers",
-                "XLE,CVX,XOM,GOOGL,MSFT,META,AMZN,V,PI,UBER",
+                "--tickers-file",
+                f"projects/autopark/data/processed/{args.date}/yahoo-trending-stocks.json",
             ] + cdp_option(args.cdp_endpoint),
             "capture finviz feature stocks",
-            max(args.timeout, 180),
+            max(args.timeout, 600),
             allow_fail=True,
+        )
+        append_step(results, result)
+
+        result, _ = run(
+            [
+                py,
+                "projects/autopark/scripts/build_feature_stock_microcopy.py",
+                "--date",
+                args.date,
+                "--timeout",
+                run_env.get("AUTOPARK_FEATURE_STOCK_MICROCOPY_API_TIMEOUT_SECONDS") or file_env.get("AUTOPARK_FEATURE_STOCK_MICROCOPY_API_TIMEOUT_SECONDS") or "120",
+            ],
+            "build feature stock microcopy",
+            240,
+            allow_fail=True,
+            env=run_env,
         )
         append_step(results, result)
 

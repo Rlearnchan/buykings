@@ -129,17 +129,17 @@ services:
       dockerfile: Dockerfile.autopark
     image: buykings-autopark:local
     container_name: buykings-autopark-retrospective
-    restart: unless-stopped
+    profiles:
+      - manual
+    restart: "no"
     env_file:
       - path: .env
         required: false
     environment:
       TZ: Asia/Seoul
       AUTOPARK_STATE_ROOT: /state
-      AUTOPARK_RETRO_RUN_TIMES: ${AUTOPARK_RETRO_RUN_TIMES:-10:30}
-      AUTOPARK_RETRO_RETRY_TIMES: ${AUTOPARK_RETRO_RETRY_TIMES:-}
-      AUTOPARK_RETRO_ATTEMPTS: ${AUTOPARK_RETRO_ATTEMPTS:-6}
-      AUTOPARK_RETRO_SLEEP_MINUTES: ${AUTOPARK_RETRO_SLEEP_MINUTES:-60}
+      AUTOPARK_RETRO_ATTEMPTS: ${AUTOPARK_RETRO_ATTEMPTS:-1}
+      AUTOPARK_RETRO_SLEEP_MINUTES: ${AUTOPARK_RETRO_SLEEP_MINUTES:-0}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -150,4 +150,4 @@ services:
       - ./.server-state/autopark-retrospective:/state
     command:
       - bash
-      - ops/docker/autopark_retrospective_scheduler.sh
+      - ops/docker/autopark_retrospective_run.sh

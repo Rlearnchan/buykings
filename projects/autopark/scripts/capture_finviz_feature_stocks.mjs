@@ -25,6 +25,7 @@ function parseArgs(argv) {
   const args = {
     date: new Date().toISOString().slice(0, 10),
     tickers: defaultTickers,
+    tickersFile: null,
     headed: false,
     useAuthProfile: true,
     browserChannel: null,
@@ -35,6 +36,7 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === '--date') args.date = argv[++i];
     else if (arg === '--tickers') args.tickers = argv[++i].split(',').map((ticker) => ticker.trim().toUpperCase()).filter(Boolean);
+    else if (arg === '--tickers-file') args.tickersFile = argv[++i];
     else if (arg === '--headed') args.headed = true;
     else if (arg === '--no-auth-profile') args.useAuthProfile = false;
     else if (arg === '--browser-channel') args.browserChannel = argv[++i];
@@ -48,6 +50,16 @@ function parseArgs(argv) {
     }
   }
   return args;
+}
+
+function loadTickersFromFile(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return [];
+  const payload = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+  const rows = payload.items || payload.tickers || [];
+  return rows
+    .map((row) => (typeof row === 'string' ? row : row.ticker || row.symbol || ''))
+    .map((ticker) => ticker.trim().toUpperCase())
+    .filter(Boolean);
 }
 
 async function loadPlaywright() {
@@ -88,7 +100,7 @@ async function createContext(chromium, args) {
     colorScheme: 'light',
   };
   if (args.cdpEndpoint) {
-    const browser = await chromium.connectOverCDP(args.cdpEndpoint);
+    const browser = await chromium.connectOverCDP(args.cdpEndpoint, { timeout: args.timeoutMs });
     const context = browser.contexts()[0] || await browser.newContext(options);
     return { context, browser, shouldCloseContext: false, shouldCloseBrowser: true };
   }
@@ -335,6 +347,8 @@ async function captureTicker(context, args, ticker, screenshotDir) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const fileTickers = loadTickersFromFile(args.tickersFile);
+  if (args.tickersFile) args.tickers = fileTickers;
   const { chromium } = await loadPlaywright();
   const session = await createContext(chromium, args);
   const { context, browser } = session;

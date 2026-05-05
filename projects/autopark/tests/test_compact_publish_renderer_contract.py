@@ -141,8 +141,27 @@ class CompactPublishRendererContractTest(unittest.TestCase):
                         "status": "ok",
                         "url": "https://finviz.com/quote.ashx?t=MSFT",
                         "screenshot_path": str(self.runtime_root / "msft.png"),
+                        "captured_at": "2026-05-03T10:05:00+09:00",
+                        "title": "MSFT - Microsoft Corporation",
+                        "quote_summary": [
+                            "Microsoft shares rose after cloud revenue and AI demand supported the latest earnings reaction."
+                        ],
                     }
                 ]
+            },
+        )
+        self._write_json(
+            "feature-stock-microcopy.json",
+            {
+                "contract": "feature_stock_microcopy_v1",
+                "items": [
+                    {
+                        "ticker": "MSFT",
+                        "content_bullets": [
+                            "클라우드 매출과 AI 수요가 실적 반응을 지지하며 Microsoft가 특징주로 부각됐습니다."
+                        ],
+                    }
+                ],
             },
         )
         self._write_json("economic-calendar.json", {"events": [{"event": "ISM 서비스업"}]})
@@ -273,16 +292,15 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         lines = markdown.splitlines()
         self.assertRegex(lines[0], r"^문서 생성: `\d{2}\.\d{2}\.\d{2} \d{2}:\d{2} \(KST\)`$")
         self.assertRegex(lines[1], r"^자료 수집: `[^`]+ \(KST\)`$")
-        self.assertEqual("시장 차트: `차트별 기준 시점 별도 표기`", lines[2])
+        self.assertEqual("", lines[2])
 
         top = [title for level, title in quality.heading_lines(markdown) if level == 1]
         self.assertEqual(["🎥 진행자용 요약", "🤖 자료 수집"], top)
         host = quality.compact_host_area(markdown)
         self.assertLessEqual(len([line for line in host.splitlines() if line.strip()]), 55)
         host_h2 = [title for level, title in quality.heading_lines(host) if level == 2]
-        self.assertEqual(["주요 뉴스", "방송 순서", "스토리라인"], host_h2)
+        self.assertEqual(["주요 뉴스", "스토리라인"], host_h2)
         self.assertEqual(3, quality.compact_bullet_count(quality.compact_section_body(host, "주요 뉴스")))
-        self.assertEqual(5, quality.compact_bullet_count(quality.compact_section_body(host, "방송 순서")))
 
         story_blocks = quality.compact_story_blocks(host)
         self.assertEqual(3, len(story_blocks))
@@ -297,8 +315,7 @@ class CompactPublishRendererContractTest(unittest.TestCase):
             self.assertGreaterEqual(len(why_bullets), 2)
             self.assertLessEqual(len(why_bullets), 3)
             self.assertTrue(all(len(bullet) <= 90 for bullet in why_bullets))
-            self.assertTrue(quality.compact_host_relevance_complete(why_bullets))
-            self.assertEqual(1, len(re.findall(r"^\*\*슬라이드 구성:\*\*\s+`\(\d+\)", block, flags=re.M)))
+            self.assertEqual(1, len(re.findall(r"^\*\*슬라이드 구성:\*\*\s+`(?:\(\d+\)|\([A-Z]+\))", block, flags=re.M)))
 
         for forbidden in quality.COMPACT_HOST_FORBIDDEN:
             self.assertNotIn(forbidden, host)
@@ -309,11 +326,11 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertEqual(3, len(news_bullets))
         self.assertTrue(all(len(bullet) <= 140 for bullet in news_bullets))
         slide_lines = re.findall(r"^\*\*슬라이드 구성:\*\*\s+(.+)$", quality.compact_section_body(host, "스토리라인"), flags=re.M)
-        self.assertTrue(any(re.search(r"`\(\d+\) .+`", label) for label in slide_lines))
+        self.assertTrue(any(re.search(r"`(?:\(\d+\)|\([A-Z]+\)) .+`", label) for label in slide_lines))
         bare_story_label_lines = [
             label.strip()
             for slide_line in slide_lines
-            for _, label in re.findall(r"`([①②③④⑤⑥⑦⑧⑨⑩]|\(\d+\))\s+([^`]+)`", slide_line)
+            for _, label in re.findall(r"`([①②③④⑤⑥⑦⑧⑨⑩]|\(\d+\)|\([A-Z]+\))\s+([^`]+)`", slide_line)
         ]
         self.assertLessEqual(bare_story_label_lines.count("WTI·브렌트 가격 차트"), 1)
 
@@ -368,8 +385,12 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         feature_blocks = quality.compact_card_blocks(feature_body)
         self.assertEqual("실적 캘린더", quality.card_title(feature_blocks[0]))
         self.assertEqual(1, quality.image_count(feature_blocks[0]))
-        self.assertEqual(1, len(feature_blocks))
-        self.assertNotIn("### 마이크로소프트 (MSFT)", feature_body)
+        self.assertGreaterEqual(len(feature_blocks), 2)
+        self.assertIn("### Microsoft Corporation (MSFT)", feature_body)
+        self.assertIn("- 출처: [Finviz](https://finviz.com/quote.ashx?t=MSFT)", feature_body)
+        self.assertIn("- 캡처: `26.05.03 10:05`", feature_body)
+        self.assertIn("**주요 내용**", feature_body)
+        self.assertIn("클라우드 매출과 AI 수요", feature_body)
 
         findings = quality.review_compact_publish_contract(markdown)
         self.assertEqual([], [finding.title for finding in findings])
@@ -382,8 +403,8 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         title, blocks = publisher.markdown_to_blocks(markdown, markdown_path=path, upload_images=False)
 
         self.assertEqual("26.05.03", title)
-        self.assertEqual("heading_1", blocks[3]["type"])
-        self.assertEqual("🎥 진행자용 요약", blocks[3]["heading_1"]["rich_text"][0]["text"]["content"])
+        host_heading = next(block for block in blocks if block["type"] == "heading_1")
+        self.assertEqual("🎥 진행자용 요약", host_heading["heading_1"]["rich_text"][0]["text"]["content"])
 
     def test_explicit_chart_id_labels_win_before_axis_fallback(self) -> None:
         self.assertEqual("원/달러 환율 차트", dashboard.public_material_label({"item_id": "usd-krw", "title": "Dollar index pressure"}))
@@ -396,16 +417,16 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         findings = quality.review_compact_publish_contract(broken)
         self.assertTrue(any(finding.title.startswith("COMPACT-005") for finding in findings))
 
-    def test_quality_gate_fails_if_why_relevance_lacks_required_axes(self) -> None:
+    def test_quality_gate_fails_if_why_relevance_has_wrong_bullet_count(self) -> None:
         markdown = dashboard.render_dashboard(DATE)
         broken = re.sub(
             r"(\*\*왜 중요한가\*\*\n)- .+\n- .+\n- .+",
-            r"\1- 전날 시장 반응만 확인한다.\n- 가격 반응만 확인한다.",
+            r"\1- 하나만 남긴다.",
             markdown,
             count=1,
         )
         findings = quality.review_compact_publish_contract(broken)
-        self.assertTrue(any(finding.title.startswith("COMPACT-045") for finding in findings))
+        self.assertTrue(any(finding.title.startswith("COMPACT-041") for finding in findings))
 
     def test_public_material_label_rejects_internal_or_raw_title_labels(self) -> None:
         label = dashboard.public_material_label(
@@ -597,7 +618,10 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         body = "\n".join(lines).split("**주요 내용**", 1)[1]
         bullets = re.findall(r"^-\s+(.+)$", body, flags=re.M)
         self.assertEqual(
-            ["Fed 인사가 인플레이션 데이터 부담을 언급했습니다. 시장은 금리 경로가 편해졌는지 다시 확인했습니다."],
+            [
+                "Fed 인사가 인플레이션 데이터 부담을 언급했습니다.",
+                "시장은 금리 경로가 편해졌는지 다시 확인했습니다.",
+            ],
             bullets,
         )
 
@@ -612,12 +636,6 @@ class CompactPublishRendererContractTest(unittest.TestCase):
                 "- 시장 반응을 확인한다.",
                 "- 금리와 유가를 확인한다.",
                 "- 실적 변수도 본다.",
-                "## 방송 순서",
-                "- `시장은 지금`: 시장 차트를 먼저 본다.",
-                "- “금리 변수 확인”",
-                "- “유가 변수 확인”",
-                "- “실적 변수 확인”",
-                "- `실적/특징주`: 캘린더 확인",
                 "## 스토리라인",
                 "### 1. 금리 변수 확인",
                 "추천도: `★★★`",
@@ -804,9 +822,9 @@ class CompactPublishRendererContractTest(unittest.TestCase):
         self.assertEqual(0, rc)
         payload = json.loads(output_path.read_text(encoding="utf-8"))
         self.assertEqual("openai_responses_api", payload["source"])
-        self.assertEqual("compact_publish_microcopy_v1", payload["contract"])
+        self.assertEqual("compact_publish_microcopy_v4", payload["contract"])
         self.assertEqual(["resp-test"], payload["raw_response_ids"])
-        self.assertEqual(2, len(payload["host_summary_lines"]))
+        self.assertTrue(payload["host_headline"])
 
     def test_renderer_regenerates_deterministic_microcopy_when_openai_requested(self) -> None:
         self.assertTrue(

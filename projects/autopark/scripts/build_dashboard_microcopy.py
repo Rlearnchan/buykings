@@ -29,7 +29,7 @@ DEFAULT_ENV = REPO_ROOT / ".env"
 OPENAI_API = "https://api.openai.com/v1/responses"
 DEFAULT_MODEL = "gpt-5-mini"
 DEFAULT_FALLBACK = "deterministic"
-CONTRACT = "compact_publish_microcopy_v1"
+CONTRACT = "compact_publish_microcopy_v4"
 FORBIDDEN_TOKENS = [
     "source_role",
     "evidence_role",
@@ -40,7 +40,7 @@ FORBIDDEN_TOKENS = [
     "http://",
     "https://",
 ]
-GENERATED_FIELDS = ["host_summary_lines", "quote_lines", "host_relevance_bullets", "content_bullets"]
+GENERATED_FIELDS = ["host_headline", "quote_lines", "host_relevance_bullets", "content_bullets"]
 MAX_CARDS_PER_REQUEST = 40
 
 
@@ -63,9 +63,9 @@ def load_env(path: Path) -> dict[str, str]:
 MICROCOPY_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["host_summary_lines", "storylines", "media_focus_cards"],
+    "required": ["host_headline", "storylines", "media_focus_cards"],
     "properties": {
-        "host_summary_lines": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"type": "string"}},
+        "host_headline": {"type": "string"},
         "storylines": {
             "type": "array",
             "items": {
@@ -74,7 +74,7 @@ MICROCOPY_SCHEMA: dict[str, Any] = {
                 "required": ["storyline_id", "quote_lines", "host_relevance_bullets", "slide_line"],
                 "properties": {
                     "storyline_id": {"type": "string"},
-                    "quote_lines": {"type": "array", "minItems": 1, "maxItems": 3, "items": {"type": "string"}},
+                    "quote_lines": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"type": "string"}},
                     "host_relevance_bullets": {"type": "array", "minItems": 2, "maxItems": 3, "items": {"type": "string"}},
                     "slide_line": {"type": "string"},
                 },
@@ -158,7 +158,7 @@ def sanitize_line(value: Any, limit: int = 90) -> str:
     text = re.sub(r"\s+", " ", text).strip(" -:/")
     if not text or raw_source_like(text):
         return ""
-    if len(text) <= limit:
+    if not limit or len(text) <= limit:
         return text
     clipped = text[:limit].rstrip()
     end = max(clipped.rfind(mark) for mark in [".", "?", "!", "다.", "요.", "함.", "음."])
@@ -175,7 +175,7 @@ def sanitize_content_line(value: Any, limit: int = 300) -> str:
     text = re.sub(r"\s+", " ", text).strip(" -:/")
     if not text or content_raw_source_like(text):
         return ""
-    if len(text) <= limit:
+    if not limit or len(text) <= limit:
         return text
     return text[: limit - 1].rstrip(" ,.;:") + "…"
 
@@ -184,7 +184,7 @@ def sentence_parts(value: Any) -> list[str]:
     raw = strip_markdown(value)
     if not raw:
         return []
-    parts = [clean(part) for part in re.split(r"(?<=[.!?。])\s+|\n+|[;；]\s*", raw) if clean(part)]
+    parts = [clean(part) for part in re.split(r"(?<=[.!?。])\s+|\n+", raw) if clean(part)]
     return parts or [raw]
 
 
@@ -247,6 +247,17 @@ def host_relevance_complete(lines: list[str]) -> bool:
         ["한국", "개인투자자", "PPT", "환율", "업종", "성장주"],
     ]
     return all(contains_any(blob, needles) for needles in requirements)
+
+
+def natural_why_lines(candidates: list[str], fallbacks: list[str]) -> list[str]:
+    rows: list[str] = []
+    for line in [*candidates, *fallbacks]:
+        line = sanitize_line(line, 0)
+        if line and line not in rows:
+            rows.append(line)
+        if len(rows) >= 3:
+            break
+    return rows[:3] if len(rows) >= 2 else fallbacks[:2]
 
 
 def axis_fallbacks(axis: str) -> dict[str, list[str]]:
@@ -321,7 +332,7 @@ def deterministic_storyline(story: dict[str, Any]) -> dict[str, Any]:
         ],
         limit=90,
         minimum=1,
-        maximum=3,
+        maximum=1,
         fallbacks=fallbacks["quote"],
     )
     why_candidates = candidate_lines(
@@ -334,12 +345,12 @@ def deterministic_storyline(story: dict[str, Any]) -> dict[str, Any]:
             story.get("market_causality"),
             story.get("price_confirmation"),
         ],
-        limit=90,
+        limit=0,
     )
-    why_lines = host_relevance_lines(why_candidates, fallbacks["why"])
+    why_lines = natural_why_lines(why_candidates, fallbacks["why"])
     return {
         "storyline_id": clean(story.get("storyline_id")),
-        "quote_lines": quote_lines[:3],
+        "quote_lines": quote_lines[:1],
         "host_relevance_bullets": why_lines[:3],
         "slide_line": clean(story.get("slide_line")),
     }
@@ -432,6 +443,10 @@ def deterministic_microcopy(context: dict[str, Any], *, model: str | None = None
         "invalid_output_count": 0,
         "estimated_tokens": estimate_tokens(json.dumps(context, ensure_ascii=False)),
         "generated_fields": GENERATED_FIELDS,
+        "host_headline": valid_host_headline(context.get("host_headline"))
+        or valid_host_headline(context.get("host_summary"))
+        or valid_host_headline(" ".join(clean(line) for line in (context.get("host_summary_lines") or []) if clean(line)))
+        or "AI 실적은 좋았다, 문제는 유가와 금리다",
         "host_summary_lines": host_summary_lines,
         "storylines": storylines,
         "media_focus_cards": cards,
@@ -450,7 +465,7 @@ def valid_lines(value: Any, *, minimum: int, maximum: int, limit: int) -> list[s
     if not isinstance(value, list) or len(value) < minimum or len(value) > maximum:
         return None
     rows = [sanitize_line(item, limit) for item in value]
-    if any(not row or forbidden_hit(row) or raw_source_like(row) or len(row) > limit for row in rows):
+    if any(not row or forbidden_hit(row) or raw_source_like(row) or (limit and len(row) > limit) for row in rows):
         return None
     return rows
 
@@ -464,16 +479,23 @@ def valid_host_summary_lines(value: Any) -> list[str] | None:
     return rows
 
 
+def valid_host_headline(value: Any) -> str | None:
+    row = sanitize_line(value, 0)
+    if not row or forbidden_hit(row) or raw_source_like(row):
+        return None
+    if re.match(r"^\s*(?:\(?\d+\)?|[①-⑳])", row):
+        return None
+    return row
+
+
 def validate_storyline(item: dict[str, Any], expected: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
     story_id = clean(item.get("storyline_id"))
     if story_id not in expected:
         return None
-    quote_lines = valid_lines(item.get("quote_lines"), minimum=1, maximum=3, limit=90)
-    why_lines = valid_lines(item.get("host_relevance_bullets"), minimum=2, maximum=3, limit=90)
+    quote_lines = valid_lines(item.get("quote_lines"), minimum=1, maximum=1, limit=0)
+    why_lines = valid_lines(item.get("host_relevance_bullets"), minimum=2, maximum=3, limit=0)
     slide_line = clean(item.get("slide_line"))
     if quote_lines is None or why_lines is None:
-        return None
-    if not host_relevance_complete(why_lines):
         return None
     if slide_line != clean(expected[story_id].get("slide_line")) or forbidden_hit(slide_line):
         return None
@@ -506,9 +528,9 @@ def validate_microcopy(candidate: dict[str, Any], context: dict[str, Any], fallb
     story_rows = {}
     card_rows = {}
     invalid = 0
-    host_summary_lines = valid_host_summary_lines(candidate.get("host_summary_lines"))
-    if host_summary_lines is None:
-        host_summary_lines = fallback.get("host_summary_lines") or []
+    host_headline = valid_host_headline(candidate.get("host_headline"))
+    if host_headline is None:
+        host_headline = fallback.get("host_headline") or ""
         invalid += 1
 
     for item in candidate.get("storylines") or []:
@@ -546,7 +568,7 @@ def validate_microcopy(candidate: dict[str, Any], context: dict[str, Any], fallb
         else:
             cards.append(fallback_cards[card_key])
             fallback_count += 1
-    merged = {**fallback, "host_summary_lines": host_summary_lines, "storylines": stories, "media_focus_cards": cards}
+    merged = {**fallback, "host_headline": host_headline, "storylines": stories, "media_focus_cards": cards}
     return merged, fallback_count, invalid
 
 
@@ -568,18 +590,20 @@ def build_prompt(context: dict[str, Any]) -> str:
         [
             "You write compact Korean public-facing microcopy for a morning market dashboard.",
             "Do not change structure, order, labels, ranks, card_key, or slide_line.",
-            "Only rewrite host_summary_lines, quote_lines, host_relevance_bullets, and content_bullets.",
+            "Only rewrite host_headline, quote_lines, host_relevance_bullets, and content_bullets.",
             "Constraints:",
             "- Korean-first, concise, presenter-friendly. English is allowed only for proper nouns, tickers, fixed market terms, or short quotes.",
             "- Do not copy English source headlines as-is; translate or summarize them into natural Korean.",
-            "- host_summary_lines: exactly 2 lines, each <=120 Korean characters. Line 1 explains yesterday's market flow; line 2 explains today's broadcast flow.",
-            "- host_summary_lines will be rendered as one quote paragraph, so each line must be a complete sentence and must not start with numbering.",
-            "- quote_lines: 1-3 lines, each <=90 Korean characters.",
-            "- host_relevance_bullets: 2-3 bullets, each <=90 Korean characters.",
-            "- content_bullets: 1-3 bullets, each <=300 Korean characters. Treat each bullet as one sentence from one core summary, not separate meaning/use/caution slots.",
+            "- host_headline: exactly 1 punchy Korean headline in the style of a YouTube live title. One core market idea only.",
+            "- host_headline must not say 'today's broadcast', must not explain the document, and must not include parenthetical work notes.",
+            "- quote_lines: exactly 1 natural Korean sentence. Do not stitch multiple ideas or repeat the why bullets.",
+            "- host_relevance_bullets: 2-3 natural Korean bullets explaining why this story is worth watching this morning.",
+            "- content_bullets: 1-3 Korean-first bullets. Prefer 2-3 bullets when the source has enough substance.",
+            "- Put each media-focus sentence in a separate content_bullets array item; do not pack multiple sentences into one item.",
+            "- Each content_bullets item should be one natural sentence from one core summary, not separate meaning/use/caution slots.",
             "- For media focus content, say what the material says. Do not mechanically add PPT usage, cautions, or market interpretation unless the source itself supports it.",
             "- Never include URLs, source_role, evidence_role, item_id, evidence_id, asset_id, or MF hashes.",
-            "- Storyline relevance must explain yesterday's market attention, why it fits the first 5 minutes, and the Korea/PPT/personal-investor connection.",
+            "- Do not force a fixed template for host_relevance_bullets; write only the context that is genuinely useful for this story.",
             "Return strict JSON only.",
             json.dumps(context, ensure_ascii=False),
         ]
@@ -646,7 +670,7 @@ def build_microcopy(context: dict[str, Any], *, env: dict[str, str] | None = Non
     request_count = 0
     invalid_total = 0
     response_ids: list[str] = []
-    candidate = {"host_summary_lines": [], "storylines": [], "media_focus_cards": []}
+    candidate = {"host_headline": "", "storylines": [], "media_focus_cards": []}
     started = time.monotonic()
     try:
         for chunk in context_chunks(context):
@@ -654,8 +678,8 @@ def build_microcopy(context: dict[str, Any], *, env: dict[str, str] | None = Non
             parsed, response_id = call_openai(chunk, token=token, model=model, timeout=timeout)
             if response_id:
                 response_ids.append(response_id)
-            if parsed.get("host_summary_lines") and not candidate["host_summary_lines"]:
-                candidate["host_summary_lines"] = parsed.get("host_summary_lines") or []
+            if parsed.get("host_headline") and not candidate["host_headline"]:
+                candidate["host_headline"] = parsed.get("host_headline") or ""
             candidate["storylines"].extend(parsed.get("storylines") or [])
             candidate["media_focus_cards"].extend(parsed.get("media_focus_cards") or [])
     except (urllib.error.URLError, TimeoutError, RuntimeError, ValueError, json.JSONDecodeError) as exc:

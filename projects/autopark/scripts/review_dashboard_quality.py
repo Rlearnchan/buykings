@@ -531,7 +531,7 @@ def public_before_media_focus(markdown: str) -> str:
 
 
 COMPACT_TOP_LEVEL_HEADINGS = ["🎥 진행자용 요약", "🤖 자료 수집"]
-COMPACT_HOST_SUBHEADINGS = ["주요 뉴스", "방송 순서", "스토리라인"]
+COMPACT_HOST_SUBHEADINGS = ["주요 뉴스", "스토리라인"]
 COMPACT_HOST_FORBIDDEN = [
     "MF-",
     "http://",
@@ -798,11 +798,10 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
     meta_patterns = [
         r"^문서 생성: `\d{2}\.\d{2}\.\d{2} \d{2}:\d{2} \(KST\)`$",
         r"^자료 수집: `[^`]+ \(KST\)`$",
-        r"^시장 차트: `차트별 기준 시점 별도 표기`$",
     ]
     for index, pattern in enumerate(meta_patterns):
         if len(lines) <= index or not re.match(pattern, lines[index]):
-            issue(findings, "format", "high", "COMPACT-001 메타 3줄 불일치", "문서 맨 위 메타 3줄이 고정 형식과 다릅니다.", "문서 생성/자료 수집/시장 차트 3줄만 먼저 렌더하세요.")
+            issue(findings, "format", "high", "COMPACT-001 메타 2줄 불일치", "문서 맨 위 메타 2줄이 고정 형식과 다릅니다.", "문서 생성/자료 수집 2줄만 먼저 렌더하세요.")
             break
 
     top = [title for level, title in heading_lines(markdown) if level == 1]
@@ -819,7 +818,7 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
 
     host_h2 = [title for level, title in heading_lines(host) if level == 2]
     if host_h2 != COMPACT_HOST_SUBHEADINGS:
-        issue(findings, "format", "high", "COMPACT-004 host 하위 heading 불일치", f"host h2: {host_h2}", "주요 뉴스/방송 순서/스토리라인 세 heading만 허용합니다.")
+        issue(findings, "format", "high", "COMPACT-004 host 하위 heading 불일치", f"host h2: {host_h2}", "주요 뉴스/스토리라인 두 heading만 허용합니다.")
     forbidden_hits = [token for token in COMPACT_HOST_FORBIDDEN if token in host]
     if forbidden_hits:
         issue(findings, "format", "high", "COMPACT-005 host forbidden token", ", ".join(forbidden_hits), "host_area에는 내부 ID, URL, 이미지, audit/debug 성격 토큰을 넣지 마세요.")
@@ -832,12 +831,9 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
     if len(news_bullets) != 3:
         issue(findings, "format", "high", "COMPACT-008 주요 뉴스 bullet 수 불일치", "주요 뉴스는 정확히 3개 bullet이어야 합니다.", "주요 뉴스 bullet 3개만 렌더하세요.")
     else:
-        invalid_news = [bullet for bullet in news_bullets if len(bullet) > 140 or compact_english_word_run_too_long(bullet)]
+        invalid_news = [bullet for bullet in news_bullets if compact_english_word_run_too_long(bullet)]
         if invalid_news:
             issue(findings, "format", "high", "COMPACT-016 주요 뉴스 public 문장 위반", "주요 뉴스 bullet이 140자를 넘거나 영어 원문형 제목처럼 보입니다.", "주요 뉴스는 140자 이하의 완결된 한국어 방송 해석 문장으로 렌더하세요.")
-    if compact_bullet_count(compact_section_body(host, "방송 순서")) != 5:
-        issue(findings, "format", "high", "COMPACT-009 방송 순서 bullet 수 불일치", "방송 순서는 정확히 5개 bullet이어야 합니다.", "시장/3개 스토리라인/실적 bullet만 렌더하세요.")
-
     story_blocks = compact_story_blocks(host)
     if len(story_blocks) != 3:
         issue(findings, "format", "high", "COMPACT-010 스토리라인 수 불일치", f"스토리라인 {len(story_blocks)}개가 렌더됐습니다.", "스토리라인은 정확히 3개만 렌더하세요.")
@@ -847,7 +843,7 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
         quotes = [match.group(1).strip() for match in re.finditer(r"^>\s+(.+)$", block, flags=re.M)]
         if len(quotes) != 1:
             issue(findings, "format", "high", "COMPACT-012 quote 줄 수 위반", f"{index}번 스토리라인 quote 수: {len(quotes)}", "quote는 한 줄 인용문 하나만 렌더하세요.")
-        quote_bad = [line for line in quotes if len(line) > 180 or compact_raw_source_like(line) or any(token in line for token in COMPACT_HOST_FORBIDDEN)]
+        quote_bad = [line for line in quotes if compact_raw_source_like(line) or any(token in line for token in COMPACT_HOST_FORBIDDEN)]
         if quote_bad:
             issue(findings, "format", "high", "COMPACT-017 quote public 문장 위반", f"{index}번 quote가 180자를 넘거나 금지 토큰을 포함합니다.", "quote는 180자 이하 public 문장만 사용하세요.")
         if block.count("**왜 중요한가**") != 1:
@@ -856,11 +852,9 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
         why_bullets = re.findall(r"^-\s+(.+)$", why_body, flags=re.M)
         if len(why_bullets) < 2 or len(why_bullets) > 3:
             issue(findings, "format", "high", "COMPACT-041 왜 중요한가 bullet 수 위반", f"{index}번 why bullet 수: {len(why_bullets)}", "왜 중요한가 bullet은 2~3개만 렌더하세요.")
-        why_bad = [line for line in why_bullets if len(line) > 90 or compact_raw_source_like(line) or any(token in line for token in COMPACT_HOST_FORBIDDEN)]
+        why_bad = [line for line in why_bullets if compact_raw_source_like(line) or any(token in line for token in COMPACT_HOST_FORBIDDEN)]
         if why_bad:
             issue(findings, "format", "high", "COMPACT-042 왜 중요한가 public 문장 위반", f"{index}번 why bullet이 90자를 넘거나 금지 토큰을 포함합니다.", "왜 중요한가 bullet은 90자 이하 public 문장만 사용하세요.")
-        if why_bullets and not compact_host_relevance_complete(why_bullets):
-            issue(findings, "format", "high", "COMPACT-045 왜 중요한가 핵심 요소 누락", f"{index}번 why bullet: " + " / ".join(why_bullets[:3]), "왜 중요한가에는 전날 시장 이슈, 첫 5분 방송 이유, 한국장/개인투자자/PPT 연결점을 모두 담으세요.")
         slide_match = re.search(r"^\*\*슬라이드 구성:\*\*\s+(.+)$", block, flags=re.M)
         if not slide_match:
             issue(findings, "format", "high", "COMPACT-013 슬라이드 구성 한 줄 누락", f"{index}번 스토리라인에 한 줄 슬라이드 구성이 없습니다.", "`**슬라이드 구성:** `① 자료명` → `② 자료명`` 형식으로 렌더하세요.")
@@ -869,9 +863,11 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
             slide_line = slide_match.group(1).strip()
             if any(token in slide_line for token in COMPACT_HOST_FORBIDDEN) or "\n" in slide_line:
                 issue(findings, "format", "high", "COMPACT-043 슬라이드 구성 금지 토큰", f"{index}번 슬라이드 구성에 금지 토큰이 있습니다.", "슬라이드 구성에는 번호+자료명만 넣으세요.")
-            refs = re.findall(r"`([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\))\s+([^`]+)`", slide_line)
+            refs = re.findall(r"`([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\)|\([A-Z]+\))\s+([^`]+)`", slide_line)
             if not refs:
                 issue(findings, "format", "high", "COMPACT-014 슬라이드 구성 원형 번호 누락", f"{index}번 슬라이드 구성: {slide_line}", "슬라이드 구성 자료명은 미디어 포커스의 원형 번호와 함께 렌더하세요.")
+            elif len(refs) < 2 or len(refs) > 5:
+                issue(findings, "format", "high", "COMPACT-014 슬라이드 구성 개수 위반", f"{index}번 슬라이드 구성 자료 수: {len(refs)}", "슬라이드 구성은 실제 연결 자료 2~5개만 렌더하세요.")
             material_labels = [label.strip() for _, label in refs]
             bad_labels = [label for label in material_labels if not compact_public_label_ok(label)]
             if bad_labels:
@@ -901,7 +897,7 @@ def review_compact_publish_contract(markdown: str) -> list[Finding]:
         for block in story_blocks:
             slide_match = re.search(r"^\*\*슬라이드 구성:\*\*\s+(.+)$", block, flags=re.M)
             if slide_match:
-                story_labels.extend(label.strip() for _, label in re.findall(r"`([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\))\s+([^`]+)`", slide_match.group(1)))
+                story_labels.extend(label.strip() for _, label in re.findall(r"`([①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]|\(\d+\)|\([A-Z]+\))\s+([^`]+)`", slide_match.group(1)))
         bare_labels = {strip_public_label_marker(label) for label in labels}
         missing_story_labels = sorted(set(story_labels) - bare_labels)
         if missing_story_labels:

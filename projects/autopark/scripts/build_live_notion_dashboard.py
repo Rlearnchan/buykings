@@ -1214,6 +1214,43 @@ def render_feature_stock(lines: list[str], row: dict) -> None:
     lines.append("")
 
 
+def feature_microcopy_by_ticker(payload: dict) -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {}
+    for item in payload.get("items") or []:
+        ticker = clean(item.get("ticker")).upper()
+        bullets = [clean(remove_host_forbidden(str(line or ""))) for line in item.get("content_bullets") or []]
+        bullets = [line for line in bullets if line]
+        if ticker and bullets:
+            result[ticker] = bullets[:3]
+    return result
+
+
+def feature_stock_default_bullets(row: dict) -> list[str]:
+    return []
+
+
+def render_compact_feature_stock(lines: list[str], row: dict, microcopy: dict[str, list[str]]) -> None:
+    ticker = (row.get("ticker") or "").upper()
+    if not ticker or row.get("status") != "ok":
+        return
+    title = company_heading_from_row(row)
+    lines.extend([f"### {title}", ""])
+    lines.append(f"- 출처: {link('Finviz', row.get('url') or '')}")
+    captured = display_dt(row.get("captured_at")) if row.get("captured_at") else ""
+    if not captured and row.get("screenshot_path"):
+        captured = captured_from_file(row.get("screenshot_path"))
+    if captured:
+        lines.append(f"- 캡처: `{captured}`")
+    if row.get("screenshot_path"):
+        lines.extend(["", notion_image(f"{ticker} 차트", row["screenshot_path"])])
+    bullets = microcopy.get(ticker) or feature_stock_default_bullets(row)
+    if bullets:
+        lines.extend(["", "**주요 내용**", ""])
+        for bullet in bullets[:3]:
+            lines.append(f"- {bullet}")
+    lines.append("")
+
+
 def render_material_card(lines: list[str], row: dict, index: int | None = None) -> None:
     title = material_title(row)
     heading = f"### {index}. {title}" if index else f"### {title}"
@@ -2892,6 +2929,22 @@ def company_heading(ticker: str) -> str:
     return f"{name} ({ticker.upper()})" if name else ticker.upper()
 
 
+def company_heading_from_row(row: dict) -> str:
+    ticker = (row.get("ticker") or "").upper()
+    if not ticker:
+        return "-"
+    name = clean(row.get("company") or row.get("name") or "")
+    if not name:
+        title = clean(row.get("title") or "")
+        match = re.match(rf"^{re.escape(ticker)}\s*[-–:]\s*([^|]+)", title, flags=re.I)
+        if match:
+            name = clean(match.group(1))
+    if not name:
+        return company_heading(ticker)
+    name = re.sub(r"\s+Stock(?:\s+Price.*)?$", "", name, flags=re.I).strip(" -|")
+    return f"{name} ({ticker})" if ticker not in name.upper().split() else name
+
+
 def feature_stock_focus(row: dict) -> str:
     ticker = (row.get("ticker") or "").upper()
     text = clean(" ".join([*(row.get("quote_summary") or []), *((news.get("headline") or "") for news in row.get("news") or [])]))
@@ -2971,7 +3024,36 @@ def remove_host_forbidden(value: str) -> str:
     text = re.sub(r"MF-[0-9a-fA-F]+", "", text)
     text = re.sub(r"\b(?:source_role|evidence_role|item_id|evidence_id|asset_id)\s*[:=]\s*\S+", "", text)
     text = re.sub(r"\b(?:source_role|evidence_role|item_id|evidence_id|asset_id)\b", "", text)
+    text = strip_public_work_notes(text)
     return clean(text)
+
+
+def strip_public_work_notes(value: str) -> str:
+    text = clean(value)
+    text = re.sub(
+        r"\s*[（(][^()（）]*(?:확인|참조|근거|자료|기사|차트|반응|언급|source|evidence|asset|fallback|retry)[^()（）]*[）)]",
+        "",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(r"\s*[（(]\s*[^()（）]{0,28}$", "", text)
+    text = text.replace("…", "")
+    text = re.sub(r"\.\s*\.", ".", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    return clean(text).strip(" ,;:")
+
+
+def repair_public_fragment(value: str) -> str:
+    text = strip_public_work_notes(value)
+    if not text:
+        return ""
+    text = re.sub(r"추가\s*랠\s*$", "추가 랠리를 제한했습니다.", text)
+    if re.search(r"[가-힣]$", text) and not re.search(r"(다|요|음|함|됨|임|있음|없음|중|전|후|상승|하락|제한|반응|영향|가능)$", text):
+        parts = re.split(r"(?<=[.!?。])\s+|(?<=다\.)\s+|(?<=니다\.)\s+", text)
+        complete = [part.strip() for part in parts if re.search(r"[.!?。]$|다$|요$|음$|함$|됨$|임$|있음$|없음$", part.strip())]
+        if complete:
+            return clean(" ".join(complete))
+    return text
 
 
 def clip_public_sentence(value: object, limit: int, fallback: str) -> str:
@@ -2987,6 +3069,21 @@ def clip_public_sentence(value: object, limit: int, fallback: str) -> str:
 
 def compact_public_text(value: object, limit: int, fallback: str) -> str:
     return clean(clip_public_sentence(value, limit, fallback), limit)
+
+
+def clip_public_sentence(value: object, limit: int, fallback: str) -> str:
+    text = remove_host_forbidden(str(value or ""))
+    if not text or english_word_run_too_long(text):
+        text = fallback
+    return repair_public_fragment(text) or fallback
+
+
+def compact_public_text(value: object, limit: int, fallback: str) -> str:
+    return clean(clip_public_sentence(value, limit, fallback))
+
+
+def public_complete_text(value: str | None, limit: int = 180) -> str:
+    return repair_public_fragment(public_editorial_text(value, None))
 
 
 def story_public_axis(storyline: dict) -> str:
@@ -3071,49 +3168,29 @@ def label_axis(label: str) -> str:
 
 def public_material_labels_for_story(storyline: dict, radar_by_id: dict, used_labels: set[str] | None = None) -> list[str]:
     labels: list[str] = []
-    axis = story_public_axis(storyline)
     used = used_labels if used_labels is not None else set()
 
-    def add(label: str, *, allow_reuse: bool = False, respect_axis: bool = True) -> None:
+    def add(label: str, *, allow_reuse: bool = True) -> None:
         if not valid_public_material_label(label) or label in labels:
-            return
-        if respect_axis and label_axis(label) not in {axis, "market"}:
             return
         if label in used and not allow_reuse:
             return
         labels.append(label)
 
-    for asset in storyline.get("ppt_asset_queue") or []:
-        if isinstance(asset, dict):
-            add(public_material_label(asset, storyline))
     for item in storyline.get("evidence_to_use") or []:
         if not isinstance(item, dict):
             continue
         item_id = item.get("item_id") or item.get("evidence_id") or ""
         row = radar_by_id.get(item_id) or {}
         if row:
-            add(supplemental_public_material_label({**row, **item}), respect_axis=False)
+            add(supplemental_public_material_label({**row, **item}))
         else:
             add(public_material_label({**row, **item}, storyline))
-
-    fallback_pool = {
-        "rates": ["10년물 국채금리", "달러인덱스 차트", "Fed 인플레이션 발언 기사"],
-        "oil": ["WTI·브렌트 가격 차트", "유가 지정학 기사", "에너지주 반응 차트"],
-        "ai": ["AI 인프라 투자 기사", "빅테크 실적 반응 자료", "반도체 연결 기사"],
-        "earnings": ["FactSet 실적 시즌 요약", "빅테크 실적 반응 자료", "실적 특징주 차트"],
-        "market": ["시장 반응 히트맵", "가격 반응 차트", "원문 확인 자료"],
-    }.get(axis, ["시장 반응 히트맵", "가격 반응 차트", "원문 확인 자료"])
-    for label in fallback_pool:
-        add(label)
-        if len(labels) >= 3:
-            break
-    if len(labels) < 2:
-        for label in fallback_pool:
-            add(label, allow_reuse=True)
-            if len(labels) >= 2:
-                break
+    for asset in storyline.get("ppt_asset_queue") or []:
+        if isinstance(asset, dict):
+            add(public_material_label(asset, storyline))
     used.update(labels)
-    return labels[:4]
+    return labels[:5]
 
 
 def media_focus_label_numbers(storylines: list[dict], radar_by_id: dict) -> dict[str, str]:
@@ -3140,21 +3217,31 @@ def story_slide_refs(
     storyline: dict,
     radar_by_id: dict,
     media_number_by_label: dict[str, str],
+    market_number_by_label: dict[str, str] | None = None,
     used_labels: set[str] | None = None,
 ) -> list[dict]:
     refs: list[dict] = []
-    labels = public_material_labels_for_story(storyline, radar_by_id, used_labels)[:3]
+    market_number_by_label = market_number_by_label or {}
+    labels = public_material_labels_for_story(storyline, radar_by_id, used_labels)[:5]
     for label in labels:
-        number = media_number_by_label.get(label)
+        number = media_number_by_label.get(label) or market_number_by_label.get(label)
         if number:
             refs.append({"number": number, "label": label})
-    if len(refs) < 3:
-        for label, number in media_number_by_label.items():
-            if all(ref["label"] != label for ref in refs):
+    if len(refs) < 2:
+        axis = story_public_axis(storyline)
+        market_fallbacks = {
+            "rates": ["10년물 국채금리", "달러인덱스 차트", "FedWatch"],
+            "oil": ["WTI 가격 차트", "브렌트 가격 차트"],
+            "ai": ["S&P500 히트맵", "주요 지수 흐름"],
+            "earnings": ["S&P500 히트맵", "오늘의 경제지표"],
+        }.get(axis, [])
+        for label in market_fallbacks:
+            number = market_number_by_label.get(label)
+            if number and all(ref["label"] != label for ref in refs):
                 refs.append({"number": number, "label": label})
-            if len(refs) >= 3:
+            if len(refs) >= 2:
                 break
-    return refs[:3]
+    return refs[:5]
 
 
 def focus_by_story_rank(market_focus: dict) -> dict[int, dict]:
@@ -3178,11 +3265,12 @@ def build_microcopy_context(
     media_cards: list[dict],
 ) -> dict:
     media_number_by_label = {clean(card.get("label")): clean(card.get("media_number")) for card in media_cards if card.get("label")}
+    market_number_by_label: dict[str, str] = {}
     focus_by_rank = focus_by_story_rank(market_focus)
     used_labels: set[str] = set()
     story_payloads: list[dict] = []
     for index, story in enumerate(storylines[:3], start=1):
-        refs = story_slide_refs(story, radar_by_id, media_number_by_label, used_labels)
+        refs = story_slide_refs(story, radar_by_id, media_number_by_label, market_number_by_label, used_labels)
         focus = focus_by_rank.get(int(story.get("rank") or index), {})
         evidence_summary = []
         for item in story.get("evidence_to_use") or []:
@@ -3243,7 +3331,8 @@ def build_microcopy_context(
     ]
     return {
         "target_date": target_date,
-        "contract": "compact_publish_microcopy_v1",
+        "contract": "compact_publish_microcopy_v4",
+        "host_headline": compact_host_headline(brief, market_focus, storylines),
         "host_summary_lines": compact_host_headline_lines(brief, market_focus, storylines),
         "storylines": story_payloads,
         "media_focus_cards": card_payloads,
@@ -3272,8 +3361,14 @@ def deterministic_microcopy_cache(payload: dict) -> bool:
 
 
 def microcopy_has_host_summary(payload: dict) -> bool:
-    rows = payload.get("host_summary_lines")
-    return isinstance(rows, list) and len([clean(row) for row in rows if clean(row)]) == 2
+    return bool(clean(payload.get("host_headline")))
+
+
+def host_headline_from_microcopy(microcopy: dict, brief: dict, market_focus: dict, storylines: list[dict]) -> str:
+    row = compact_public_text(microcopy.get("host_headline"), 0, "")
+    if row:
+        return row
+    return compact_host_headline(brief, market_focus, storylines)
 
 
 def host_summary_lines_from_microcopy(microcopy: dict, brief: dict, market_focus: dict, storylines: list[dict]) -> list[str]:
@@ -3312,6 +3407,8 @@ def compact_market_map_line(brief: dict) -> str:
     raw = brief.get("market_map_summary") or brief.get("one_line_market_frame") or ""
     if "fallback" in clean(raw).lower():
         raw = ""
+    raw = re.sub(r"^\s*(?:종합\s*)?(?:시장\s*)?지도\s*:\s*", "", clean(raw))
+    raw = re.sub(r"^\s*시장\s*지도\s*:\s*", "", raw)
     return clip_public_sentence(
         raw or "지수·금리·달러·유가의 방향을 먼저 확인한다.",
         70,
@@ -3330,10 +3427,41 @@ def compact_story_quote_line(lines: list[str], fallback: str) -> str:
     if not parts:
         parts = [fallback]
     joined = " ".join(part for part in parts[:3] if part).strip()
-    text = clean(remove_host_forbidden(joined or fallback), 180)
+    text = clean(remove_host_forbidden(joined or fallback))
     if not text or english_word_run_too_long(text):
-        text = compact_public_text(fallback, 180, fallback)
+        text = compact_public_text(fallback, 0, fallback)
     return text
+
+
+def compact_host_headline(brief: dict, market_focus: dict, storylines: list[dict]) -> str:
+    blob = " ".join(
+        clean(
+            " ".join(
+                str(part or "")
+                for part in [
+                    brief.get("daily_thesis"),
+                    brief.get("one_line_market_frame"),
+                    brief.get("editorial_summary"),
+                    *[
+                        story.get("display_title") or story.get("title") or story.get("hook") or ""
+                        for story in storylines[:3]
+                        if isinstance(story, dict)
+                    ],
+                ]
+            )
+        ).split()
+    )
+    if re.search(r"AI|실적", blob, flags=re.I) and re.search(r"유가|금리|달러|oil|rate|dollar", blob, flags=re.I):
+        return "AI 실적은 좋았다, 문제는 유가와 금리다"
+    lines = compact_host_headline_lines(brief, market_focus, storylines)
+    seed = " ".join(line for line in lines if clean(line))
+    headline = compact_public_text(seed, 0, "")
+    if headline:
+        return headline
+    story_title = public_story_title(storylines[0], 1) if storylines else ""
+    if story_title:
+        return compact_public_text(story_title, 0, "AI 실적은 좋았다, 문제는 유가와 금리다")
+    return "AI 실적은 좋았다, 문제는 유가와 금리다"
 
 
 def compact_host_headline_lines(brief: dict, market_focus: dict, storylines: list[dict]) -> list[str]:
@@ -3374,46 +3502,48 @@ def render_compact_publish_host(
     radar_by_id: dict,
     finviz_features: dict,
     earnings_drilldown: dict,
+    market_cards: list[dict],
     media_cards: list[dict],
     microcopy: dict,
 ) -> None:
     while len(storylines) < 3:
         storylines.append({})
     media_number_by_label = {clean(card.get("label")): clean(card.get("media_number")) for card in media_cards if card.get("label")}
+    market_number_by_label = {
+        public_material_label(card): f"({market_card_letter(index)})"
+        for index, card in enumerate(market_cards, start=1)
+    }
     copy_by_story = microcopy_story_by_id(microcopy)
+    story_copy_rows = [row for row in microcopy.get("storylines") or [] if isinstance(row, dict)]
     used_story_labels: set[str] = set()
-    headline_lines = host_summary_lines_from_microcopy(microcopy, brief, market_focus, storylines)
+    headline = host_headline_from_microcopy(microcopy, brief, market_focus, storylines)
+    headline_lines = [headline]
     lines.extend(
         [
             f"문서 생성: `{created_at} (KST)`",
             f"자료 수집: `{collection_window} (KST)`",
-            f"시장 차트: `{chart_basis}`",
             "",
             "# 🎥 진행자용 요약",
         ]
     )
     headline_quote = " ".join(line.rstrip(".。") + "." for line in headline_lines if clean(line)).strip()
-    lines.append(f"> {headline_quote}")
+    lines.append(f"> **{headline}**")
     lines.append("")
     lines.append("## 주요 뉴스")
     for bullet in compact_top_news(brief, market_focus, storylines):
         lines.append(f"- {public_complete_text(bullet, 140) or '시장 반응과 핵심 변수를 짧게 확인한다.'}")
-    lines.extend(["## 방송 순서", f"- `시장은 지금`: {compact_public_text(compact_market_map_line(brief), 64, '지수·금리·달러·유가의 방향을 먼저 확인한다.')}"])
-    for index, story in enumerate(storylines[:3], start=1):
-        lines.append(f"- “{compact_public_text(public_story_title(story, index), 48, fallback_story_title(story_public_axis(story), index))}”")
-    lines.append(f"- `실적/특징주`: {compact_public_text(compact_feature_line(finviz_features, earnings_drilldown), 64, '실적 일정과 특징주 반응을 보조 자료로 확인한다.')}")
     lines.append("## 스토리라인")
     for index, story in enumerate(storylines[:3], start=1):
         story_id = storyline_public_id(story, index)
-        story_copy = copy_by_story.get(story_id) or {}
-        refs = story_slide_refs(story, radar_by_id, media_number_by_label, used_story_labels)
+        story_copy = copy_by_story.get(story_id) or (story_copy_rows[index - 1] if index - 1 < len(story_copy_rows) else {})
+        refs = story_slide_refs(story, radar_by_id, media_number_by_label, market_number_by_label, used_story_labels)
         quote_lines = [
-            compact_public_text(line, 90, public_story_hook(story))
+            compact_public_text(line, 0, public_story_hook(story))
             for line in (story_copy.get("quote_lines") or [public_story_hook(story)])
-        ][:3]
+        ][:1]
         quote_line = compact_story_quote_line(quote_lines, public_story_hook(story))
         why_bullets = [
-            compact_public_text(line, 90, "첫 5분 방송에서 시장 반응과 한국장 연결점을 확인한다.")
+            compact_public_text(line, 0, "첫 5분 방송에서 시장 반응과 한국장 연결점을 확인한다.")
             for line in (story_copy.get("host_relevance_bullets") or [])
         ][:3]
         if len(why_bullets) < 2:
@@ -3613,17 +3743,25 @@ def content_bullets(card: dict) -> list[str]:
         return [media_card_fallback_summary(card)]
     if english_dump_like(raw):
         return [media_card_fallback_summary(card)]
-    parts = [clean(part) for part in re.split(r"\n+", raw) if clean(part)]
+    parts = [clean(part) for part in re.split(r"\n+|(?<=[.!?。])\s+|(?<=다\.)\s+", sentence_split_safe(raw)) if clean(part)]
     if not parts:
         parts = [raw]
-    return [clean(part, 300) for part in parts[:3]]
+    return [clean(remove_host_forbidden(part)) for part in parts[:3] if clean(remove_host_forbidden(part))]
 
 
 def content_bullets_from_values(values: list[object]) -> list[str]:
     rows: list[str] = []
     for value in values:
         raw = sentence_split_safe(markdown_plain(value))
-        for part in re.split(r"\n+", raw):
+        parts = re.split(r"\n+|(?<=[.!?])\s+|(?<=다\.)\s+|(?<=요\.)\s+", raw)
+        expanded_parts: list[str] = []
+        for part in parts:
+            chunks = [clean(chunk) for chunk in re.split(r"\s*[;；]\s+", part) if clean(chunk)]
+            if len(chunks) > 1 and all(len(chunk) >= 28 for chunk in chunks):
+                expanded_parts.extend(chunks)
+            else:
+                expanded_parts.append(part)
+        for part in expanded_parts:
             text = clean(remove_host_forbidden(str(part or "")), 300)
             if text and text not in rows:
                 rows.append(text)
@@ -3749,9 +3887,6 @@ def render_media_focus_card(lines: list[str], card: dict, rendered_keys: set[str
     time_line = media_time_line(card)
     if time_line:
         lines.append(time_line)
-    score = media_focus_score(card)
-    if score:
-        lines.append(f"- 점수: {score}")
     image = clean(card.get("image") or card.get("visual_local_path") or card.get("local_path"))
     if image:
         lines.extend(["", notion_image(label, image)])
@@ -4154,7 +4289,7 @@ def build_compact_collection_cards(
     story_label_source: dict[str, dict] = {}
     for story_index, story in enumerate(storylines[:3], start=1):
         section = "media_focus"
-        for slide_index, label in enumerate(public_material_labels_for_story(story, radar_by_id)[:4], start=1):
+        for slide_index, label in enumerate(public_material_labels_for_story(story, radar_by_id)[:5], start=1):
             story_label_order.setdefault(label, (section, story_index, slide_index))
         for item in story.get("evidence_to_use") or []:
             if not isinstance(item, dict):
@@ -4294,7 +4429,7 @@ def render_compact_collection_section(lines: list[str], market_cards: list[dict]
         render_media_focus_card(lines, card, set(), int(card.get("media_number_index") or 0), card_copy.get(card.get("card_key")))
 
 
-def render_compact_feature_section(lines: list[str], target_date: str, finviz_features: dict) -> None:
+def render_compact_feature_section(lines: list[str], target_date: str, finviz_features: dict, feature_microcopy: dict | None = None) -> None:
     lines.append("## 3. 실적/특징주")
     earnings_image = screenshot_for(target_date, "*earnings-calendar*.jpg", "*earnings-calendar*.png")
     if earnings_image:
@@ -4321,6 +4456,10 @@ def render_compact_feature_section(lines: list[str], target_date: str, finviz_fe
                 "",
             ]
         )
+    feature_copy = feature_microcopy_by_ticker(feature_microcopy or {})
+    feature_rows = [row for row in finviz_features.get("items", []) if row.get("status") == "ok"]
+    for row in feature_rows[:10]:
+        render_compact_feature_stock(lines, row, feature_copy)
 
 
 def render_compact_publish_dashboard(target_date: str) -> str:
@@ -4328,6 +4467,7 @@ def render_compact_publish_dashboard(target_date: str) -> str:
     live_pack = load_json(processed / "live-experiment-pack.json")
     earnings_drilldown = load_json(processed / "earnings-ticker-drilldown.json")
     finviz_features = load_json(processed / "finviz-feature-stocks.json")
+    feature_microcopy = load_json(processed / "feature-stock-microcopy.json")
     batch_a = load_json(processed / "today-misc-batch-a-candidates.json")
     batch_b = load_json(processed / "today-misc-batch-b-candidates.json")
     market_radar = load_json(processed / "market-radar.json")
@@ -4382,7 +4522,7 @@ def render_compact_publish_dashboard(target_date: str) -> str:
     deterministic_cache = deterministic_microcopy_cache(cached_microcopy)
     use_cached_microcopy = (
         cached_microcopy
-        and cached_microcopy.get("contract") == "compact_publish_microcopy_v1"
+        and cached_microcopy.get("contract") == "compact_publish_microcopy_v4"
         and not (microcopy_requested and deterministic_cache)
         and not (microcopy_requested and not microcopy_has_host_summary(cached_microcopy))
     )
@@ -4402,7 +4542,7 @@ def render_compact_publish_dashboard(target_date: str) -> str:
     else:
         microcopy_env = {**dashboard_microcopy.load_env(REPO_ROOT / ".env"), **os.environ}
         microcopy = dashboard_microcopy.build_microcopy(microcopy_context, env=microcopy_env)
-    microcopy["contract"] = "compact_publish_microcopy_v1"
+    microcopy["contract"] = "compact_publish_microcopy_v4"
     write_microcopy_payload(target_date, microcopy_context, microcopy)
     lines: list[str] = []
     render_compact_publish_host(
@@ -4416,11 +4556,12 @@ def render_compact_publish_dashboard(target_date: str) -> str:
         radar_by_id,
         finviz_features,
         earnings_drilldown,
+        market_cards,
         media_cards,
         microcopy,
     )
     render_compact_collection_section(lines, market_cards, media_cards, microcopy, target_date)
-    render_compact_feature_section(lines, target_date, finviz_features)
+    render_compact_feature_section(lines, target_date, finviz_features, feature_microcopy)
     return "\n".join(lines).rstrip() + "\n"
 
 
